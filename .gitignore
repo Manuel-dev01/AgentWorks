@@ -1,1 +1,42 @@
-doc/FACTS.md
+# ── Secrets (NEVER commit) ─────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+keystore/
+*.keystore
+
+# ── Node / pnpm (web) ──────────────────────────────────────────────────
+node_modules/
+.pnpm-store/
+.next/
+out/
+dist/
+*.tsbuildinfo
+.vercel/
+
+# ── Python (agents) ────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── Foundry (contracts) ────────────────────────────────────────────────
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+contracts/lib/
+
+# ── OS / editor ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# NOTE: docs/FACTS.md IS committed on purpose (verified facts, no secrets).

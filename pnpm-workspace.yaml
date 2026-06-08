@@ -1,0 +1,5 @@
+# pnpm workspace. Only Node packages are listed here.
+# /contracts (Foundry) and /agents (Python) are managed by forge and pip/uv respectively,
+# not by pnpm — they are intentionally NOT workspace members.
+packages:
+  - "web"

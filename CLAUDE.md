@@ -173,11 +173,23 @@ writing code against it. A five-minute read beats an hour debugging a hallucinat
 
 - **Chain:** Base Sepolia. Fallback: Ethereum Sepolia IF Phase 0/2 shows weak CAW Base
   support. Decide the fallback only with verified evidence, not assumption.
-- **Token:** USDC testnet on Base Sepolia. If the faucet is unreliable, deploy our own
-  test ERC-20 (`MockUSDC`) — this is acceptable and keeps the demo deterministic.
+- **Token:** USDC testnet on Base Sepolia. ATTEMPT REAL Base Sepolia USDC FIRST (decided
+  2026-06-03); verified on-chain address + decimals are in FACTS.md. Fall back to our own
+  test ERC-20 (`MockUSDC`) only if the faucet/CAW support is unreliable — acceptable and
+  keeps the demo deterministic.
 - **Escrow:** self-deployed Solidity contract via Foundry, invoked through CAW's generic
-  `contract_call`. No dependence on external/Arc deployments. We own and verify it.
-- **CAW SDK:** Python (`cobo-agentic-wallet`). Two wallets (Client, Provider), two Pacts.
+  `contract_call` (we pass our own ABI-encoded calldata; CAW does NOT validate custom-contract
+  semantics — safety rests on the Pact `target_in` allowlist + our Foundry tests). No
+  dependence on external/Arc deployments. We own and verify it.
+- **Evaluator:** a distinct `evaluator` address recorded PER-JOB at `createJob`; `complete`
+  and `reject` are gated to that address. v1: the Client controls it (client-as-evaluator),
+  but it stays a separate, swappable component so it can later be made independent. (Decided 2026-06-03.)
+- **Emergency freeze:** there is NO native CAW freeze/pause method (verified — see FACTS.md).
+  The criticality-beat "freeze" is implemented as `revoke_pact(pact_id)`, which strips the
+  agent's scoped authority. Use accurate language in demo/README — never claim a freeze API.
+- **CAW SDK:** Python (`cobo-agentic-wallet`, v0.1.40 confirmed). Two wallets (Client,
+  Provider), two Pacts. All client methods are `async`; authority flows through a
+  PACT-SCOPED api key (see FACTS.md "how authority is scoped").
 - **Agent runtime:** Python. Direct SDK calls FIRST. Add an agent framework (LangChain /
   OpenAI Agents SDK) only where it demonstrably earns its place — not by default.
 - **Deliverable storage:** Irys.
