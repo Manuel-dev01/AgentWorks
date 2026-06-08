@@ -1,0 +1,49 @@
+{
+  "budget_cap": {
+    "result": "denied",
+    "type": "PolicyDeniedError",
+    "status_code": 403,
+    "code": "TRANSFER_LIMIT_EXCEEDED",
+    "reason": "matched_pact_transfer_deny_if",
+    "details": {
+      "reason": "matched_pact_transfer_deny_if",
+      "chain_id": "SETH",
+      "token_id": "SETH",
+      "dst_addr": "0xef9349b3273b1a54faaf701231f499fe0282e643",
+      "tier": "pact",
+      "policy_type": "transfer",
+      "policy_id": "4585c7c6-b444-48e3-a899-1bd1c2a0787a"
+    }
+  },
+  "allowlist": {
+    "result": "denied",
+    "type": "PolicyDeniedError",
+    "status_code": 403,
+    "code": "CONTRACT_NOT_WHITELISTED",
+    "reason": "no_pact_contract_call_allow_policy_matched",
+    "details": {
+      "reason": "no_pact_contract_call_allow_policy_matched",
+      "chain_id": "SETH",
+      "contract_addr": "0x000000000000000000000000000000000000dEaD",
+      "function_id": "0x095ea7b3"
+    }
+  },
+  "audit_denied_entries": [
+    {
+      "action": "transfer.denied",
+      "result": "denied",
+      "created_at": "2026-06-08T19:27:39.111934Z"
+    },
+    {
+      "action": "contract_call.denied",
+      "result": "denied",
+      "created_at": "2026-06-08T19:24:43.698276Z"
+    },
+    {
+      "action": "contract_call.denied",
+      "result": "denied",
+      "created_at": "2026-06-08T19:24:40.028218Z"
+    }
+  ],
+  "DENIAL_PASS": true
+}

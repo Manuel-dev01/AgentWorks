@@ -149,6 +149,18 @@ class CawWallet:
             ),
         )
 
+    async def contract_call(
+        self, *, src_addr: str, contract_addr: str, calldata: str, chain_id: str,
+        request_id: str, value: str = "0", description: str | None = None,
+    ) -> Any:
+        return await self._call(
+            f"contract_call({contract_addr} data={calldata[:18]}…)",
+            self._client.contract_call(
+                self.wallet_uuid, src_addr=src_addr, chain_id=chain_id, contract_addr=contract_addr,
+                calldata=calldata, value=value, request_id=request_id, description=description,
+            ),
+        )
+
     async def get_tx_by_request_id(self, request_id: str) -> Any:
         return await self._call(
             f"get_user_transaction_by_request_id({request_id})",
@@ -187,4 +199,39 @@ class CawWallet:
         return await self._call(
             f"list_audit_logs(limit={limit}, action={action})",
             self._client.list_audit_logs(wallet_id=self.wallet_uuid, action=action, limit=limit),
+        )
+
+    # ── pact management (clean slate + emergency freeze) ──
+
+    async def list_pacts(self, *, status: Any | None = None) -> Any:
+        return await self._call(
+            f"list_pacts(status={status})",
+            self._client.list_pacts(status=status, wallet_id=self.wallet_uuid),
+        )
+
+    async def revoke_pact(self, pact_id: str) -> Any:
+        return await self._call(f"revoke_pact({pact_id})", self._client.revoke_pact(pact_id))
+
+    # ── pending operations (review_if / always_review approvals) ──
+
+    async def list_pending_operations(self, *, status: Any | None = None) -> Any:
+        return await self._call(
+            f"list_pending_operations(status={status})",
+            self._client.list_pending_operations(status=status),
+        )
+
+    async def get_pending_operation(self, op_id: str) -> Any:
+        return await self._call(
+            f"get_pending_operation({op_id})", self._client.get_pending_operation(op_id)
+        )
+
+    async def approve_pending_operation(self, op_id: str) -> Any:
+        return await self._call(
+            f"approve_pending_operation({op_id})", self._client.approve_pending_operation(op_id)
+        )
+
+    async def reject_pending_operation(self, op_id: str, *, reason: str | None = None) -> Any:
+        return await self._call(
+            f"reject_pending_operation({op_id})",
+            self._client.reject_pending_operation(op_id, reason=reason),
         )

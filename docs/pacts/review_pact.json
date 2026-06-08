@@ -1,0 +1,31 @@
+{
+  "policies": [
+    {
+      "name": "client-review-threshold",
+      "type": "transfer",
+      "rules": {
+        "effect": "allow",
+        "when": {
+          "chain_in": [
+            "SETH"
+          ],
+          "token_in": [
+            {
+              "chain_id": "SETH",
+              "token_id": "SETH"
+            }
+          ]
+        },
+        "review_if": {
+          "amount_gt": "0.0005"
+        }
+      }
+    }
+  ],
+  "completion_conditions": [
+    {
+      "type": "time_elapsed",
+      "threshold": "86400"
+    }
+  ]
+}

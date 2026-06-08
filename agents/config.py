@@ -39,11 +39,18 @@ CHAIN_ID = os.environ.get("CAW_CHAIN_ID", "TBASE_SETH")
 NATIVE_TOKEN_ID = os.environ.get("CAW_NATIVE_TOKEN_ID", "TBASE_SETH")
 USDC_TOKEN_ID = os.environ.get("CAW_USDC_TOKEN_ID", "TBASE_USDC")
 
-# On-chain (Base Sepolia)
+# On-chain (Ethereum Sepolia)
+RPC_URL = os.environ.get("RPC_URL", "https://ethereum-sepolia-rpc.publicnode.com")
 ESCROW_ADDRESS = os.environ.get("ESCROW_CONTRACT_ADDRESS", "")
 USDC_ADDRESS = os.environ.get("USDC_TOKEN_ADDRESS", "")
-EXPLORER_TX = "https://sepolia.basescan.org/tx/{}"
-EXPLORER_ADDR = "https://sepolia.basescan.org/address/{}"
+EXPLORER_TX = "https://sepolia.etherscan.io/tx/{}"
+EXPLORER_ADDR = "https://sepolia.etherscan.io/address/{}"
+
+
+# LLM (agent reasoning) — DeepSeek via OpenAI-compatible API
+LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
+LLM_MODEL = os.environ.get("LLM_MODEL", "deepseek-v4-flash")
+LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.deepseek.com")
 
 
 def client_agent() -> Agent:
