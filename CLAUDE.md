@@ -171,12 +171,13 @@ writing code against it. A five-minute read beats an hour debugging a hallucinat
 ## 6. LOCKED TECHNICAL DECISIONS (do not relitigate without asking)
 ═══════════════════════════════════════════════════════════════════════
 
-- **Chain:** Base Sepolia. Fallback: Ethereum Sepolia IF Phase 0/2 shows weak CAW Base
-  support. Decide the fallback only with verified evidence, not assumption.
-- **Token:** USDC testnet on Base Sepolia. ATTEMPT REAL Base Sepolia USDC FIRST (decided
-  2026-06-03); verified on-chain address + decimals are in FACTS.md. Fall back to our own
-  test ERC-20 (`MockUSDC`) only if the faucet/CAW support is unreliable — acceptable and
-  keeps the demo deterministic.
+- **Chain:** ETHEREUM SEPOLIA (`SETH`) — FALLBACK TRIGGERED 2026-06-08 (user-approved) with
+  verified evidence: CAW cannot fund/index externally-deposited Base Sepolia balances and its
+  faucet doesn't cover Base, but CAW is proven end-to-end on Eth Sepolia (Phase 2). The original
+  Base Sepolia choice is retired. (History + evidence in FACTS.md.)
+- **Token:** USDC testnet on Ethereum Sepolia — CAW token_id `SETH_USDC`, on-chain
+  `0x1c7d4b196cb0c7b01d743fbc6116a902379c7238` (USDC, 6 decimals, verified). MockUSDC remains the
+  fallback if the real-USDC path is unreliable — determinism outranks "uses real USDC".
 - **Escrow:** self-deployed Solidity contract via Foundry, invoked through CAW's generic
   `contract_call` (we pass our own ABI-encoded calldata; CAW does NOT validate custom-contract
   semantics — safety rests on the Pact `target_in` allowlist + our Foundry tests). No

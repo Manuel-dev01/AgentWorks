@@ -166,11 +166,12 @@ authority is the policy. Over-budget / non-whitelisted calls raise PolicyDeniedE
 ═══════════════════════════════════════════════════════════════════════
 ## Chain & network (Phase 0 / Phase 2)
 ═══════════════════════════════════════════════════════════════════════
-- Chosen chain: Base Sepolia (per CLAUDE.md §6) — fallback to Ethereum Sepolia not yet triggered.
-- ⚠️ Base Sepolia CAW chain_id string: documented as `"TBASE_SETH"` — source: skills/cobo-agentic-wallet/references/chains-and-tokens.md (read 2026-06-03).
-  NOT independently confirmed: this string does NOT appear in SDK source (chain_id is a free-form
-  string passed to the server). MUST confirm live in Phase 2 via `list_tokens()` / metadata API
-  before relying on it. The shipped SDK example uses `"SETH"` (Ethereum Sepolia), NOT Base Sepolia.
+- Chosen chain: Base Sepolia (per CLAUDE.md §6) — fallback to Ethereum Sepolia NOT triggered (Base Sepolia CONFIRMED on CAW).
+- ✅ Base Sepolia CAW chain_id string: `"TBASE_SETH"` — CONFIRMED LIVE 2026-06-08 — source: `caw meta chain-info --chain-id TBASE_SETH`
+  → name "Base Sepolia Testnet", chain_type ETH (EVM), explorer https://sepolia.basescan.org. GO for Base Sepolia.
+  - ⚠️ chain-info flags `enable_smart_contract_op` and `is_testnet` are BOTH `false` for EVERY chain (incl. ETH mainnet) —
+    i.e. uniformly unreliable metadata, NOT a Base-specific limit. `contract_call` to be proven empirically in Phase 3.
+- Base Sepolia native gas token_id: `"TBASE_SETH"` (18 decimals) — confirmed via meta.
 - Ethereum Sepolia chain_id string (fallback): `"SETH"` — verified in examples/python/direct_sdk.py.
 - Base Sepolia EVM numeric chain ID: `84532` — verified 2026-06-03 — source: docs.base.org/network-information (WebFetch) + corroborated by Circle/BaseScan results.
 - Public RPC URL: `https://sepolia.base.org` — verified 2026-06-03 — source: docs.base.org/network-information.
@@ -180,13 +181,18 @@ authority is the policy. Over-budget / non-whitelisted calls raise PolicyDeniedE
 - On-chain USDC ERC-20 (the token our escrow holds/transfers): `0x036CbD53842c5426634e7929541eC2318f3dCF7e`
   — verified 2026-06-03 — source: BaseScan token page (name "USDC", symbol "USDC", **6 decimals**, Circle FiatTokenProxy; impl 0xd74cc5d436923b8ba2c179b4bca2841d8a52c5b5).
   DECISION (user, 2026-06-03): attempt this real Base Sepolia USDC FIRST; fall back to MockUSDC only if faucet/CAW support proves unreliable.
-- ⚠️ CAW `token_id` STRING for Base Sepolia USDC: UNKNOWN — not yet verified. This is the Cobo
-  symbolic id (e.g. like "SETH_USDC" for Eth Sepolia), DISTINCT from the on-chain ERC-20 address above.
-  Do NOT guess "TBASE_SETH_USDC". Confirm via `list_tokens()` / metadata in Phase 2.
-  - Ethereum Sepolia USDC token_id documented as `"SETH_USDC"` — source: chains-and-tokens.md.
-- Faucet: SDK `deposit(address, token_id)` + `list_tokens()` exist; reliability UNKNOWN — test in Phase 2.
-  Circle also has a public USDC testnet faucet (faucet.circle.com) for the on-chain token; Base Sepolia ETH
-  gas faucet needed for the deployer key. Note (decimals trap, from chains-and-tokens.md): BSC_USDC/BSC_USDT use 18 decimals; standard USDC uses 6.
+- ✅ CAW `token_id` for Base Sepolia USDC: `"TBASE_USDC"` — CONFIRMED LIVE 2026-06-08 — source:
+  `caw meta search-tokens --symbol USDC` → token_address `0x036cbd53842c5426634e7929541ec2318f3dcf7e`
+  (the EXACT same Circle USDC our escrow is bound to). 6 decimals. (NOT "TBASE_SETH_USDC" — that guess was wrong.)
+  - Eth Sepolia USDC = `"SETH_USDC"` (0x1c7d4b19...); these are different per chain.
+- ⚠️ CAW FAUCET does NOT cover Base Sepolia. `caw faucet tokens` lists ONLY `SETH` (Eth Sepolia native) and
+  `SOLDEV_SOL`/`SOLDEV_SOL_USDC` (Solana devnet). So CAW wallets must be funded on Base Sepolia by other means:
+  (a) seed from our deployer EOA (has Base Sepolia ETH), (b) external Base Sepolia ETH faucet to the CAW EVM addr,
+  (c) MockUSDC mint for USDC. Verified 2026-06-08 — source: `caw faucet tokens`.
+- CAW wallet EVM addresses (same address across all EVM chains incl. Base Sepolia):
+  Client `0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd` (wallet 0da4d5c3-…, agent caw_agent_4bc15e6348db0514);
+  Provider `0xef9349b3273b1a54faaf701231f499fe0282e643` (wallet bdecbada-…, agent caw_agent_e6318ac84f123085).
+  Both onboarded UNPAIRED + active 2026-06-08 via `caw onboard` (TWO separate profiles). caw CLI = v0.2.86, installed at ~/.cobo-agentic-wallet/bin/caw.exe.
 
 ═══════════════════════════════════════════════════════════════════════
 ## Deployed artifacts (Phase 1+)
@@ -195,17 +201,47 @@ authority is the policy. Over-budget / non-whitelisted calls raise PolicyDeniedE
   solc 0.8.28, self-contained (inline IERC20, no external imports → trivial BaseScan verify).
   ✅ 25/25 forge tests pass — verified 2026-06-08 — source: `forge test` (full lifecycle, both
   payout+refund branches, expiry refund, access control, status guards, CEI/reentrancy test).
-- Escrow contract address: `0x19Ea8a442802065a61c69cbc03bE97724Ad8cd9b` — verified 2026-06-08 — source: `forge script Deploy --broadcast` (Base Sepolia, chainId 84532).
-- Escrow deploy tx hash: `0x630490a5df5c36d71b540fb5618cc060063e481a8cf822748924e896fe3c8de9` (block 42582092, status 0x1, gasUsed 841468).
-- Escrow explorer URL: https://sepolia.basescan.org/address/0x19ea8a442802065a61c69cbc03be97724ad8cd9b
-- Escrow source VERIFIED on BaseScan: ✅ `Pass - Verified` — 2026-06-08 — source: `forge verify-contract` via Etherscan V2 (`https://api.etherscan.io/v2/api?chainid=84532`). Constructor arg = USDC 0x036C...
+- ✅ CURRENT escrow (Ethereum Sepolia, chainId 11155111): address `0x19Ea8a442802065a61c69cbc03bE97724Ad8cd9b`
+  (same address as the retired Base deploy — deployer nonce 0 on both chains). Verified 2026-06-08.
+  - Deploy tx: `0xc92b258f1b4a3c27171a473bdda77b59aad8559d9db8fc8f383d93baaa83df4e` (block 11016779, status 0x1, gasUsed 841468).
+  - Explorer: https://sepolia.etherscan.io/address/0x19ea8a442802065a61c69cbc03be97724ad8cd9b
+  - Source VERIFIED on Etherscan Sepolia: ✅ `Pass - Verified` (Etherscan V2 chainid=11155111). Constructor arg = SETH_USDC `0x1c7d4b19…`.
+  - Settlement token bound: SETH_USDC `0x1c7d4b196cb0c7b01d743fbc6116a902379c7238` (USDC, 6 decimals).
+- RETIRED escrow (Base Sepolia, chainId 84532): `0x19Ea8a44…`, deploy tx `0x630490a5…`, bound to Base USDC 0x036C…
+  — superseded by the 2026-06-08 chain switch to Eth Sepolia (CAW funding works on Eth Sepolia; not on Base). Kept for history.
 - Escrow ABI location (path in repo): `contracts/out/AgentWorksEscrow.sol/AgentWorksEscrow.json` (generated by `forge build`)
 - Settlement token bound at deploy: real Base Sepolia USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e`.
 - Deployer EOA address (testnet, throwaway): `0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe` — verified 2026-06-08 — source: `cast wallet address`.
-- Client CAW wallet address / id: not yet created
-- Provider CAW wallet address / id: not yet created
-- Client Pact id: not yet created
-- Provider Pact id: not yet created
+- Client CAW wallet: id `0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d`, EVM addr `0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd`, agent `caw_agent_4bc15e6348db0514` — onboarded active 2026-06-08.
+- Provider CAW wallet: id `bdecbada-3e1d-41d8-9e04-c12202cc9c17`, EVM addr `0xef9349b3273b1a54faaf701231f499fe0282e643`, agent `caw_agent_e6318ac84f123085` — onboarded active 2026-06-08.
+- Client Pact id (Phase 2 hello-world, SETH transfer): `74b89e03-e9e5-47a5-862c-69b92feeaef5` (status active; auto-approved unpaired).
+- Provider Pact id: not yet created (Phase 3+).
+
+═══════════════════════════════════════════════════════════════════════
+## CAW runtime — VERIFIED LIVE (Phase 2, 2026-06-08)
+═══════════════════════════════════════════════════════════════════════
+- ✅ Two wallets onboarded (UNPAIRED, two separate `caw onboard` profiles). caw CLI v0.2.86 at
+  `~/.cobo-agentic-wallet/bin/caw.exe`. Local `cobo-tss-node.exe` processes co-sign (MPC).
+- ✅ CAW pact→transfer→audit loop PROVEN on Ethereum Sepolia (SETH):
+  - pact submitted → `"status":"active"`, `"Pact submitted and auto-approved for unpaired agent"` (instant; no app approval).
+  - For an unpaired self-provisioned wallet, the pact's operator==owner and there is NO separate pact-scoped api_key;
+    the wallet's own api_key is used for the constrained call. (Differs from direct_sdk.py's paired pattern.)
+  - transfer 0.001 SETH Client→Provider, tx `0x30c32c33c89b154a9d2a614f5a1bc1efbc89d294da64b2a74aabf05d352ea2fd`
+    (also earlier `0xd42976a1e92e66ae604855eede1760d0361a8a1220143413fa4313af1ab29ff6`). Verified on Eth Sepolia
+    (from 0x6dFB → 0xEf93, value 1e15 wei). Explorer: https://sepolia.etherscan.io/tx/0x30c32c33c89b154a9d2a614f5a1bc1efbc89d294da64b2a74aabf05d352ea2fd
+  - audit log shows `transfer.initiate` + `transfer.allowed` (result=allowed) at the transfer time.
+- TRANSACTION STATUS CODE LEGEND (numeric `status` + `status_display`): 400=Processing, 500=Pending, 900=Success.
+  Poll `get_user_transaction_by_request_id(wallet_uuid, request_id)`; match on status_display/900.
+- `transfer_tokens` REQUIRES `src_addr` on this backend (SDK marks it optional — 422 without it).
+- `create_wallet_address(chain_id=...)` MINTS A NEW derived address each call; the onboarding default EVM
+  address already lists all EVM chains (incl. TBASE_SETH) in `compatible_chains`. Use the default; don't mint.
+- ⚠️⚠️ KEY ISSUE — CAW does NOT surface externally-deposited BASE SEPOLIA native balance:
+  funded Client 0x6dFB with 0.00005 Base Sepolia ETH (167+ confs, on-chain confirmed), yet
+  `list_balances(chain_id=TBASE_SETH, force_refresh=True)` returns `[]` and a TBASE_SETH transfer is rejected
+  `INSUFFICIENT_BALANCE` (available 0). By contrast, a CAW-faucet SETH deposit (0.01) WAS indexed and spendable.
+  → CAW reliably funds/indexes its faucet chains (SETH, SOLDEV) but not external Base Sepolia deposits (in our window).
+  → OPEN DECISION for Phase 3: how to fund the CAW agents on Base Sepolia (our escrow's chain). Options: gas
+    sponsorship (`sponsor`/`gas_provider` on contract_call), longer indexer wait, or move escrow to Eth Sepolia.
 
 ═══════════════════════════════════════════════════════════════════════
 ## Env vars (names only — values live in .env, never here)

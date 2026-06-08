@@ -1,0 +1,638 @@
+{
+  "chain_id": "TBASE_SETH",
+  "client_balance_before": [
+    {
+      "id": "6821bf3b-7021-4cec-bb40-7f86d44a4053",
+      "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+      "cobo_wallet_id": "f0e593eb-24ee-4bef-8cdd-9afe0f382701",
+      "user_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+      "address": "0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd",
+      "chain_id": "SETH",
+      "chain_type": "ETH",
+      "compatible_chains": [
+        "SETH",
+        "BASE_ETH",
+        "MATIC",
+        "TBASE_SETH",
+        "ETH",
+        "ARBITRUM_ETH",
+        "OPT_ETH",
+        "BSC_BNB",
+        "AVAXC",
+        "HYPEREVM_HYPE"
+      ],
+      "token_id": "SETH",
+      "amount": "0.008956066026336",
+      "total": "0.008956066026336",
+      "pending": "0",
+      "locked": "0",
+      "balance_updated_at": "2026-06-08T16:44:46.609000Z",
+      "updated_at": "2026-06-08T16:44:46.779248Z"
+    }
+  ],
+  "pact_id": "74b89e03-e9e5-47a5-862c-69b92feeaef5",
+  "pact_status": "active",
+  "transfer_response": {
+    "id": "e9c4620c-0a4c-4590-b7b4-2cecbc292d72",
+    "idempotent": false,
+    "request_id": "phase2-746d51f4",
+    "pending_operation_id": null,
+    "approval_id": null,
+    "transaction_hash": null,
+    "status": 400,
+    "status_display": "Processing"
+  },
+  "transfer_record": {
+    "id": "e9c4620c-0a4c-4590-b7b4-2cecbc292d72",
+    "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+    "pact_id": "74b89e03-e9e5-47a5-862c-69b92feeaef5",
+    "type": "transfer",
+    "request_type": "transfer",
+    "chain_id": "SETH",
+    "token_id": "SETH",
+    "src_address": "0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd",
+    "dst_address": "0xef9349b3273b1a54faaf701231f499fe0282e643",
+    "amount": "0.001",
+    "status": 900,
+    "status_display": "Success",
+    "sub_status": "completed",
+    "transaction_hash": "0x30c32c33c89b154a9d2a614f5a1bc1efbc89d294da64b2a74aabf05d352ea2fd",
+    "request_id": "phase2-746d51f4",
+    "description": "AgentWorks Phase 2 hello-world transfer",
+    "fee": {
+      "fee_type": "EVM_EIP_1559",
+      "token_id": "SETH",
+      "gas_limit": "21000",
+      "max_fee_per_gas": "5696969470",
+      "estimated_fee_used": "0.00011963635887",
+      "max_priority_fee_per_gas": "2000000"
+    },
+    "cobo_transaction_id": null,
+    "data": {
+      "sub_type": null,
+      "contract_addr": null,
+      "value": null,
+      "calldata": null,
+      "instructions": null,
+      "fee": {
+        "fee_type": "EVM_EIP_1559",
+        "token_id": "SETH",
+        "gas_limit": "21000",
+        "max_fee_per_gas": "5696969470",
+        "estimated_fee_used": "0.00011963635887",
+        "max_priority_fee_per_gas": "2000000"
+      },
+      "cobo_transaction_id": null,
+      "failed_reason": null,
+      "description": "AgentWorks Phase 2 hello-world transfer",
+      "signature": null,
+      "destination_type": null,
+      "eip712_typed_data": null,
+      "payment_required_raw": null,
+      "payment_signature_raw": null,
+      "siwx_header_value": null,
+      "mpp_authorization_header": null,
+      "pact_id": null
+    },
+    "created_at": "2026-06-08T16:50:52.896348Z",
+    "updated_at": "2026-06-08T16:51:16.239502Z",
+    "ext_transactions": null
+  },
+  "tx_hash": "0x30c32c33c89b154a9d2a614f5a1bc1efbc89d294da64b2a74aabf05d352ea2fd",
+  "client_balance_after": [
+    {
+      "id": "6821bf3b-7021-4cec-bb40-7f86d44a4053",
+      "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+      "cobo_wallet_id": "f0e593eb-24ee-4bef-8cdd-9afe0f382701",
+      "user_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+      "address": "0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd",
+      "chain_id": "SETH",
+      "chain_type": "ETH",
+      "compatible_chains": [
+        "SETH",
+        "BASE_ETH",
+        "MATIC",
+        "TBASE_SETH",
+        "ETH",
+        "ARBITRUM_ETH",
+        "OPT_ETH",
+        "BSC_BNB",
+        "AVAXC",
+        "HYPEREVM_HYPE"
+      ],
+      "token_id": "SETH",
+      "amount": "0.007894825420532",
+      "total": "0.007894825420532",
+      "pending": "0",
+      "locked": "0",
+      "balance_updated_at": "2026-06-08T16:51:21.961000Z",
+      "updated_at": "2026-06-08T16:51:22.213662Z"
+    }
+  ],
+  "audit_sample": {
+    "items": [
+      {
+        "id": 572843,
+        "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+        "principal_type": "agent",
+        "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "resource_type": "wallet",
+        "resource_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "action": "user_transaction.read",
+        "result": "allowed",
+        "authz_details": {
+          "stage": "permission_check",
+          "pact_id": "74b89e03-e9e5-47a5-862c-69b92feeaef5",
+          "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+          "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+          "delegation_id": "5bbf5337-d478-4d0f-9be6-448b834b92c4",
+          "principal_type": "agent",
+          "required_permission": "can_view"
+        },
+        "request": {
+          "request_id": "phase2-746d51f4",
+          "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d"
+        },
+        "error": null,
+        "created_at": "2026-06-08T16:51:22.245414Z"
+      },
+      {
+        "id": 572842,
+        "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+        "principal_type": "agent",
+        "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "resource_type": "wallet",
+        "resource_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "action": "user_transaction.read",
+        "result": "allowed",
+        "authz_details": {
+          "stage": "permission_check",
+          "pact_id": "74b89e03-e9e5-47a5-862c-69b92feeaef5",
+          "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+          "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+          "delegation_id": "5bbf5337-d478-4d0f-9be6-448b834b92c4",
+          "principal_type": "agent",
+          "required_permission": "can_view"
+        },
+        "request": {
+          "request_id": "phase2-746d51f4",
+          "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d"
+        },
+        "error": null,
+        "created_at": "2026-06-08T16:51:16.843459Z"
+      },
+      {
+        "id": 572841,
+        "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+        "principal_type": "agent",
+        "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "resource_type": "wallet",
+        "resource_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "action": "user_transaction.read",
+        "result": "allowed",
+        "authz_details": {
+          "stage": "permission_check",
+          "pact_id": "74b89e03-e9e5-47a5-862c-69b92feeaef5",
+          "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+          "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+          "delegation_id": "5bbf5337-d478-4d0f-9be6-448b834b92c4",
+          "principal_type": "agent",
+          "required_permission": "can_view"
+        },
+        "request": {
+          "request_id": "phase2-746d51f4",
+          "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d"
+        },
+        "error": null,
+        "created_at": "2026-06-08T16:51:11.517223Z"
+      },
+      {
+        "id": 572840,
+        "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+        "principal_type": "agent",
+        "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "resource_type": "wallet",
+        "resource_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "action": "user_transaction.read",
+        "result": "allowed",
+        "authz_details": {
+          "stage": "permission_check",
+          "pact_id": "74b89e03-e9e5-47a5-862c-69b92feeaef5",
+          "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+          "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+          "delegation_id": "5bbf5337-d478-4d0f-9be6-448b834b92c4",
+          "principal_type": "agent",
+          "required_permission": "can_view"
+        },
+        "request": {
+          "request_id": "phase2-746d51f4",
+          "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d"
+        },
+        "error": null,
+        "created_at": "2026-06-08T16:51:06.030286Z"
+      },
+      {
+        "id": 572839,
+        "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+        "principal_type": "agent",
+        "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "resource_type": "wallet",
+        "resource_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "action": "user_transaction.read",
+        "result": "allowed",
+        "authz_details": {
+          "stage": "permission_check",
+          "pact_id": "74b89e03-e9e5-47a5-862c-69b92feeaef5",
+          "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+          "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+          "delegation_id": "5bbf5337-d478-4d0f-9be6-448b834b92c4",
+          "principal_type": "agent",
+          "required_permission": "can_view"
+        },
+        "request": {
+          "request_id": "phase2-746d51f4",
+          "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d"
+        },
+        "error": null,
+        "created_at": "2026-06-08T16:51:00.532646Z"
+      },
+      {
+        "id": 572838,
+        "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+        "principal_type": "agent",
+        "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "resource_type": "wallet",
+        "resource_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "action": "user_transaction.read",
+        "result": "allowed",
+        "authz_details": {
+          "stage": "permission_check",
+          "pact_id": "74b89e03-e9e5-47a5-862c-69b92feeaef5",
+          "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+          "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+          "delegation_id": "5bbf5337-d478-4d0f-9be6-448b834b92c4",
+          "principal_type": "agent",
+          "required_permission": "can_view"
+        },
+        "request": {
+          "request_id": "phase2-746d51f4",
+          "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d"
+        },
+        "error": null,
+        "created_at": "2026-06-08T16:50:55.176855Z"
+      },
+      {
+        "id": 572837,
+        "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+        "principal_type": "agent",
+        "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "resource_type": "wallet",
+        "resource_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "action": "transfer.allowed",
+        "result": "allowed",
+        "authz_details": {},
+        "request": {
+          "amount": "0.001",
+          "chain_id": "SETH",
+          "dst_addr": "0xef9349b3273b1a54faaf701231f499fe0282e643",
+          "src_addr": "0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd",
+          "token_id": "SETH",
+          "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d"
+        },
+        "error": null,
+        "created_at": "2026-06-08T16:50:54.364808Z"
+      },
+      {
+        "id": 572836,
+        "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+        "principal_type": "agent",
+        "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "resource_type": "wallet",
+        "resource_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "action": "transfer.initiate",
+        "result": "allowed",
+        "authz_details": {
+          "stage": "permission_check",
+          "pact_id": "74b89e03-e9e5-47a5-862c-69b92feeaef5",
+          "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+          "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+          "delegation_id": "5bbf5337-d478-4d0f-9be6-448b834b92c4",
+          "principal_type": "agent",
+          "required_permission": "can_transfer"
+        },
+        "request": {
+          "amount": "0.001",
+          "chain_id": "SETH",
+          "dst_addr": "0xef9349b3273b1a54faaf701231f499fe0282e643",
+          "token_id": "SETH",
+          "request_id": "phase2-746d51f4",
+          "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d"
+        },
+        "error": null,
+        "created_at": "2026-06-08T16:50:54.364808Z"
+      },
+      {
+        "id": 572835,
+        "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+        "principal_type": "agent",
+        "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "resource_type": "wallet",
+        "resource_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "action": "wallet.balances",
+        "result": "allowed",
+        "authz_details": {
+          "stage": "permission_check",
+          "pact_id": "4987e14b-27f3-4b49-a076-f26e86028b05",
+          "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+          "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+          "delegation_id": "a17764a8-0105-40d5-a38d-fe1a0ebf12dd",
+          "principal_type": "agent",
+          "required_permission": "can_view"
+        },
+        "request": {
+          "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d"
+        },
+        "error": null,
+        "created_at": "2026-06-08T16:50:51.398363Z"
+      },
+      {
+        "id": 572834,
+        "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+        "principal_type": "agent",
+        "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "resource_type": "wallet",
+        "resource_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "action": "user_transaction.list",
+        "result": "allowed",
+        "authz_details": {
+          "stage": "permission_check",
+          "pact_id": "4987e14b-27f3-4b49-a076-f26e86028b05",
+          "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+          "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+          "delegation_id": "a17764a8-0105-40d5-a38d-fe1a0ebf12dd",
+          "principal_type": "agent",
+          "required_permission": "can_view"
+        },
+        "request": {
+          "type": null,
+          "limit": 5,
+          "status": null,
+          "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d"
+        },
+        "error": null,
+        "created_at": "2026-06-08T16:48:55.620195Z"
+      },
+      {
+        "id": 572833,
+        "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+        "principal_type": "agent",
+        "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "resource_type": "wallet",
+        "resource_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "action": "user_transaction.read",
+        "result": "allowed",
+        "authz_details": {
+          "stage": "permission_check",
+          "pact_id": "4987e14b-27f3-4b49-a076-f26e86028b05",
+          "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+          "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+          "delegation_id": "a17764a8-0105-40d5-a38d-fe1a0ebf12dd",
+          "principal_type": "agent",
+          "required_permission": "can_view"
+        },
+        "request": {
+          "request_id": "phase2-ec2923b3",
+          "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d"
+        },
+        "error": null,
+        "created_at": "2026-06-08T16:48:54.890162Z"
+      },
+      {
+        "id": 572825,
+        "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+        "principal_type": "agent",
+        "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "resource_type": "wallet",
+        "resource_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "action": "user_transaction.read",
+        "result": "allowed",
+        "authz_details": {
+          "stage": "permission_check",
+          "pact_id": "afbc98a8-ea6b-4ef4-b63c-aee069dfaef3",
+          "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+          "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+          "delegation_id": "082f4d11-7ac6-4f71-9433-7bdee2854b57",
+          "principal_type": "agent",
+          "required_permission": "can_view"
+        },
+        "request": {
+          "request_id": "phase2-ec2923b3",
+          "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d"
+        },
+        "error": null,
+        "created_at": "2026-06-08T16:47:22.470444Z"
+      },
+      {
+        "id": 572824,
+        "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+        "principal_type": "agent",
+        "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "resource_type": "wallet",
+        "resource_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "action": "user_transaction.read",
+        "result": "allowed",
+        "authz_details": {
+          "stage": "permission_check",
+          "pact_id": "afbc98a8-ea6b-4ef4-b63c-aee069dfaef3",
+          "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+          "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+          "delegation_id": "082f4d11-7ac6-4f71-9433-7bdee2854b57",
+          "principal_type": "agent",
+          "required_permission": "can_view"
+        },
+        "request": {
+          "request_id": "phase2-ec2923b3",
+          "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d"
+        },
+        "error": null,
+        "created_at": "2026-06-08T16:47:16.992014Z"
+      },
+      {
+        "id": 572823,
+        "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+        "principal_type": "agent",
+        "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "resource_type": "wallet",
+        "resource_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "action": "user_transaction.read",
+        "result": "allowed",
+        "authz_details": {
+          "stage": "permission_check",
+          "pact_id": "afbc98a8-ea6b-4ef4-b63c-aee069dfaef3",
+          "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+          "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+          "delegation_id": "082f4d11-7ac6-4f71-9433-7bdee2854b57",
+          "principal_type": "agent",
+          "required_permission": "can_view"
+        },
+        "request": {
+          "request_id": "phase2-ec2923b3",
+          "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d"
+        },
+        "error": null,
+        "created_at": "2026-06-08T16:47:11.426560Z"
+      },
+      {
+        "id": 572822,
+        "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+        "principal_type": "agent",
+        "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "resource_type": "wallet",
+        "resource_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "action": "user_transaction.read",
+        "result": "allowed",
+        "authz_details": {
+          "stage": "permission_check",
+          "pact_id": "afbc98a8-ea6b-4ef4-b63c-aee069dfaef3",
+          "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+          "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+          "delegation_id": "082f4d11-7ac6-4f71-9433-7bdee2854b57",
+          "principal_type": "agent",
+          "required_permission": "can_view"
+        },
+        "request": {
+          "request_id": "phase2-ec2923b3",
+          "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d"
+        },
+        "error": null,
+        "created_at": "2026-06-08T16:47:06.109246Z"
+      },
+      {
+        "id": 572821,
+        "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+        "principal_type": "agent",
+        "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "resource_type": "wallet",
+        "resource_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "action": "user_transaction.read",
+        "result": "allowed",
+        "authz_details": {
+          "stage": "permission_check",
+          "pact_id": "afbc98a8-ea6b-4ef4-b63c-aee069dfaef3",
+          "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+          "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+          "delegation_id": "082f4d11-7ac6-4f71-9433-7bdee2854b57",
+          "principal_type": "agent",
+          "required_permission": "can_view"
+        },
+        "request": {
+          "request_id": "phase2-ec2923b3",
+          "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d"
+        },
+        "error": null,
+        "created_at": "2026-06-08T16:47:00.755224Z"
+      },
+      {
+        "id": 572820,
+        "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+        "principal_type": "agent",
+        "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "resource_type": "wallet",
+        "resource_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "action": "user_transaction.read",
+        "result": "allowed",
+        "authz_details": {
+          "stage": "permission_check",
+          "pact_id": "afbc98a8-ea6b-4ef4-b63c-aee069dfaef3",
+          "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+          "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+          "delegation_id": "082f4d11-7ac6-4f71-9433-7bdee2854b57",
+          "principal_type": "agent",
+          "required_permission": "can_view"
+        },
+        "request": {
+          "request_id": "phase2-ec2923b3",
+          "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d"
+        },
+        "error": null,
+        "created_at": "2026-06-08T16:46:55.384114Z"
+      },
+      {
+        "id": 572819,
+        "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+        "principal_type": "agent",
+        "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "resource_type": "wallet",
+        "resource_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "action": "user_transaction.read",
+        "result": "allowed",
+        "authz_details": {
+          "stage": "permission_check",
+          "pact_id": "afbc98a8-ea6b-4ef4-b63c-aee069dfaef3",
+          "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+          "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+          "delegation_id": "082f4d11-7ac6-4f71-9433-7bdee2854b57",
+          "principal_type": "agent",
+          "required_permission": "can_view"
+        },
+        "request": {
+          "request_id": "phase2-ec2923b3",
+          "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d"
+        },
+        "error": null,
+        "created_at": "2026-06-08T16:46:50.037203Z"
+      },
+      {
+        "id": 572818,
+        "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+        "principal_type": "agent",
+        "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "resource_type": "wallet",
+        "resource_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "action": "user_transaction.read",
+        "result": "allowed",
+        "authz_details": {
+          "stage": "permission_check",
+          "pact_id": "afbc98a8-ea6b-4ef4-b63c-aee069dfaef3",
+          "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+          "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+          "delegation_id": "082f4d11-7ac6-4f71-9433-7bdee2854b57",
+          "principal_type": "agent",
+          "required_permission": "can_view"
+        },
+        "request": {
+          "request_id": "phase2-ec2923b3",
+          "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d"
+        },
+        "error": null,
+        "created_at": "2026-06-08T16:46:44.659007Z"
+      },
+      {
+        "id": 572817,
+        "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+        "principal_type": "agent",
+        "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "resource_type": "wallet",
+        "resource_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+        "action": "user_transaction.read",
+        "result": "allowed",
+        "authz_details": {
+          "stage": "permission_check",
+          "pact_id": "afbc98a8-ea6b-4ef4-b63c-aee069dfaef3",
+          "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+          "principal_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+          "delegation_id": "082f4d11-7ac6-4f71-9433-7bdee2854b57",
+          "principal_type": "agent",
+          "required_permission": "can_view"
+        },
+        "request": {
+          "request_id": "phase2-ec2923b3",
+          "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d"
+        },
+        "error": null,
+        "created_at": "2026-06-08T16:46:39.275999Z"
+      }
+    ],
+    "next_cursor": "cAQAGU8DBIU_fAAAAAAAIvZE"
+  }
+}
