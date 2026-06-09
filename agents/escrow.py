@@ -66,8 +66,9 @@ def fund(job_id: int) -> str:
     return _calldata("fund(uint256)", ["uint256"], [job_id])
 
 
-def submit_work(job_id: int, deliverable_hash: bytes) -> str:
-    return _calldata("submitWork(uint256,bytes32)", ["uint256", "bytes32"], [job_id, deliverable_hash])
+def submit_work(job_id: int, deliverable_hash: bytes, irys_id: str) -> str:
+    return _calldata("submitWork(uint256,bytes32,string)", ["uint256", "bytes32", "string"],
+                     [job_id, deliverable_hash, irys_id])
 
 
 def complete(job_id: int) -> str:
@@ -101,7 +102,7 @@ def get_job(w3: Web3, job_id: int) -> dict:
     return {
         "client": j[0], "provider": j[1], "evaluator": j[2], "amount": j[3],
         "spec_hash": Web3.to_hex(j[4]), "deliverable_hash": Web3.to_hex(j[5]),
-        "deadline": j[6], "status": STATUS.get(j[7], j[7]),
+        "irys_id": j[6], "deadline": j[7], "status": STATUS.get(j[8], j[8]),
     }
 
 

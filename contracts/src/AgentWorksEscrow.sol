@@ -35,7 +35,8 @@ contract AgentWorksEscrow {
         address evaluator;       // accept/reject authority
         uint256 amount;          // USDC base units (6 decimals)
         bytes32 specHash;        // hash of the task specification
-        bytes32 deliverableHash; // hash of the deliverable (e.g. Irys tx id), set on submitWork
+        bytes32 deliverableHash; // keccak256 of the deliverable content, set on submitWork
+        string  irysId;          // Irys data-item id where the deliverable is stored (retrievable + verifiable)
         uint64  deadline;        // unix seconds; after this an unresolved funded job is refundable
         Status  status;
     }
@@ -59,7 +60,7 @@ contract AgentWorksEscrow {
         uint64 deadline
     );
     event JobFunded(uint256 indexed jobId, uint256 amount);
-    event WorkSubmitted(uint256 indexed jobId, bytes32 deliverableHash);
+    event WorkSubmitted(uint256 indexed jobId, bytes32 deliverableHash, string irysId);
     event JobCompleted(uint256 indexed jobId, address indexed provider, uint256 amount);
     event JobRejected(uint256 indexed jobId, address indexed client, uint256 amount);
     event RefundClaimed(uint256 indexed jobId, address indexed client, uint256 amount);
@@ -102,6 +103,7 @@ contract AgentWorksEscrow {
             amount: amount,
             specHash: specHash,
             deliverableHash: bytes32(0),
+            irysId: "",
             deadline: deadline,
             status: Status.Created
         });
@@ -119,15 +121,18 @@ contract AgentWorksEscrow {
         emit JobFunded(jobId, job.amount);
     }
 
-    /// @notice Provider submits the deliverable content-hash for a funded job.
-    function submitWork(uint256 jobId, bytes32 deliverableHash) external {
+    /// @notice Provider submits the deliverable's content hash + the Irys id where it's stored.
+    /// @param deliverableHash keccak256 of the deliverable content (integrity commitment).
+    /// @param irysId Irys data-item id; fetch at gateway.irys.xyz/<irysId> and verify keccak256 == deliverableHash.
+    function submitWork(uint256 jobId, bytes32 deliverableHash, string calldata irysId) external {
         Job storage job = _get(jobId);
         if (msg.sender != job.provider) revert NotProvider(msg.sender);
         if (job.status != Status.Funded) revert BadStatus(job.status, Status.Funded);
 
         job.deliverableHash = deliverableHash;
+        job.irysId = irysId;
         job.status = Status.Submitted;
-        emit WorkSubmitted(jobId, deliverableHash);
+        emit WorkSubmitted(jobId, deliverableHash, irysId);
     }
 
     /// @notice Evaluator accepts the deliverable; pays the provider.

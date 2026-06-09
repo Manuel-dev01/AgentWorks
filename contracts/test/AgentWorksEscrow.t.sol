@@ -17,12 +17,13 @@ contract AgentWorksEscrowTest is Test {
     uint256 internal constant AMOUNT = 100_000_000; // 100 USDC (6 decimals)
     bytes32 internal constant SPEC = keccak256("spec: write a haiku about escrow");
     bytes32 internal constant DELIVERABLE = keccak256("irys://deliverable-content-id");
+    string internal constant IRYS_ID = "kS5LZ8nT9example_irys_data_item_id_43charsAB";
     uint64 internal deadline;
 
     // Mirror of the contract's events for expectEmit.
     event JobCreated(uint256 indexed jobId, address indexed client, address indexed provider, address evaluator, uint256 amount, bytes32 specHash, uint64 deadline);
     event JobFunded(uint256 indexed jobId, uint256 amount);
-    event WorkSubmitted(uint256 indexed jobId, bytes32 deliverableHash);
+    event WorkSubmitted(uint256 indexed jobId, bytes32 deliverableHash, string irysId);
     event JobCompleted(uint256 indexed jobId, address indexed provider, uint256 amount);
     event JobRejected(uint256 indexed jobId, address indexed client, uint256 amount);
     event RefundClaimed(uint256 indexed jobId, address indexed client, uint256 amount);
@@ -53,7 +54,7 @@ contract AgentWorksEscrowTest is Test {
     function _createFundSubmit() internal returns (uint256 jobId) {
         jobId = _createAndFund();
         vm.prank(provider);
-        escrow.submitWork(jobId, DELIVERABLE);
+        escrow.submitWork(jobId, DELIVERABLE, IRYS_ID);
     }
 
     // ── createJob ──
@@ -142,12 +143,13 @@ contract AgentWorksEscrowTest is Test {
     function test_submitWork_setsHashAndStatus() public {
         uint256 jobId = _createAndFund();
         vm.expectEmit(true, false, false, true);
-        emit WorkSubmitted(jobId, DELIVERABLE);
+        emit WorkSubmitted(jobId, DELIVERABLE, IRYS_ID);
         vm.prank(provider);
-        escrow.submitWork(jobId, DELIVERABLE);
+        escrow.submitWork(jobId, DELIVERABLE, IRYS_ID);
 
         AgentWorksEscrow.Job memory job = escrow.getJob(jobId);
         assertEq(job.deliverableHash, DELIVERABLE);
+        assertEq(job.irysId, IRYS_ID);
         assertEq(uint8(job.status), uint8(AgentWorksEscrow.Status.Submitted));
     }
 
@@ -155,7 +157,7 @@ contract AgentWorksEscrowTest is Test {
         uint256 jobId = _createAndFund();
         vm.prank(stranger);
         vm.expectRevert(abi.encodeWithSelector(AgentWorksEscrow.NotProvider.selector, stranger));
-        escrow.submitWork(jobId, DELIVERABLE);
+        escrow.submitWork(jobId, DELIVERABLE, IRYS_ID);
     }
 
     function test_submitWork_revertsIfNotFunded() public {
@@ -168,7 +170,7 @@ contract AgentWorksEscrowTest is Test {
                 AgentWorksEscrow.Status.Funded
             )
         );
-        escrow.submitWork(jobId, DELIVERABLE);
+        escrow.submitWork(jobId, DELIVERABLE, IRYS_ID);
     }
 
     // ── complete (payout branch) ──
@@ -326,7 +328,7 @@ contract AgentWorksEscrowTest is Test {
         vm.prank(client);
         evilEscrow.fund(jobId);
         vm.prank(provider);
-        evilEscrow.submitWork(jobId, DELIVERABLE);
+        evilEscrow.submitWork(jobId, DELIVERABLE, IRYS_ID);
 
         // The reentrant complete() must fail because status is already Completed (CEI).
         evil.arm(jobId);

@@ -175,9 +175,11 @@ writing code against it. A five-minute read beats an hour debugging a hallucinat
   verified evidence: CAW cannot fund/index externally-deposited Base Sepolia balances and its
   faucet doesn't cover Base, but CAW is proven end-to-end on Eth Sepolia (Phase 2). The original
   Base Sepolia choice is retired. (History + evidence in FACTS.md.)
-- **Token:** USDC testnet on Ethereum Sepolia — CAW token_id `SETH_USDC`, on-chain
-  `0x1c7d4b196cb0c7b01d743fbc6116a902379c7238` (USDC, 6 decimals, verified). MockUSDC remains the
-  fallback if the real-USDC path is unreliable — determinism outranks "uses real USDC".
+- **Token:** ADOPTED **MockUSDC** (our own 6-decimal ERC-20, mintable) on Ethereum Sepolia —
+  `0x4C4D1223BcC47E380CF4C37652EaDFe10A9Fd910` (decided Phase 3, 2026-06-08): the CAW faucet
+  dispenses no USDC on any chain, so MockUSDC keeps the demo deterministic + self-funding.
+  Real `SETH_USDC` (`0x1c7d4b19…`) remains available if we ever want it. Escrow value moves via
+  `contract_call` (approve/fund), so CAW needs no USDC token_id.
 - **Escrow:** self-deployed Solidity contract via Foundry, invoked through CAW's generic
   `contract_call` (we pass our own ABI-encoded calldata; CAW does NOT validate custom-contract
   semantics — safety rests on the Pact `target_in` allowlist + our Foundry tests). No
@@ -193,7 +195,13 @@ writing code against it. A five-minute read beats an hour debugging a hallucinat
   PACT-SCOPED api key (see FACTS.md "how authority is scoped").
 - **Agent runtime:** Python. Direct SDK calls FIRST. Add an agent framework (LangChain /
   OpenAI Agents SDK) only where it demonstrably earns its place — not by default.
-- **Deliverable storage:** Irys.
+- **Agent reasoning (LLM):** **DeepSeek `deepseek-v4-flash`** via the OpenAI-compatible API
+  (`LLM_BASE_URL=https://api.deepseek.com`) drives GENUINE fund / accept / reject decisions
+  (Phase 4). It is a REASONING model (answer in `content`, needs generous `max_tokens`). The Pact
+  is still the hard boundary regardless of what the LLM decides. Layer: `agents/reasoning.py`.
+- **Deliverable storage:** **Irys DEVNET** (~60-day retention — ample for judging; not "permanent").
+  Provider stores the deliverable on Irys; escrow records `keccak256(content)` + the **Irys id**
+  on-chain (`submitWork(jobId, deliverableHash, irysId)`). Retrieve at `https://devnet.irys.xyz/<id>`.
 - **Frontend:** Next.js 15 dashboard. It is the DEMO SURFACE and is built LAST.
 - **Repo:** pnpm monorepo.
 
@@ -228,6 +236,11 @@ If a fact isn't in FACTS.md and isn't verified live, treat it as unknown.
 ═══════════════════════════════════════════════════════════════════════
 ## 8. PHASE MAP
 ═══════════════════════════════════════════════════════════════════════
+
+> **STATUS (2026-06-09): Phases 0–5 ✅ COMPLETE & VERIFIED.** Phase 6 (dashboard) is NEXT.
+> Chain = Ethereum Sepolia (11155111). Escrow `0x812BcEEc2De8C8aC71C7af7A8E2d4467E65Fdf18`,
+> MockUSDC `0x4C4D1223BcC47E380CF4C37652EaDFe10A9Fd910`. CAW wallets: Client `0da4d5c3…`,
+> Provider `bdecbada…`. Full phase-by-phase status + all tx/Irys proofs: **docs/STATUS.md** + **docs/FACTS.md**.
 
 Detailed per-phase prompts are delivered separately, one at a time. High level:
 

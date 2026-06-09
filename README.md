@@ -1,31 +1,58 @@
 # AgentWorks
 
-A trustless two-agent job-escrow marketplace built on the Cobo Agentic Wallet (CAW),
+A trustless **two-agent job-escrow marketplace** built on the **Cobo Agentic Wallet (CAW)**,
 for the "Agentic Economy × Cobo Agentic Wallet" hackathon track.
 
-A **Client Agent** posts and funds a paid task into an on-chain escrow contract. A
-**Provider Agent** performs the work, stores the deliverable on Irys, and submits its
-content hash on-chain. On acceptance the contract pays the Provider; on rejection or
-expiry the Client reclaims the funds. Each agent operates through its own CAW wallet
-under a scoped Pact — CAW is the authority layer that makes autonomous spending safe;
-the escrow contract is the neutral settlement layer between two distrustful agents.
+A **Client Agent** reasons about a task, funds it into an on-chain escrow, and (v1) evaluates the
+result. A **Provider Agent** performs the work, stores the deliverable on **Irys**, and submits its
+content hash + Irys id on-chain. On acceptance the escrow pays the Provider; on rejection (or expiry)
+the Client is refunded. **Each agent acts through its own CAW wallet under a scoped Pact** — CAW is the
+load-bearing authority layer that makes autonomous spending safe; the escrow is the neutral settlement
+layer between two distrustful agents. The agents genuinely **decide** (fund? accept? reject?) via an LLM,
+but a Pact they cannot exceed is the hard boundary — even an over-budget or non-whitelisted action is
+blocked server-side, and authority can be frozen instantly by revoking the Pact.
 
 Lifecycle: `createJob → fund → submitWork → complete (payout) | reject (refund) | claimRefund (expiry)`
 
-## Status
-
-🚧 Under active development. This stub will be replaced by full setup and usage
-documentation in the final phase. See `docs/FACTS.md` for verified, current project
-facts (addresses, SDK details, network config).
+## Status — Phases 0–5 complete & verified; dashboard (Phase 6) next
+Full lifecycle works headless on **Ethereum Sepolia** with both settlement branches, the CAW
+criticality beats (Pact **denial** + emergency **freeze** + human-in-the-loop **review**), genuine LLM
+reasoning, and Irys-stored deliverables verified against the on-chain content hash.
+See **[docs/STATUS.md](docs/STATUS.md)** for the phase-by-phase state and **[docs/FACTS.md](docs/FACTS.md)**
+for every verified address, signature, and tx hash. The Next.js dashboard (demo surface) and demo
+script/architecture docs are the remaining phases.
 
 ## Stack
+Foundry (escrow) · Python agents (CAW SDK `cobo-agentic-wallet` + web3) · DeepSeek reasoning
+(OpenAI-compatible) · Irys devnet (deliverable storage) · Next.js 15 dashboard (pending) ·
+**Ethereum Sepolia** testnet (chainId 11155111).
 
-Foundry (escrow contract) · Python + CAW SDK (agents) · Next.js 15 (dashboard) · Irys
-(deliverable storage) · Base Sepolia testnet.
+## Deployed (Ethereum Sepolia)
+- Escrow: [`0x812BcEEc2De8C8aC71C7af7A8E2d4467E65Fdf18`](https://sepolia.etherscan.io/address/0x812bceec2de8c8ac71c7af7a8e2d4467e65fdf18) (verified)
+- MockUSDC: [`0x4C4D1223BcC47E380CF4C37652EaDFe10A9Fd910`](https://sepolia.etherscan.io/address/0x4c4d1223bcc47e380cf4c37652eadfe10a9fd910) (verified)
 
 ## Repo layout
+- `/contracts` — Foundry escrow (`AgentWorksEscrow.sol`), 25-test suite, deploy/verify scripts
+- `/agents` — CAW integration (`caw/`), escrow calldata/reads (`escrow.py`), LLM reasoning
+  (`reasoning.py`), Pact specs (`pacts.py`), Irys storage (`irys/`, `irys_store.py`), runnable `scripts/`
+- `/web` — Next.js 15 dashboard (Phase 6, pending)
+- `/docs` — `STATUS.md`, `FACTS.md` (verified facts), `pacts/*.json` (shipped Pact policies)
 
-- `/contracts` — Foundry escrow contract, tests, deploy scripts
-- `/agents` — CAW integration, Client/Provider agents, evaluator
-- `/web` — Next.js 15 dashboard (demo surface)
-- `/docs` — architecture, risk boundaries, demo script, and verified facts
+## Running it (testnet)
+Secrets live in `.env` (gitignored); see `.env.example`. Foundry is at `~/.foundry/bin`.
+```bash
+# contracts
+cd contracts && ~/.foundry/bin/forge.exe test            # 25 tests
+
+# agents (Python venv already set up in agents/.venv)
+agents/.venv/Scripts/python.exe agents/scripts/phase4_demo.py good     # reasoned payout
+agents/.venv/Scripts/python.exe agents/scripts/phase4_denial.py        # Pact denial beats
+agents/.venv/Scripts/python.exe agents/scripts/phase4_freeze.py        # emergency freeze
+agents/.venv/Scripts/python.exe agents/scripts/phase5_demo.py good     # Irys store + on-chain verify
+```
+
+## What CAW actually does here (claims discipline)
+CAW enforces each agent's authority boundary (Pact: contract allowlist + caps), server-side and
+unbypassable; "freeze" = `revoke_pact` (no native freeze API). CAW does **not** coordinate the two
+agents or hold the escrow — our contract + orchestration do. We mirror the ERC-8183 **draft** lifecycle
+naming; we do not depend on any external/Arc deployment.

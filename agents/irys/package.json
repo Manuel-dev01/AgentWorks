@@ -1,0 +1,11 @@
+{
+  "name": "agentworks-irys",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Irys devnet uploader for AgentWorks deliverables (called by the Provider agent).",
+  "dependencies": {
+    "@irys/upload": "^0.0.15",
+    "@irys/upload-ethereum": "^0.0.16"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "mode": "good",
+  "task": "Write a clear 2-3 sentence explanation, for a non-expert, of how an on-chain escrow lets two agents who don't trust each other transact safely.",
+  "reasoning": {
+    "client_fund": {
+      "fund": true,
+      "reason": "The task is legitimate and reasonably priced within the available budget."
+    },
+    "evaluate": {
+      "accept": true,
+      "reason": "The explanation is clear, non-expert friendly, and correctly describes how on-chain escrow enables safe transactions between untrusting parties via a smart contract."
+    }
+  },
+  "txs": {
+    "createJob": "0x74d72b05502f3331c354cb940e739d608c126dde751c7086de8483342459d61a",
+    "approve": "0x9ac05cca8b1cbbe7f9bb82384111d106429cb5a1ece89c9c58504f6bce6b91c9",
+    "fund": "0x1d630c891a6440c832d7867d793edc5554436df7f7a8d9c0ed8a8511a637452a",
+    "submitWork": "0x09a576d46a8ab8e4518246ba0142a7f3d5d1c51681483ea5625fe8492c2d3c04",
+    "complete": "0x20109ead5075c0b14ccee9a3f2148a677691f0ea2da4e1677bab9678f21338e7"
+  },
+  "balances_pre": {
+    "client": 980000000,
+    "provider": 20000000
+  },
+  "job_id": 1,
+  "deliverable": "An on-chain escrow uses a smart contract (a self-executing program on a blockchain) to hold funds from the buyer until both parties agree the terms are met. This removes the need for trust because the money is released automatically only when conditions\u2014like a product being delivered or a service completed\u2014are verified, or returned to the buyer if not. In short, the blockchain acts as a neutral, impartial middleman that enforces the deal for both sides.",
+  "irys": {
+    "id": "BycfUyokk95HxwswpA3uiBVBfX7hSzumTrJLmJSQvU92",
+    "url": "https://devnet.irys.xyz/BycfUyokk95HxwswpA3uiBVBfX7hSzumTrJLmJSQvU92",
+    "bytes": 461,
+    "price": "1363672422321",
+    "funded": "4176661035"
+  },
+  "fetched_matches_local": true,
+  "branch": "payout",
+  "content_verified": true,
+  "final_status": "Completed",
+  "balances_post": {
+    "client": 970000000,
+    "provider": 30000000
+  }
+}
