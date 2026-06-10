@@ -2,12 +2,15 @@
   "name": "agentworks",
   "private": true,
   "version": "0.0.0",
-  "description": "Trustless two-agent job-escrow marketplace on Cobo Agentic Wallet (Base Sepolia).",
+  "description": "Trustless two-agent job-escrow marketplace on Cobo Agentic Wallet (Ethereum Sepolia).",
   "packageManager": "pnpm@11.1.2",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "web": "pnpm --filter web dev"
+  },
+  "pnpm": {
+    "ignoredBuiltDependencies": ["sharp"]
   }
 }

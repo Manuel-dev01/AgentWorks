@@ -3,3 +3,8 @@
 # not by pnpm — they are intentionally NOT workspace members.
 packages:
   - "web"
+# `sharp` is Next.js's optional image-optimizer native dep. Approving its install script clears
+# pnpm's ERR_PNPM_IGNORED_BUILDS on both local installs and Vercel builds (sharp ships prebuilt
+# binaries, so this is a fast download, not a from-source compile).
+allowBuilds:
+  sharp: true

@@ -1,0 +1,88 @@
+{
+  "transfer_response": {
+    "id": "2f9cf2c2-353b-4445-80f8-b6b4b6611aef",
+    "idempotent": false,
+    "request_id": "review-6da5f6f1",
+    "pending_operation_id": "abc3ef36-33de-4405-9e7b-a8ff64d858f6",
+    "approval_id": "528062ec-39f4-42c1-b57e-777a1f115241",
+    "transaction_hash": null,
+    "status": 200,
+    "status_display": "PendingApproval"
+  },
+  "pending_before": {
+    "id": "abc3ef36-33de-4405-9e7b-a8ff64d858f6",
+    "owner_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+    "request_id": "review-6da5f6f1",
+    "wallet_id": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+    "initiated_by": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+    "delegation_id": "1215eaad-ffe8-4ada-9fdb-015203204a69",
+    "operation_type": "transfer",
+    "operation_data": {
+      "fee": null,
+      "amount": "0.001",
+      "sponsor": false,
+      "chain_id": "SETH",
+      "dst_addr": "0xef9349b3273b1a54faaf701231f499fe0282e643",
+      "src_addr": "0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd",
+      "token_id": "SETH",
+      "request_id": "review-6da5f6f1",
+      "description": "review_if beat",
+      "gas_provider": null
+    },
+    "policy_decision": {
+      "effect": "require_approval",
+      "reason": "operation_matched_approval_conditions",
+      "details": {},
+      "tier_evaluations": [
+        {
+          "tier": "global",
+          "policy_type": "transfer",
+          "allow_required": false,
+          "matched_deny_policy_id": null,
+          "matched_allow_policy_ids": []
+        },
+        {
+          "tier": "wallet",
+          "policy_type": "transfer",
+          "allow_required": false,
+          "matched_deny_policy_id": null,
+          "matched_allow_policy_ids": []
+        },
+        {
+          "tier": "delegation",
+          "policy_type": "transfer",
+          "allow_required": true,
+          "matched_deny_policy_id": null,
+          "matched_allow_policy_ids": [
+            "a8f66d46-2398-4b53-aca5-fe53773bcff3"
+          ]
+        }
+      ],
+      "applicable_limits": [],
+      "denied_by_policy_id": null,
+      "approval_trigger_policy_ids": [
+        "a8f66d46-2398-4b53-aca5-fe53773bcff3"
+      ]
+    },
+    "status": "pending",
+    "operation_token": null,
+    "approved_by": null,
+    "approved_at": null,
+    "rejected_by": null,
+    "rejected_at": null,
+    "expires_at": "2026-06-08T20:43:43.145783Z",
+    "execution_result": {},
+    "last_error": null,
+    "created_at": "2026-06-08T19:43:42.666503Z",
+    "updated_at": "2026-06-08T19:43:42.666503Z"
+  },
+  "approve_result": {
+    "pending_operation_id": "abc3ef36-33de-4405-9e7b-a8ff64d858f6",
+    "status": "executed",
+    "transaction_id": "2f9cf2c2-353b-4445-80f8-b6b4b6611aef",
+    "request_id": "review-6da5f6f1",
+    "idempotent": false
+  },
+  "tx_hash": "0x275117e4d16a62f1d1873589794e941183002af5b56fb8362e64f20286c77830",
+  "REVIEW_CONFIRMED": true
+}

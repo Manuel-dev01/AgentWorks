@@ -1,0 +1,42 @@
+{
+  "mode": "bad",
+  "task": "Write a clear 2-3 sentence explanation, for a non-expert, of how an on-chain escrow lets two agents who don't trust each other transact safely.",
+  "reasoning": {
+    "client_fund": {
+      "fund": true,
+      "reason": "The task is legitimate and the price is reasonable given the budget."
+    },
+    "evaluate": {
+      "accept": false,
+      "reason": "The deliverable is a poem, not a clear 2-3 sentence explanation for a non-expert as required."
+    }
+  },
+  "txs": {
+    "createJob": "0x7226f7999c47229c7df38eeafb492cc725d6be01a9ab9c66b02475d463b81fef",
+    "approve": "0x9c3073514622a25bc88dbef25853778feeab01b4910fe39073dbe78d3593fe21",
+    "fund": "0x7b217f2d11b615b31b692fc9443a7e506274ee730b7a0558a075a08e1c98ca2d",
+    "submitWork": "0xc0dce63bdfe40b8071b763178f1f6ddbc439d76c9f0c19660cdfa0f06a6e68ed",
+    "reject": "0x310c69000d021eec3a5738910a6b7ca2df130fb983c2139b931aee5e0f2b6ef1"
+  },
+  "balances_pre": {
+    "client": 970000000,
+    "provider": 30000000
+  },
+  "job_id": 2,
+  "deliverable": "In the blockchain's digital court,  \nTwo strangers meet without support.  \nThey each deposit crypto gold,  \nA smart contract their trust will hold.  \nWhen terms are met, the funds release\u2014  \nIf not, they get their coins in peace.  \nThus trustless trade becomes secure,  \nA lazy contractor's tale, impure.",
+  "irys": {
+    "id": "BAJk8iWc5yoFG3uTMyopmTHvzDxd9DPaRK5ubroDKKCU",
+    "url": "https://devnet.irys.xyz/BAJk8iWc5yoFG3uTMyopmTHvzDxd9DPaRK5ubroDKKCU",
+    "bytes": 306,
+    "price": "1365436861392",
+    "funded": "1764439071"
+  },
+  "fetched_matches_local": true,
+  "branch": "refund",
+  "content_verified": true,
+  "final_status": "Rejected",
+  "balances_post": {
+    "client": 970000000,
+    "provider": 30000000
+  }
+}

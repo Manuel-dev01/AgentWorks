@@ -1,0 +1,26 @@
+{
+  "pact_id": "be9f4467-d6d7-4db7-9162-79b56716686d",
+  "allowed_tx": "0x249aeb95a4358e7b73b58ab6aa38cf9455e9e15995d97ced192c6f11088d4e5f",
+  "revoked": "be9f4467-d6d7-4db7-9162-79b56716686d",
+  "after_freeze": {
+    "result": "denied",
+    "type": "APIError",
+    "status_code": 403,
+    "msg": "(403)\nReason: Forbidden\nHTTP response headers: {'Date': 'Mon, 08 Jun 2026 19:29:30 GMT', 'Content-Type': 'application/json', 'Content-Length': '142', 'Connection': 'keep-alive', 'Server': 'uvicorn', '"
+  },
+  "recent_denied": [
+    {
+      "action": "contract_call.denied",
+      "result": "denied"
+    },
+    {
+      "action": "transfer.denied",
+      "result": "denied"
+    },
+    {
+      "action": "contract_call.denied",
+      "result": "denied"
+    }
+  ],
+  "FREEZE_PASS": true
+}

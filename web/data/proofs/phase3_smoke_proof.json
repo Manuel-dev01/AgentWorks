@@ -1,0 +1,53 @@
+{
+  "chain_id": "SETH",
+  "escrow": "0x19Ea8a442802065a61c69cbc03bE97724Ad8cd9b",
+  "usdc": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+  "rpc_usdc_balance": 0,
+  "allowance_before": 0,
+  "caw_seth_balance": [
+    {
+      "id": "6821bf3b-7021-4cec-bb40-7f86d44a4053",
+      "wallet_uuid": "0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d",
+      "cobo_wallet_id": "f0e593eb-24ee-4bef-8cdd-9afe0f382701",
+      "user_id": "c892cd08-0115-460b-8ed0-c00163e4a01a",
+      "address": "0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd",
+      "chain_id": "SETH",
+      "chain_type": "ETH",
+      "compatible_chains": [
+        "SETH",
+        "BASE_ETH",
+        "MATIC",
+        "TBASE_SETH",
+        "ETH",
+        "ARBITRUM_ETH",
+        "OPT_ETH",
+        "BSC_BNB",
+        "AVAXC",
+        "HYPEREVM_HYPE"
+      ],
+      "token_id": "SETH",
+      "amount": "0.007894825420532",
+      "total": "0.007894825420532",
+      "pending": "0",
+      "locked": "0",
+      "balance_updated_at": "2026-06-08T16:51:21.961000Z",
+      "updated_at": "2026-06-08T16:51:22.213662Z"
+    }
+  ],
+  "caw_usdc_balance": [],
+  "pact_id": "02382a2a-f222-4576-a46f-776f63a7c832",
+  "pact_status": "active",
+  "contract_call_response": {
+    "id": "90c89b25-a9cd-4fdf-9726-9a3ef9ccaac7",
+    "idempotent": false,
+    "request_id": "smoke-af7d0cfb",
+    "pending_operation_id": null,
+    "approval_id": null,
+    "transaction_hash": null,
+    "status": 400,
+    "status_display": "Processing"
+  },
+  "tx_hash": "0x48b069049756709539bd1c04bc4bff9c59bb12f9d6b6031baee94037684e5d42",
+  "allowance_after": 1,
+  "SMOKE_PASS": true
+}

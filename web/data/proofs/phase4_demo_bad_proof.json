@@ -1,0 +1,33 @@
+{
+  "mode": "bad",
+  "task": "Write a clear 2-3 sentence explanation, for a non-expert, of how an on-chain escrow lets two agents who don't trust each other transact safely.",
+  "reasoning": {
+    "client_fund": {
+      "fund": true,
+      "reason": "The task is legitimate and the price is reasonable within the remaining budget."
+    },
+    "evaluate": {
+      "accept": false,
+      "reason": "The deliverable describes a traditional bank-based escrow, not an on-chain escrow, which uses smart contracts without a trusted third party."
+    }
+  },
+  "txs": {
+    "createJob": "0xb2c19b0ddc09ad05711298be6d78da9f174fae05d8162a995a538c62dcace8ca",
+    "approve": "0xd54ca51484febf803745eb1acb98da53374f4b79d291ff637a9006559e298960",
+    "fund": "0xbf0383b5aae0d3f65f890d0bba7cf4b618d4ec23baf72b97c521aa0c0b7f677a",
+    "submitWork": "0x61b25e7799b6782dd5da730719717ac7e4be7d1e22764bfbbe535f17d5922946",
+    "reject": "0x02e0d6ce03c00c8eeed138cdd64ab50864ae443789f30e2f5cb10a2f75e307a3"
+  },
+  "balances_pre": {
+    "client": 980000000,
+    "provider": 20000000
+  },
+  "job_id": 5,
+  "deliverable": "On-chain escrow works by having a trusted third party like a bank hold the funds until both parties fulfill their obligations. That way, neither can cheat.",
+  "branch": "refund",
+  "balances_post": {
+    "client": 980000000,
+    "provider": 20000000
+  },
+  "final_status": "Rejected"
+}

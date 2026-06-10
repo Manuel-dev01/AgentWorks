@@ -1,0 +1,25 @@
+{
+  "outcome": "complete",
+  "amount": 10000000,
+  "txs": {
+    "createJob": "0x0f2b6c9368ac9c672e9852ed78791e1b7ac53bcfab372adbe0f4b882063a2797",
+    "approve": "0x64a3226b594affd92dd7e371c3a7b4e27114978f70dcc7e167f6cdcf5055bd00",
+    "fund": "0xc20cc8d991b4cba86c3eb78cf97b0533978d264cfadbbe923463cd4a6ee75036",
+    "submitWork": "0x0919e53b59c5dcd0a0e7d201a0dea1ace8972896e5ca715a89940a5cf71d9394",
+    "complete": "0x058025a6aafb5cc0e9892f661f23a87f47bd9a9e61a9ec3aef003ff7aaac029e"
+  },
+  "balances_pre": {
+    "client": 1000000000,
+    "provider": 0,
+    "escrow": 0
+  },
+  "client_pact": "da9dca31-5573-4b9e-b7d7-e839516c0ae6",
+  "provider_pact": "bb185714-ca7e-429f-a1ae-8121fec3c5a7",
+  "job_id": 2,
+  "balances_post": {
+    "client": 990000000,
+    "provider": 10000000,
+    "escrow": 0
+  },
+  "final_status": "Completed"
+}

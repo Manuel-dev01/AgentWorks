@@ -1,6 +1,6 @@
 """Shared config for the AgentWorks agents. Single source of env truth.
 
-Loads the repo-root .env. Holds CAW credentials, Base Sepolia chain/token ids
+Loads the repo-root .env. Holds CAW credentials, Ethereum Sepolia chain/token ids
 (confirmed in Phase 2), and on-chain contract addresses.
 """
 
@@ -34,13 +34,13 @@ class Agent:
 # CAW API
 CAW_API_URL = os.environ.get("AGENT_WALLET_API_URL", "https://api.agenticwallet.cobo.com")
 
-# Base Sepolia ids — confirmed live in Phase 2 via `caw meta`.
-CHAIN_ID = os.environ.get("CAW_CHAIN_ID", "TBASE_SETH")
-NATIVE_TOKEN_ID = os.environ.get("CAW_NATIVE_TOKEN_ID", "TBASE_SETH")
-USDC_TOKEN_ID = os.environ.get("CAW_USDC_TOKEN_ID", "TBASE_USDC")
+# Ethereum Sepolia CAW ids (the project switched off Base Sepolia in Phase 2; .env overrides these).
+CHAIN_ID = os.environ.get("CAW_CHAIN_ID", "SETH")
+NATIVE_TOKEN_ID = os.environ.get("CAW_NATIVE_TOKEN_ID", "SETH")
+USDC_TOKEN_ID = os.environ.get("CAW_USDC_TOKEN_ID", "SETH_USDC")
 
 # On-chain (Ethereum Sepolia)
-RPC_URL = os.environ.get("RPC_URL", "https://ethereum-sepolia-rpc.publicnode.com")
+RPC_URL = os.environ.get("RPC_URL", "https://sepolia.drpc.org")
 ESCROW_ADDRESS = os.environ.get("ESCROW_CONTRACT_ADDRESS", "")
 USDC_ADDRESS = os.environ.get("USDC_TOKEN_ADDRESS", "")
 EXPLORER_TX = "https://sepolia.etherscan.io/tx/{}"

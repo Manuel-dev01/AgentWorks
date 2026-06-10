@@ -1,0 +1,25 @@
+{
+  "outcome": "reject",
+  "amount": 10000000,
+  "txs": {
+    "createJob": "0x8216bb4c451dc8425eac4bbfc16233454e745dc01073b62c53419264e92b805d",
+    "approve": "0x4ea3d57e3ba2546ede57da74c1ef0c16ddff95636bfab660585c7dd83c1d79c1",
+    "fund": "0x4d9459514922820f46f02fafb5470477c3d9824cd28da94af9c96b4ef8592dec",
+    "submitWork": "0x64e5b8ca03c2ab17c42400d35e208a2d50c6d02dde8c8c13600cc5f62ac62e66",
+    "reject": "0x0c98341165315d3d9572f9072a734fb2a6c007e1e8b1e07e4c8e8c1bc56413e9"
+  },
+  "balances_pre": {
+    "client": 990000000,
+    "provider": 10000000,
+    "escrow": 0
+  },
+  "client_pact": "f6904eaf-b936-44a5-aada-9fe9f69431b8",
+  "provider_pact": "98fc7011-2ed8-4ae4-9d77-c140ce76bce2",
+  "job_id": 3,
+  "balances_post": {
+    "client": 990000000,
+    "provider": 10000000,
+    "escrow": 0
+  },
+  "final_status": "Rejected"
+}

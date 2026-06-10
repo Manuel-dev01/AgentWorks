@@ -237,10 +237,12 @@ If a fact isn't in FACTS.md and isn't verified live, treat it as unknown.
 ## 8. PHASE MAP
 ═══════════════════════════════════════════════════════════════════════
 
-> **STATUS (2026-06-09): Phases 0–5 ✅ COMPLETE & VERIFIED.** Phase 6 (dashboard) is NEXT.
+> **STATUS (2026-06-09): Phases 0–6 ✅ COMPLETE & VERIFIED.** Phase 7 (demo script/video + architecture/risk docs) is NEXT.
 > Chain = Ethereum Sepolia (11155111). Escrow `0x812BcEEc2De8C8aC71C7af7A8E2d4467E65Fdf18`,
 > MockUSDC `0x4C4D1223BcC47E380CF4C37652EaDFe10A9Fd910`. CAW wallets: Client `0da4d5c3…`,
-> Provider `bdecbada…`. Full phase-by-phase status + all tx/Irys proofs: **docs/STATUS.md** + **docs/FACTS.md**.
+> Provider `bdecbada…`. Phase 6 = Next.js dashboard in `/web` on the AgentWorks brand (landing `/`,
+> brand `/brand`, demo `/dashboard`); production build passes, Vercel-ready (`docs/DEPLOY.md`).
+> Full phase-by-phase status + all tx/Irys proofs: **docs/STATUS.md** + **docs/FACTS.md**.
 
 Detailed per-phase prompts are delivered separately, one at a time. High level:
 

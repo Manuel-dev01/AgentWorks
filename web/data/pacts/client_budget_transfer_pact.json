@@ -1,27 +1,23 @@
 {
   "policies": [
     {
-      "name": "provider-escrow-allowlist",
-      "type": "contract_call",
+      "name": "client-budget-cap",
+      "type": "transfer",
       "rules": {
         "effect": "allow",
         "when": {
           "chain_in": [
             "SETH"
           ],
-          "target_in": [
+          "token_in": [
             {
               "chain_id": "SETH",
-              "contract_addr": "0x812BcEEc2De8C8aC71C7af7A8E2d4467E65Fdf18"
+              "token_id": "SETH"
             }
           ]
         },
         "deny_if": {
-          "usage_limits": {
-            "rolling_24h": {
-              "tx_count_gt": 20
-            }
-          }
+          "amount_gt": "0.001"
         }
       }
     }

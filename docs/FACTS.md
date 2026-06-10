@@ -348,3 +348,31 @@ Pacts are enforced server-side (security.md confirmed in practice). Smoke `phase
   — can fund an arbitrary external address; 0.0001 ETH/claim, 1000 claims/24h. — verified 2026-06-08 (docs + npm).
 - ⚠️ From inside the agent's sandboxed Bash, the CDP API call returns `NetworkError status=0`
   (connection blocked). See whether running with sandbox disabled / on the user's own machine succeeds.
+
+═══════════════════════════════════════════════════════════════════════
+## Phase 6 — Web dashboard (Next.js 15, the demo surface) — verified 2026-06-09
+═══════════════════════════════════════════════════════════════════════
+- App in `/web`: Next 15.1.6 + React 19 + viem 2.x, App Router, TypeScript. Bespoke CSS porting the
+  AgentWorks brand tokens (oklch paper/ink + Settle Blue; Space Grotesk + IBM Plex Mono via CDN link).
+  `pnpm --filter web build` → PASS, 5 routes (`/` static, `/brand` static, `/dashboard` ƒ, `/api/run` ƒ,
+  `/_not-found`). Only warnings are cosmetic autoprefixer `align-items: start` notes.
+- Routes: `/` landing, `/brand` brand board, `/dashboard` demo surface. CSS scoped per route (`.lp`/`.bp`/`.dp`)
+  so component classnames don't collide; shared primitives + tokens in `app/globals.css`.
+- Data model: verified proof artifacts are the source of truth. `web/scripts/snapshot-proofs.mjs`
+  (predev/prebuild) copies `agents/scripts/*_proof.json` → `web/data/proofs/` and `docs/pacts/*.json` →
+  `web/data/pacts/` (committed). `lib/proofs.ts` reads `web/data/` first, falls back to sibling dirs in dev.
+  Live additive reads via `lib/chain.ts` (viem): `usdcBalance()`, `getJob()` — wrapped, degrade to snapshots.
+- `app/api/run/route.ts`: POST `{mode:"good"|"bad"}` spawns `agents/.venv/Scripts/python.exe
+  agents/scripts/phase5_demo.py <mode>` and streams stdout. Localhost-guarded; the dashboard hides the
+  Run-live button when `NODE_ENV==="production"` (Vercel serverless can't run the venv).
+- Public dashboard config (`lib/config.ts`, `NEXT_PUBLIC_*`, verified defaults baked in): RPC
+  `https://sepolia.drpc.org`, escrow/MockUSDC/Client+Provider CAW addresses, explorer
+  `https://sepolia.etherscan.io`, Irys `https://devnet.irys.xyz`. No secrets in the web app.
+- pnpm: repo pins `pnpm@11.1.2`, which gates native install scripts. `pnpm-workspace.yaml` uses
+  `allowBuilds: { sharp: true }` to clear `ERR_PNPM_IGNORED_BUILDS` (sharp = Next's optional image
+  optimizer, prebuilt binary). `web/node_modules/.bin/next dev` bypasses the dep-status gate.
+- Env-key clarification (confirmed from source): agents read `CAW_CLIENT_*`/`CAW_PROVIDER_*` + only
+  `AGENT_WALLET_API_URL`; `AGENT_WALLET_API_KEY`/`_WALLET_ID` are unused legacy names. Irys uploader
+  (`agents/irys/upload.mjs`) uses `IRYS_PRIVATE_KEY` or falls back to `DEPLOYER_PRIVATE_KEY`; `IRYS_NODE_URL`
+  is never read. So blank `AGENT_WALLET_*` / `IRYS_*` are expected — nothing missing.
+- Deploy: see `docs/DEPLOY.md` (Vercel: build `pnpm --filter web build`, output `web/.next`, NEXT_PUBLIC_* envs).

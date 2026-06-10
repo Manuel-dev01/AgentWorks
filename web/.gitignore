@@ -1,0 +1,10 @@
+# dependencies
+/node_modules
+# next
+/.next
+/out
+# env (secrets live in repo-root .env)
+.env*.local
+# misc
+*.tsbuildinfo
+next-env.d.ts

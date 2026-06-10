@@ -14,18 +14,19 @@ blocked server-side, and authority can be frozen instantly by revoking the Pact.
 
 Lifecycle: `createJob → fund → submitWork → complete (payout) | reject (refund) | claimRefund (expiry)`
 
-## Status — Phases 0–5 complete & verified; dashboard (Phase 6) next
+## Status — Phases 0–6 complete & verified; demo polish (Phase 7) next
 Full lifecycle works headless on **Ethereum Sepolia** with both settlement branches, the CAW
 criticality beats (Pact **denial** + emergency **freeze** + human-in-the-loop **review**), genuine LLM
-reasoning, and Irys-stored deliverables verified against the on-chain content hash.
+reasoning, and Irys-stored deliverables verified against the on-chain content hash. The **Next.js
+dashboard** (the demo surface) is built on the AgentWorks brand and surfaces every verified run with live
+on-chain reads — production build passes and it's Vercel-deployable (see **[docs/DEPLOY.md](docs/DEPLOY.md)**).
 See **[docs/STATUS.md](docs/STATUS.md)** for the phase-by-phase state and **[docs/FACTS.md](docs/FACTS.md)**
-for every verified address, signature, and tx hash. The Next.js dashboard (demo surface) and demo
-script/architecture docs are the remaining phases.
+for every verified address, signature, and tx hash. Demo script + architecture/risk docs are the remaining work.
 
 ## Stack
 Foundry (escrow) · Python agents (CAW SDK `cobo-agentic-wallet` + web3) · DeepSeek reasoning
-(OpenAI-compatible) · Irys devnet (deliverable storage) · Next.js 15 dashboard (pending) ·
-**Ethereum Sepolia** testnet (chainId 11155111).
+(OpenAI-compatible) · Irys devnet (deliverable storage) · **Next.js 15** dashboard (landing + brand +
+demo surface, viem live reads) · **Ethereum Sepolia** testnet (chainId 11155111).
 
 ## Deployed (Ethereum Sepolia)
 - Escrow: [`0x812BcEEc2De8C8aC71C7af7A8E2d4467E65Fdf18`](https://sepolia.etherscan.io/address/0x812bceec2de8c8ac71c7af7a8e2d4467e65fdf18) (verified)
@@ -35,8 +36,9 @@ Foundry (escrow) · Python agents (CAW SDK `cobo-agentic-wallet` + web3) · Deep
 - `/contracts` — Foundry escrow (`AgentWorksEscrow.sol`), 25-test suite, deploy/verify scripts
 - `/agents` — CAW integration (`caw/`), escrow calldata/reads (`escrow.py`), LLM reasoning
   (`reasoning.py`), Pact specs (`pacts.py`), Irys storage (`irys/`, `irys_store.py`), runnable `scripts/`
-- `/web` — Next.js 15 dashboard (Phase 6, pending)
-- `/docs` — `STATUS.md`, `FACTS.md` (verified facts), `pacts/*.json` (shipped Pact policies)
+- `/web` — Next.js 15 app: landing (`/`), brand board (`/brand`), demo dashboard (`/dashboard`);
+  reads verified artifacts from `web/data/` (snapshotted) + live chain via viem
+- `/docs` — `STATUS.md`, `FACTS.md` (verified facts), `DEPLOY.md` (Vercel), `pacts/*.json` (shipped Pact policies)
 
 ## Running it (testnet)
 Secrets live in `.env` (gitignored); see `.env.example`. Foundry is at `~/.foundry/bin`.
@@ -49,7 +51,13 @@ agents/.venv/Scripts/python.exe agents/scripts/phase4_demo.py good     # reasone
 agents/.venv/Scripts/python.exe agents/scripts/phase4_denial.py        # Pact denial beats
 agents/.venv/Scripts/python.exe agents/scripts/phase4_freeze.py        # emergency freeze
 agents/.venv/Scripts/python.exe agents/scripts/phase5_demo.py good     # Irys store + on-chain verify
+
+# dashboard (demo surface) — landing /, brand /brand, dashboard /dashboard
+pnpm install
+pnpm --filter web dev          # http://localhost:3000   (build: pnpm --filter web build)
 ```
+If `pnpm --filter web dev` ever errors on an ignored `sharp` build, run `web/node_modules/.bin/next dev`
+directly. Deploy notes: **[docs/DEPLOY.md](docs/DEPLOY.md)**.
 
 ## What CAW actually does here (claims discipline)
 CAW enforces each agent's authority boundary (Pact: contract allowlist + caps), server-side and

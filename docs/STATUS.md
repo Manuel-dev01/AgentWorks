@@ -4,9 +4,11 @@ Fast-recall snapshot of where the build is. Stable law → `CLAUDE.md`; verified
 (every tx hash, signature, address) → `docs/FACTS.md`. This file is the bridge.
 
 ## TL;DR
-**Phases 0–5 complete and verified. Phase 6 (Next.js dashboard) is NEXT.** Phase 7 = demo/docs.
+**Phases 0–6 complete and verified. Phase 7 (demo script/video + architecture/risk docs) is NEXT.**
 Everything runs on **Ethereum Sepolia** (chainId 11155111) — we switched off Base Sepolia in Phase 2
-because CAW can't fund/index agents on Base. Nothing is committed to git yet (user commits).
+because CAW can't fund/index agents on Base. The Next.js dashboard is built (landing `/`, brand `/brand`,
+demo `/dashboard`), production build passes, and it's Vercel-deployable (see `docs/DEPLOY.md`). Nothing is
+committed to git yet (user commits).
 
 ## Current addresses / identities (Ethereum Sepolia)
 | What | Value |
@@ -44,11 +46,17 @@ Foundry escrow · Python agents (CAW SDK `cobo-agentic-wallet` 0.1.40 + web3) ·
   Full loop: Provider stores on Irys → submits hash+id → Evaluator **fetches from Irys** to judge → settle →
   `keccak256(Irys-fetched) == on-chain deliverableHash` (True, both branches).
 
-## What's NEXT — Phase 6 (Next.js 15 dashboard, the demo surface)
-Surface the verified flows for a live judge: wallet/USDC balances, the job state machine
-(Created→Funded→Submitted→Completed|Rejected), deliverable hash + clickable Irys link, CAW audit-log
-allowed/denied entries, the literal Pact JSON, and Etherscan/Irys links. Build in `/web`.
-(Phase 7 = demo script/video, README, architecture diagram, risk-boundary doc.)
+- **Phase 6 — Next.js 15 dashboard (demo surface) ✅** Built on the AgentWorks brand (Claude Design handoff:
+  paper/ink + Settle Blue, Space Grotesk + IBM Plex Mono, the AW escrow-chip mark). Three routes in `/web`:
+  landing `/`, brand board `/brand`, demo `/dashboard`. Dashboard surfaces every verified run — job board +
+  escrow detail with per-tx Etherscan links, LLM reasoning, Irys deliverable + content-hash verification,
+  the three CAW criticality beats (real denial codes), and the literal Pact JSON — over **live viem reads**
+  (balances/status) with a localhost-only **Run-live** button. `pnpm --filter web build` passes (5 routes).
+  Vercel-ready: verified artifacts are snapshotted into `web/data/` (Next can't `fs`-read sibling dirs in a
+  serverless function); Run-live is hidden in prod. Deploy guide: `docs/DEPLOY.md`.
+
+## What's NEXT — Phase 7 (demo + docs)
+Demo script/video, architecture diagram, risk-boundary doc, README polish. The user performs the live Vercel deploy.
 
 ## Key gotchas to remember (full detail in FACTS.md)
 - CAW: every tx needs an active pact; non-matching → DENIED server-side; tx status 400→500→900 (Success);
@@ -57,12 +65,20 @@ allowed/denied entries, the literal Pact JSON, and Etherscan/Irys links. Build i
   Python-urllib UA (send a normal User-Agent). Uploads auto-fund from the EVM key's Sepolia ETH.
 - Foundry reads `$CHAIN` as `--chain` → keep `CHAIN=sepolia` in `.env`.
 - Windows console is cp1252 → force UTF-8 stdout in scripts; avoid non-ASCII in prints.
+- **Web/pnpm:** repo pins `pnpm@11.1.2`, which gates native build scripts — `pnpm-workspace.yaml` has
+  `allowBuilds: { sharp: true }` (else `ERR_PNPM_IGNORED_BUILDS`). `web/node_modules/.bin/next dev` bypasses
+  the gate. Dashboard reads proofs from `web/data/` first (snapshot for Vercel), sibling dirs as dev fallback.
+- **Env keys clarification:** the agents read `CAW_CLIENT_*`/`CAW_PROVIDER_*` (set) — `AGENT_WALLET_API_KEY`/
+  `_WALLET_ID` are unused legacy names. `IRYS_PRIVATE_KEY` falls back to `DEPLOYER_PRIVATE_KEY`; `IRYS_NODE_URL`
+  is never read (`.devnet()` sets the node). So blank `AGENT_WALLET_*`/`IRYS_*` are fine — nothing missing.
 
 ## Run cheatsheet (from repo root)
 - Contracts: `cd contracts && ~/.foundry/bin/forge.exe test`
 - Agents (venv): `agents/.venv/Scripts/python.exe agents/scripts/<phaseN_*>.py`
 - Phase 4 beats: `phase4_criticality_smoke.py`, `phase4_denial.py`, `phase4_freeze.py`, `phase4_demo.py {good|bad}`, `phase4_review.py`
 - Phase 5: `phase5_irys_smoke.py`, `phase5_demo.py {good|bad}`
+- Dashboard: `pnpm install` then `pnpm --filter web dev` → http://localhost:3000 (`/`, `/brand`, `/dashboard`);
+  refresh artifacts after a new run with `pnpm --filter web snapshot`; build with `pnpm --filter web build`.
 
 ## Secrets/keys in `.env` (gitignored) — what's set
 CAW client/provider wallet ids + api keys; DEPLOYER_PRIVATE_KEY (funded Sepolia ETH); EXPLORER_API_KEY
