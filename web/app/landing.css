@@ -45,7 +45,7 @@
 .lp .ecard .top .w{ margin-left:auto; display:flex; align-items:center; gap:8px; font-family:var(--mono);
   font-size:10.5px; color:var(--ink-2); border:1px solid var(--line); border-radius:999px; padding:5px 11px; }
 .lp .ecard .body{ padding:20px; }
-.lp .ecard .eh{ display:flex; justify-content:space-between; align-items:start; gap:14px; }
+.lp .ecard .eh{ display:flex; justify-content:space-between; align-items:flex-start; gap:14px; }
 .lp .ecard .eh h3{ font-size:17px; }
 .lp .ecard .esub{ font-family:var(--mono); font-size:10.5px; color:var(--ink-3); margin-top:7px; letter-spacing:0.02em; }
 .lp .ecard .amt{ font-family:var(--mono); font-weight:600; font-size:26px; letter-spacing:-0.01em; margin-top:18px; }
@@ -69,10 +69,10 @@
 .lp .sec-head p{ margin-top:18px; color:var(--ink-2); font-size:17px; line-height:1.55; max-width:52ch; }
 
 /* interactive lifecycle */
-.lp .life-grid{ display:grid; grid-template-columns: 0.92fr 1.08fr; gap:48px; align-items:start; margin-top:8px; }
+.lp .life-grid{ display:grid; grid-template-columns: 0.92fr 1.08fr; gap:48px; align-items:flex-start; margin-top:8px; }
 .lp .steps{ display:flex; flex-direction:column; gap:0; }
 .lp .step{ display:grid; grid-template-columns: 30px 1fr; gap:16px; padding:16px 16px 16px 14px; cursor:pointer;
-  border-radius:12px; border:1px solid transparent; transition: background .15s, border-color .15s; align-items:start; }
+  border-radius:12px; border:1px solid transparent; transition: background .15s, border-color .15s; align-items:flex-start; }
 .lp .step:hover{ background: var(--paper-2); }
 .lp .step.on{ background: var(--paper-2); border-color: var(--settle-line); }
 .lp .step .mk{ display:flex; flex-direction:column; align-items:center; gap:5px; height:100%; }
@@ -102,7 +102,7 @@
 .lp .acard h3{ font-size:24px; margin-top:12px; letter-spacing:-0.02em; }
 .lp .acard .glyph{ position:absolute; top:26px; right:28px; width:40px; height:40px; }
 .lp .acard ul{ list-style:none; padding:0; margin:22px 0 0; display:flex; flex-direction:column; gap:13px; }
-.lp .acard li{ display:flex; gap:11px; align-items:start; font-size:14.5px; color:var(--ink-2); line-height:1.45; }
+.lp .acard li{ display:flex; gap:11px; align-items:flex-start; font-size:14.5px; color:var(--ink-2); line-height:1.45; }
 .lp .acard li .tick{ color:var(--settle); flex:0 0 auto; margin-top:2px; }
 .lp .acard .wallet{ margin-top:24px; border-top:1px solid var(--line); padding-top:16px;
   font-family:var(--mono); font-size:11px; color:var(--ink-3); display:flex; justify-content:space-between; gap:10px; }

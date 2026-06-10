@@ -21,11 +21,15 @@ copies the verified `*_proof.json` + Pact JSON into **`web/data/`** (committed t
 local dev. Refresh after a new agent run with: `pnpm --filter web snapshot`.
 
 ## Vercel project settings
-- **Framework preset:** Next.js
-- **Root Directory:** repo root (leave default). Build runs `prebuild` (snapshot) → `next build`.
-- **Install Command:** `pnpm install`
-- **Build Command:** `pnpm --filter web build`
-- **Output Directory:** `web/.next`
+- **Root Directory:** **`web`** (recommended). Vercel auto-detects Next.js, and for a pnpm workspace it
+  walks up to the repo-root `pnpm-workspace.yaml` (so `allowBuilds: sharp` + the lockfile apply) and installs
+  from there. Turn ON **"Include source files outside of the Root Directory"** so `prebuild` can snapshot
+  from `../agents` / `../docs` — though `web/data/` is committed, so the dashboard works even without it.
+- **Framework preset:** Next.js (auto-detected)
+- **Install Command:** default (`pnpm install`)
+- **Build Command:** default (`pnpm run build` → runs `prebuild` snapshot, then `next build`)
+- **Output Directory:** default (`.next`)
+- *(Alternative — Root Directory = repo root: set Build Command `pnpm --filter web build`, Output `web/.next`.)*
 - **Environment Variables** — the public `NEXT_PUBLIC_*` block from `.env.example` (all non-secret testnet
   values; sensible defaults are also baked in, so the app works even if these are unset):
   `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_ESCROW_ADDRESS`, `NEXT_PUBLIC_USDC_ADDRESS`,

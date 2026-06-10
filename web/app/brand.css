@@ -16,7 +16,7 @@
 
 /* masthead */
 .bp .masthead{ padding-top: 92px; padding-bottom: 84px; }
-.bp .masthead .grid{ display:grid; grid-template-columns: 1.15fr 0.85fr; gap: 56px; align-items: end; }
+.bp .masthead .grid{ display:grid; grid-template-columns: 1.15fr 0.85fr; gap: 56px; align-items: flex-end; }
 .bp .display{ font-size: clamp(48px, 7vw, 92px); line-height: 0.96; letter-spacing: -0.035em; font-weight: 600; }
 .bp .masthead .lede{ margin-top: 28px; max-width: 46ch; font-size: 19px; line-height: 1.5; color: var(--ink-2); }
 .bp .masthead .lede b{ color: var(--ink); font-weight: 500; }
@@ -81,7 +81,7 @@
 /* voice */
 .bp .voice{ display:grid; grid-template-columns: 1fr 1fr; gap: 48px; }
 .bp .vlist{ display:flex; flex-direction:column; gap: 2px; }
-.bp .vrow{ display:grid; grid-template-columns: 1fr 1fr; gap:20px; padding:16px 0; border-top:1px solid var(--line); align-items:start; }
+.bp .vrow{ display:grid; grid-template-columns: 1fr 1fr; gap:20px; padding:16px 0; border-top:1px solid var(--line); align-items:flex-start; }
 .bp .vrow .do{ color: var(--ink); }
 .bp .vrow .dont{ color: var(--ink-3); }
 .bp .vrow .k{ font-family:var(--mono); font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; margin-bottom:8px; }
@@ -89,7 +89,7 @@
 .bp .vrow .dont .k{ color: var(--reclaim); }
 
 /* applied screens */
-.bp .screens-head{ display:flex; align-items:end; justify-content:space-between; gap:24px; margin-bottom:36px; }
+.bp .screens-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:36px; }
 .bp .app{ background: var(--paper-2); border:1px solid var(--line); border-radius: 16px; padding: 22px; }
 .bp .browser{ display:flex; align-items:center; gap:8px; margin-bottom: 18px; }
 .bp .browser .b-dot{ width:11px; height:11px; border-radius:50%; background: var(--paper-3); border:1px solid var(--line); }
@@ -106,14 +106,14 @@
 .bp .job-grid{ display:grid; grid-template-columns: 1.3fr 1fr; }
 .bp .joblist{ padding: 18px; display:flex; flex-direction:column; gap:12px; border-right:1px solid var(--line); }
 .bp .job{ border:1px solid var(--line); border-radius:10px; padding:16px; background:var(--paper);
-  display:grid; grid-template-columns: 1fr auto; gap:8px 16px; align-items:start; transition: border-color .15s; }
+  display:grid; grid-template-columns: 1fr auto; gap:8px 16px; align-items:flex-start; transition: border-color .15s; }
 .bp .job.sel{ border-color: var(--settle-line); box-shadow: 0 0 0 1px var(--settle-line); }
 .bp .job .jt{ font-weight:600; font-size:15px; letter-spacing:-0.01em; }
 .bp .job .jm{ font-family:var(--mono); font-size:10.5px; color:var(--ink-3); margin-top:6px; letter-spacing:0.02em; }
 .bp .job .amt{ font-family:var(--mono); font-weight:600; font-size:15px; text-align:right; }
 .bp .job .amt .u{ font-size:10px; color:var(--ink-3); font-weight:500; }
 .bp .detail{ padding: 20px; }
-.bp .detail .dh{ display:flex; justify-content:space-between; align-items:start; gap:16px; }
+.bp .detail .dh{ display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
 .bp .detail .dh h3{ font-size:17px; letter-spacing:-0.01em; }
 .bp .detail .dsub{ font-family:var(--mono); font-size:10.5px; color:var(--ink-3); margin-top:8px; }
 .bp .agents{ display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:12px; margin:20px 0; }
@@ -124,7 +124,7 @@
 .bp .agents .link{ width:40px; height:1px; background:var(--settle-line); position:relative; }
 .bp .agents .link::before{ content:""; position:absolute; left:50%; width:7px; height:7px; transform:translate(-50%,0) rotate(45deg); background:var(--settle); border-radius:1px; top:50%; margin-top:-3.5px; }
 .bp .timeline{ border-top:1px solid var(--line); padding-top:18px; }
-.bp .tstep{ display:grid; grid-template-columns: 24px 1fr auto; gap:14px; padding:11px 0; align-items:start; }
+.bp .tstep{ display:grid; grid-template-columns: 24px 1fr auto; gap:14px; padding:11px 0; align-items:flex-start; }
 .bp .tstep .mk{ display:flex; flex-direction:column; align-items:center; gap:4px; }
 .bp .tstep .mk .o{ width:13px; height:13px; border-radius:50%; border:2px solid var(--line); background:var(--paper); margin-top:2px; }
 .bp .tstep .mk .ln{ width:2px; flex:1; min-height:18px; background:var(--line); }
