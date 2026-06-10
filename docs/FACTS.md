@@ -376,3 +376,51 @@ Pacts are enforced server-side (security.md confirmed in practice). Smoke `phase
   (`agents/irys/upload.mjs`) uses `IRYS_PRIVATE_KEY` or falls back to `DEPLOYER_PRIVATE_KEY`; `IRYS_NODE_URL`
   is never read. So blank `AGENT_WALLET_*` / `IRYS_*` are expected — nothing missing.
 - Deploy: see `docs/DEPLOY.md` (Vercel: build `pnpm --filter web build`, output `web/.next`, NEXT_PUBLIC_* envs).
+
+═══════════════════════════════════════════════════════════════════════
+## CAW TSS signer — restart procedure (VERIFIED LIVE 2026-06-10)
+═══════════════════════════════════════════════════════════════════════
+On-chain signing requires a local `cobo-tss-node.exe` daemon PER wallet profile, running in CAW mode and
+connected to `wss://ws.caw.tss.cobo.com/ws`. These are launched during `caw onboard` and must STAY running;
+they do NOT auto-restart on reboot/logout. When they're down, every CAW tx stalls at
+`status:400 Processing / sub_status:"signing"`, `transaction_hash:null`, and the wallet nonce never advances
+(confirmed: both our flow AND the known-good phase5_demo.py hang identically). `caw onboard self-test` shows
+"Blocked transfer: PASS" but "Allowed transfer: FAIL" in this state.
+
+RESTART (run each as a background daemon; they're long-lived):
+```
+cd ~/.cobo-agentic-wallet/profiles/<profile_dir>/tss-node
+./cobo-tss-node.exe start --caw --prod --key-file .password
+```
+Profiles:
+- Client   = `profile_caw_agent_4bc15e6348db0514` (wallet `0da4d5c3…`, node id `coborRoDar4hq…`)
+- Provider = `profile_caw_agent_e6318ac84f123085` (wallet `bdecbada…`,  node id `cobo2HM2Lbo…`)
+Verify: log shows `[Websocket.Client] connected.` then `Got Signing request, …` as queued ops sign.
+`.password` (in each tss-node dir) is the db encryption key caw stored; `start --caw --prod` connects to the
+prod relay. This only runs the signer against the existing key share — it does NOT re-key (addresses unchanged).
+
+Notes:
+- `caw onboard --session-id <stored onboard_session_id>` RESUMES the existing active wallet (wallet_uuid
+  preserved — does NOT create a new wallet) but does NOT relaunch the daemon. The session ids live in each
+  profile's `onboard_new_state.json` (Provider: `sess-3bd907115a737f19`).
+- The wallet can hold multiple addresses. A new default ETH addr `0x8c33ba7f…` appeared 2026-06-10; the
+  Phase-2 funded addresses remain valid + hold funds (client `0x6dfb…` 970 MockUSDC, provider `0xef93…` 30).
+- The relay host had a transient DNS failure ("no such host") earlier in the day; it resolves fine now —
+  if the node can't connect, check DNS/network to ws.caw.tss.cobo.com before assuming a node fault.
+
+═══════════════════════════════════════════════════════════════════════
+## Phase 6 redesign — app FLOW + live per-step journey (VERIFIED 2026-06-10)
+═══════════════════════════════════════════════════════════════════════
+Dashboard rebuilt around the app flow (2nd Claude Design handoff `screens/`), replacing the monolith.
+Routes (all 200 in `next dev`; `pnpm --filter web build` passes): `/` landing, `/brand`, `/dashboard`
+(Marketplace), `/dashboard/new` (live journey), `/dashboard/proofs` (criticality + Pact JSON, relocated),
+`/dashboard/flow` (flow map), `/dashboard/jobs/[idx]` (read-only receipt).
+- Live journey backend: `agents/flow.py` (resumable steps start/post/accept/submit/settle, state in
+  `agents/scripts/.flow/<run_id>.json`) + CLI `agents/scripts/flow_step.py` + web `app/api/flow/route.ts`
+  (POST {step,runId,mode}; localhost-guarded; disabled when NODE_ENV=production).
+- e2e VERIFIED twice with both TSS nodes up:
+  - headless (job #4, run f99a959257): createJob `0x01e07e26…`, approve `0x0248d351…`, fund `0x56c48a27…`,
+    submitWork `0xd2677326…` (Irys `3GZU7do1TGEseoFJRRRc7E4ywQjMKgpnbTkGmrMo8m4B`), complete `0x77f93630…`, content_verified=true.
+  - through `/api/flow` HTTP (job #8, run 9f12eb9a55): createJob `0x7a9b6f19…`, approve `0xa5318c68…`,
+    fund `0x1ce70305…`, submitWork `0x9b5731f9…`, complete `0xabcb748a…`, branch payout, content_verified=true.
+- Fixed a latent bug in `agents/caw/client.py` wait_tx_final timeout message (`status` → `last`) that masked TimeoutErrors.

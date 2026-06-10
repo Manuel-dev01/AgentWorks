@@ -46,14 +46,18 @@ Foundry escrow · Python agents (CAW SDK `cobo-agentic-wallet` 0.1.40 + web3) ·
   Full loop: Provider stores on Irys → submits hash+id → Evaluator **fetches from Irys** to judge → settle →
   `keccak256(Irys-fetched) == on-chain deliverableHash` (True, both branches).
 
-- **Phase 6 — Next.js 15 dashboard (demo surface) ✅** Built on the AgentWorks brand (Claude Design handoff:
-  paper/ink + Settle Blue, Space Grotesk + IBM Plex Mono, the AW escrow-chip mark). Three routes in `/web`:
-  landing `/`, brand board `/brand`, demo `/dashboard`. Dashboard surfaces every verified run — job board +
-  escrow detail with per-tx Etherscan links, LLM reasoning, Irys deliverable + content-hash verification,
-  the three CAW criticality beats (real denial codes), and the literal Pact JSON — over **live viem reads**
-  (balances/status) with a localhost-only **Run-live** button. `pnpm --filter web build` passes (5 routes).
-  Vercel-ready: verified artifacts are snapshotted into `web/data/` (Next can't `fs`-read sibling dirs in a
-  serverless function); Run-live is hidden in prod. Deploy guide: `docs/DEPLOY.md`.
+- **Phase 6 — Next.js 15 app on the AgentWorks brand ✅** (paper/ink + Settle Blue, Space Grotesk + IBM Plex
+  Mono, the AW escrow-chip mark). Rebuilt around the **app FLOW** (2nd Claude Design handoff, `screens/`),
+  replacing the earlier monolithic dashboard. Routes: landing `/`, brand `/brand`, and the dashboard shell:
+  - `/dashboard` **Marketplace** — jobs board (filters + stats) from verified artifacts + live viem reads.
+  - `/dashboard/new` **live journey** — Post → Accept → Submit → Review → Settle, each step a **real action
+    on Sepolia** via a resumable orchestrator (`agents/flow.py` + `flow_step.py` → `/api/flow`, localhost-only,
+    hidden in prod). Verified e2e: a full run produced real createJob/fund/submitWork/complete txs +
+    Irys id + `content_verified=true` (job #4, run f99a959257).
+  - `/dashboard/proofs` — CAW denial/freeze beats + literal Pact JSON (relocated here, off the main flow).
+  - `/dashboard/flow` — the 6-step flow map; `/dashboard/jobs/[idx]` — read-only receipt for a past run.
+  `pnpm --filter web build` passes; all routes 200 in dev. Vercel-ready (artifacts snapshotted to `web/data/`).
+  **Live signing depends on the local CAW TSS nodes running** — restart procedure in FACTS.md.
 
 ## What's NEXT — Phase 7 (demo + docs)
 Demo script/video, architecture diagram, risk-boundary doc, README polish. The user performs the live Vercel deploy.
@@ -71,14 +75,19 @@ Demo script/video, architecture diagram, risk-boundary doc, README polish. The u
 - **Env keys clarification:** the agents read `CAW_CLIENT_*`/`CAW_PROVIDER_*` (set) — `AGENT_WALLET_API_KEY`/
   `_WALLET_ID` are unused legacy names. `IRYS_PRIVATE_KEY` falls back to `DEPLOYER_PRIVATE_KEY`; `IRYS_NODE_URL`
   is never read (`.devnet()` sets the node). So blank `AGENT_WALLET_*`/`IRYS_*` are fine — nothing missing.
+- **CAW signing needs the local TSS nodes RUNNING** (one `cobo-tss-node.exe` per wallet profile). They don't
+  auto-restart on reboot; when down, every tx stalls at `Processing/"signing"` (no tx hash, nonce frozen).
+  Restart both before any live run — exact command + profiles in FACTS.md ("CAW TSS signer — restart procedure").
 
 ## Run cheatsheet (from repo root)
 - Contracts: `cd contracts && ~/.foundry/bin/forge.exe test`
 - Agents (venv): `agents/.venv/Scripts/python.exe agents/scripts/<phaseN_*>.py`
 - Phase 4 beats: `phase4_criticality_smoke.py`, `phase4_denial.py`, `phase4_freeze.py`, `phase4_demo.py {good|bad}`, `phase4_review.py`
 - Phase 5: `phase5_irys_smoke.py`, `phase5_demo.py {good|bad}`
-- Dashboard: `pnpm install` then `pnpm --filter web dev` → http://localhost:3000 (`/`, `/brand`, `/dashboard`);
-  refresh artifacts after a new run with `pnpm --filter web snapshot`; build with `pnpm --filter web build`.
+- Dashboard: `pnpm install` then `pnpm --filter web dev` → http://localhost:3000 (`/`, `/brand`, `/dashboard`,
+  `/dashboard/new`, `/dashboard/proofs`, `/dashboard/flow`); refresh artifacts with `pnpm --filter web snapshot`;
+  build with `pnpm --filter web build`. For the **live journey** (`/dashboard/new`), first start both CAW TSS
+  nodes (FACTS.md) so signing works.
 
 ## Secrets/keys in `.env` (gitignored) — what's set
 CAW client/provider wallet ids + api keys; DEPLOYER_PRIVATE_KEY (funded Sepolia ETH); EXPLORER_API_KEY

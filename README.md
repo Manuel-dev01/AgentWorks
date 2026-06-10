@@ -36,8 +36,10 @@ demo surface, viem live reads) · **Ethereum Sepolia** testnet (chainId 11155111
 - `/contracts` — Foundry escrow (`AgentWorksEscrow.sol`), 25-test suite, deploy/verify scripts
 - `/agents` — CAW integration (`caw/`), escrow calldata/reads (`escrow.py`), LLM reasoning
   (`reasoning.py`), Pact specs (`pacts.py`), Irys storage (`irys/`, `irys_store.py`), runnable `scripts/`
-- `/web` — Next.js 15 app: landing (`/`), brand board (`/brand`), demo dashboard (`/dashboard`);
-  reads verified artifacts from `web/data/` (snapshotted) + live chain via viem
+- `/web` — Next.js 15 app on the flow IA: landing (`/`), brand (`/brand`), and the dashboard —
+  Marketplace (`/dashboard`), **live journey** (`/dashboard/new`, drives the agents step-by-step via
+  `/api/flow`), Proofs (`/dashboard/proofs`), flow map (`/dashboard/flow`). Reads verified artifacts from
+  `web/data/` (snapshotted) + live chain via viem; the live journey is localhost-only.
 - `/docs` — `STATUS.md`, `FACTS.md` (verified facts), `DEPLOY.md` (Vercel), `pacts/*.json` (shipped Pact policies)
 
 ## Running it (testnet)
@@ -52,10 +54,12 @@ agents/.venv/Scripts/python.exe agents/scripts/phase4_denial.py        # Pact de
 agents/.venv/Scripts/python.exe agents/scripts/phase4_freeze.py        # emergency freeze
 agents/.venv/Scripts/python.exe agents/scripts/phase5_demo.py good     # Irys store + on-chain verify
 
-# dashboard (demo surface) — landing /, brand /brand, dashboard /dashboard
+# dashboard — landing /, brand /brand, Marketplace /dashboard, live journey /dashboard/new
 pnpm install
 pnpm --filter web dev          # http://localhost:3000   (build: pnpm --filter web build)
 ```
+The **live journey** (`/dashboard/new`) signs real txs, so both local CAW TSS nodes must be running
+(they don't auto-restart on reboot) — see the restart procedure in [docs/FACTS.md](docs/FACTS.md).
 If `pnpm --filter web dev` ever errors on an ignored `sharp` build, run `web/node_modules/.bin/next dev`
 directly. Deploy notes: **[docs/DEPLOY.md](docs/DEPLOY.md)**.
 

@@ -190,7 +190,7 @@ class CawWallet:
             if disp in _TX_FAILED or sub in {"failed", "rejected"} or num in _TX_STATUS_NUM_FAILED:
                 raise RuntimeError(f"transfer {request_id} failed: rec={_short(rec)}")
             if time.monotonic() - started > timeout:
-                raise TimeoutError(f"transfer {request_id} not final after {timeout}s (last={status})")
+                raise TimeoutError(f"transfer {request_id} not final after {timeout}s (last={last}, rec={_short(rec)})")
             await asyncio.sleep(interval)
 
     # ── audit ──
