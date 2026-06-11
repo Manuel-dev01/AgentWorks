@@ -1,0 +1,20 @@
+# Keep the build context small + never ship secrets.
+**/.venv
+**/node_modules
+**/__pycache__
+**/*.pyc
+.git
+**/.market
+**/.flow
+web
+contracts/lib
+contracts/cache
+contracts/broadcast
+contracts/out
+# (the v2 ABI is vendored at agents/abi/AgentWorksEscrowV2.json, so contracts/out isn't needed)
+# Secrets — never in an image. Provide config via --env-file / platform env at run time.
+.env
+.env.*
+!.env.example
+**/registry.local.json
+*.log

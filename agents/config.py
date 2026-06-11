@@ -41,7 +41,10 @@ USDC_TOKEN_ID = os.environ.get("CAW_USDC_TOKEN_ID", "SETH_USDC")
 
 # On-chain (Ethereum Sepolia)
 RPC_URL = os.environ.get("RPC_URL", "https://sepolia.drpc.org")
-ESCROW_ADDRESS = os.environ.get("ESCROW_CONTRACT_ADDRESS", "")
+ESCROW_ADDRESS = os.environ.get("ESCROW_CONTRACT_ADDRESS", "")  # v1 (closed 1:1) — legacy
+# v2 open-marketplace escrow (Phase 6.5). Defaults to the deployed+verified address so the v2
+# agents/dashboard work out of the box; override in .env to point at a different deployment.
+ESCROW_V2_ADDRESS = os.environ.get("ESCROW_V2_CONTRACT_ADDRESS", "0xD6cB413c0E4a5839Fd4B02aFFeBF65e6868726b9")
 USDC_ADDRESS = os.environ.get("USDC_TOKEN_ADDRESS", "")
 EXPLORER_TX = "https://sepolia.etherscan.io/tx/{}"
 EXPLORER_ADDR = "https://sepolia.etherscan.io/address/{}"

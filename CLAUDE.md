@@ -184,15 +184,23 @@ writing code against it. A five-minute read beats an hour debugging a hallucinat
   `contract_call` (we pass our own ABI-encoded calldata; CAW does NOT validate custom-contract
   semantics — safety rests on the Pact `target_in` allowlist + our Foundry tests). No
   dependence on external/Arc deployments. We own and verify it.
+- **Escrow v2 (Phase 6.5, open marketplace):** the v1 escrow (`0x812BcE…`) names the provider at
+  `createJob` (a closed 1:1 deal). Phase 6.5 introduces **`AgentWorksEscrowV2`** where `createJob`
+  does NOT name a provider and any agent claims a *funded* job via **`acceptJob(jobId)`** (sets
+  provider = `msg.sender`; first claimer wins — the on-chain race is the source of truth). V2
+  SUPERSEDES v1 once deployed + verified; v1 stays in git history as the prior verified milestone.
+  `acceptJob` is OUR contract primitive, NOT a CAW method. (Decided 2026-06-11, full-v2 build.)
 - **Evaluator:** a distinct `evaluator` address recorded PER-JOB at `createJob`; `complete`
   and `reject` are gated to that address. v1: the Client controls it (client-as-evaluator),
   but it stays a separate, swappable component so it can later be made independent. (Decided 2026-06-03.)
 - **Emergency freeze:** there is NO native CAW freeze/pause method (verified — see FACTS.md).
   The criticality-beat "freeze" is implemented as `revoke_pact(pact_id)`, which strips the
   agent's scoped authority. Use accurate language in demo/README — never claim a freeze API.
-- **CAW SDK:** Python (`cobo-agentic-wallet`, v0.1.40 confirmed). Two wallets (Client,
-  Provider), two Pacts. All client methods are `async`; authority flows through a
-  PACT-SCOPED api key (see FACTS.md "how authority is scoped").
+- **CAW SDK:** Python (`cobo-agentic-wallet`, v0.1.40 confirmed). v1 = two wallets (Client,
+  Provider), two Pacts; Phase 6.5 generalizes to a **pool** of wallets (≥1 client, ≥2 providers)
+  via `agents/registry.py`, each binding a template Pact — still just more `(api_key, wallet_uuid)`
+  pairs through the same `CawWallet`, no new SDK surface. All client methods are `async`; authority
+  flows through a PACT-SCOPED api key (see FACTS.md "how authority is scoped").
 - **Agent runtime:** Python. Direct SDK calls FIRST. Add an agent framework (LangChain /
   OpenAI Agents SDK) only where it demonstrably earns its place — not by default.
 - **Agent reasoning (LLM):** **DeepSeek `deepseek-v4-flash`** via the OpenAI-compatible API
@@ -237,11 +245,12 @@ If a fact isn't in FACTS.md and isn't verified live, treat it as unknown.
 ## 8. PHASE MAP
 ═══════════════════════════════════════════════════════════════════════
 
-> **STATUS (2026-06-09): Phases 0–6 ✅ COMPLETE & VERIFIED.** Phase 7 (demo script/video + architecture/risk docs) is NEXT.
-> Chain = Ethereum Sepolia (11155111). Escrow `0x812BcEEc2De8C8aC71C7af7A8E2d4467E65Fdf18`,
-> MockUSDC `0x4C4D1223BcC47E380CF4C37652EaDFe10A9Fd910`. CAW wallets: Client `0da4d5c3…`,
-> Provider `bdecbada…`. Phase 6 = Next.js dashboard in `/web` on the AgentWorks brand (landing `/`,
-> brand `/brand`, demo `/dashboard`); production build passes, Vercel-ready (`docs/DEPLOY.md`).
+> **STATUS (2026-06-11): Phases 0–6 ✅ COMPLETE & VERIFIED. Phase 6.5 (v2 autonomous open marketplace) IN PROGRESS** —
+> sub-phase 6.5.0 done (Linux TSS binary confirmed available, FACTS.md). Then Phase 7 (demo script/video + docs).
+> Chain = Ethereum Sepolia (11155111). v1 Escrow `0x812BcEEc2De8C8aC71C7af7A8E2d4467E65Fdf18` (closed 1:1),
+> MockUSDC `0x4C4D1223BcC47E380CF4C37652EaDFe10A9Fd910`. CAW wallets: Client `0da4d5c3…`, Provider `bdecbada…`.
+> Phase 6 = Next.js dashboard in `/web` on the AgentWorks brand; production build passes, Vercel-ready (`docs/DEPLOY.md`).
+> Phase 6.5 = open-acceptance escrow v2 + multi-wallet + autonomous agent loops + containerized always-on host.
 > Full phase-by-phase status + all tx/Irys proofs: **docs/STATUS.md** + **docs/FACTS.md**.
 
 Detailed per-phase prompts are delivered separately, one at a time. High level:
@@ -259,6 +268,21 @@ Detailed per-phase prompts are delivered separately, one at a time. High level:
 - **Phase 5** — Irys deliverable storage + on-chain content-hash verification.
 - **Phase 6** — Next.js dashboard: balances, job state machine, deliverable hash, audit-log
   denials, explorer links. The demo surface.
+- **Phase 6.5** — v2: AUTONOMOUS OPEN MARKETPLACE (decided 2026-06-11; evolves into the submission).
+  Closes the "two hardcoded wallets, human-clicks-each-step" gap. Sub-phases, each a HARD STOP:
+  - **6.5.0** — CLAUDE.md + recon; verify Linux TSS binary (✅ done — FACTS.md).
+  - **6.5.1** — Escrow **v2**: open `createJob` (no provider) + `acceptJob(jobId)`; full Foundry suite
+    (incl. accept-race + refund-when-never-accepted); deploy + verify on Sepolia; re-wire `agents/escrow.py`.
+  - **6.5.2** — Pact **templates** (parameterized, bind v2 addr) + multi-wallet **registry** (controlled pool:
+    ≥1 client, ≥2 providers). External self-service onboarding documented as future (credentials boundary).
+  - **6.5.3** — **Autonomous loops** (`agents/autonomous.py`): Client posts/funds + evaluates; Provider
+    watches/accepts/delivers. Genuine LLM reasoning at every decision; Pact is the hard boundary.
+  - **6.5.4** — Containerize (Linux TSS + agent runner) + deploy always-on (Railway/Fly) with a small FastAPI
+    control surface. Proof gate: a real signed tx must originate FROM the deployed container.
+  - **6.5.5** — Dashboard → marketplace IA (Open/Accepted/Submitted board, post, accept, wallet onboarding);
+    live trigger points at the deployed backend; keep deterministic verified-replay for the hosted judge demo.
+  - **6.5.6** — Re-verify + re-record submission (v2 address + new payout/refund/acceptJob tx hashes; update
+    README/SUBMISSION/FACTS/DEMO_SCRIPT). Keep claims discipline exact.
 - **Phase 7** — Demo script + video, README, architecture diagram, risk-boundary doc.
 
 Phase boundaries are hard stops. Do not cross one without my confirmation.

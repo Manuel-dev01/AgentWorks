@@ -78,6 +78,24 @@ def client_decide_fund(task: str, price_usdc: float, budget_usdc: float) -> dict
     return d
 
 
+def provider_decide_accept(spec: str, reward_usdc: float, *, provider_name: str = "Provider") -> dict:
+    """Provider genuinely decides whether to CLAIM an open, funded job (criterion 1).
+
+    In the open marketplace multiple providers see the same job; each reasons independently about
+    whether the reward justifies the work. The on-chain acceptJob race then settles who gets it.
+    """
+    system = (
+        "You are a Provider agent in an open, trustless escrow marketplace. An OPEN job has been "
+        "funded and any provider may claim it by accepting on-chain. Decide whether YOU should accept "
+        "this job: is the task something you can deliver well, and is the reward worth the effort? "
+        'Respond ONLY as JSON: {"accept": true|false, "reason": "<one sentence>"}.'
+    )
+    user = f"Provider: {provider_name}\nTask: {spec}\nReward: {reward_usdc} USDC"
+    d = _json(system, user)
+    log.info("[reason] provider_decide_accept(%s) -> %s", provider_name, d)
+    return d
+
+
 def provider_do_task(spec: str, *, sabotage: bool = False) -> str:
     if sabotage:
         # Deliberately produce an off-spec deliverable so the evaluator genuinely rejects it.

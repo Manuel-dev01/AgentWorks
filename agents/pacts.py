@@ -24,8 +24,15 @@ def _completion() -> list[dict]:
     return [{"type": "time_elapsed", "threshold": "86400"}]
 
 
-def client_escrow_pact() -> dict:
-    """Client may ONLY contract_call the escrow + USDC contracts, capped at 50 tx/24h."""
+def client_escrow_pact(escrow: str | None = None, usdc: str | None = None, tx_cap: int = 50) -> dict:
+    """Client may ONLY contract_call the escrow + USDC contracts, capped at `tx_cap` tx/24h.
+
+    Parameterized template (Phase 6.5): the marketplace binds the v2 escrow by passing
+    `escrow=config.ESCROW_V2_ADDRESS`. No-arg default stays the v1 escrow so the existing v1
+    live journey (flow.py) is unaffected.
+    """
+    escrow = escrow or config.ESCROW_ADDRESS
+    usdc = usdc or config.USDC_ADDRESS
     return {
         "policies": [{
             "name": "client-escrow-allowlist",
@@ -33,18 +40,24 @@ def client_escrow_pact() -> dict:
             "rules": {
                 "effect": "allow",
                 "when": {"chain_in": [CHAIN], "target_in": [
-                    {"chain_id": CHAIN, "contract_addr": config.ESCROW_ADDRESS},
-                    {"chain_id": CHAIN, "contract_addr": config.USDC_ADDRESS},
+                    {"chain_id": CHAIN, "contract_addr": escrow},
+                    {"chain_id": CHAIN, "contract_addr": usdc},
                 ]},
-                "deny_if": {"usage_limits": {"rolling_24h": {"tx_count_gt": 50}}},
+                "deny_if": {"usage_limits": {"rolling_24h": {"tx_count_gt": tx_cap}}},
             },
         }],
         "completion_conditions": _completion(),
     }
 
 
-def provider_pact() -> dict:
-    """Provider may ONLY contract_call the escrow contract, capped at 20 tx/24h."""
+def provider_pact(escrow: str | None = None, tx_cap: int = 20) -> dict:
+    """Provider may ONLY contract_call the escrow contract, capped at `tx_cap` tx/24h.
+
+    Parameterized template (Phase 6.5): pass `escrow=config.ESCROW_V2_ADDRESS` for the marketplace.
+    Note the provider's allowlist excludes USDC — a provider can `acceptJob`/`submitWork` but can
+    NEVER move the escrowed funds. That asymmetry is the security-isolation evidence (criterion 5).
+    """
+    escrow = escrow or config.ESCROW_ADDRESS
     return {
         "policies": [{
             "name": "provider-escrow-allowlist",
@@ -52,9 +65,9 @@ def provider_pact() -> dict:
             "rules": {
                 "effect": "allow",
                 "when": {"chain_in": [CHAIN], "target_in": [
-                    {"chain_id": CHAIN, "contract_addr": config.ESCROW_ADDRESS},
+                    {"chain_id": CHAIN, "contract_addr": escrow},
                 ]},
-                "deny_if": {"usage_limits": {"rolling_24h": {"tx_count_gt": 20}}},
+                "deny_if": {"usage_limits": {"rolling_24h": {"tx_count_gt": tx_cap}}},
             },
         }],
         "completion_conditions": _completion(),
@@ -104,6 +117,9 @@ def dump_all() -> Path:
         "provider_pact.json": provider_pact(),
         "client_budget_transfer_pact.json": client_budget_transfer_pact(),
         "review_pact.json": review_pact(),
+        # Phase 6.5 marketplace templates — bound to the v2 open-marketplace escrow.
+        "client_escrow_pact_v2.json": client_escrow_pact(escrow=config.ESCROW_V2_ADDRESS),
+        "provider_pact_v2.json": provider_pact(escrow=config.ESCROW_V2_ADDRESS),
     }
     for name, spec in artifacts.items():
         (out / name).write_text(json.dumps(spec, indent=2), encoding="utf-8")

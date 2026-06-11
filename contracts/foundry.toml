@@ -12,7 +12,10 @@ remappings = ["forge-std/=lib/forge-std/src/"]
 # RPC + explorer are read from env at command time; see .env at repo root.
 [rpc_endpoints]
 base_sepolia = "${RPC_URL}"
+sepolia = "${RPC_URL}"
 
 [etherscan]
-# Etherscan V2 unified API verifies Base Sepolia (chainId 84532) with a single Etherscan key.
+# Etherscan V2 unified API verifies any chain by chainid with a single Etherscan key.
 base_sepolia = { key = "${EXPLORER_API_KEY}", chain = 84532, url = "https://api.etherscan.io/v2/api?chainid=84532" }
+# Ethereum Sepolia (11155111) — the project's CURRENT chain (switched off Base in Phase 2).
+sepolia = { key = "${EXPLORER_API_KEY}", chain = 11155111, url = "https://api.etherscan.io/v2/api?chainid=11155111" }

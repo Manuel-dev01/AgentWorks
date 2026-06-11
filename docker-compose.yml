@@ -1,0 +1,32 @@
+# AgentWorks — autonomous agent service (+ optional containerized TSS signer).
+# Local/dev always-on: `docker compose up agent`  (TSS stays on your machine/VM).
+# Fully containerized signer too: `docker compose --profile tss up`  (stop the local signer first —
+# the CAW relay rejects a duplicate node identity). See docs/DEPLOY_AGENTS.md.
+
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: agents/Dockerfile
+    env_file: .env
+    environment:
+      - PORT=8000
+      # second provider identity (public address; reuses the provider wallet creds)
+      - CAW_PROVIDER_ADDRESS_2=${CAW_PROVIDER_ADDRESS_2:-}
+      # optional: protect POST /trigger and restrict CORS to the dashboard origin
+      - AGENT_TRIGGER_TOKEN=${AGENT_TRIGGER_TOKEN:-}
+      - AGENT_CORS_ORIGINS=${AGENT_CORS_ORIGINS:-*}
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  # Optional containerized TSS signer. Mount your key shares read-write at ./keys/<name>/.
+  # Enable with: docker compose --profile tss up
+  tss:
+    profiles: ["tss"]
+    build:
+      context: .
+      dockerfile: agents/tss/Dockerfile
+    volumes:
+      - ./keys:/keys
+    restart: unless-stopped

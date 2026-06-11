@@ -6,6 +6,14 @@
 *.key
 keystore/
 *.keystore
+# External marketplace participants' CAW credentials (Phase 6.5 self-service onboarding).
+registry.local.json
+**/registry.local.json
+# TSS key shares mounted into the signer container (Phase 6.5.4 Option B). NEVER commit.
+keys/
+/keys
+keyshare.env
+**/keyshare.env
 
 # ── Node / pnpm (web) ──────────────────────────────────────────────────
 node_modules/
@@ -40,3 +48,4 @@ Thumbs.db
 !.vscode/extensions.json
 
 # NOTE: docs/FACTS.md IS committed on purpose (verified facts, no secrets).
+keyshares.tgz

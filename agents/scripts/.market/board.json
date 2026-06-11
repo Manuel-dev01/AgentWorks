@@ -1,0 +1,12 @@
+{
+  "3": {
+    "job_id": 3,
+    "task": "Write a clear 2-3 sentence explanation, for a non-expert, of how an on-chain escrow lets two agents who don't trust each other transact safely.",
+    "criteria": "Plain language, 2-3 sentences, mentions the neutral escrow holding funds.",
+    "reward_usdc": 5.0,
+    "spec_hash": "0xea19a2af43af7ec687dfa93c7b825ca031384f559d1c88c79c1c8004f454cc4a",
+    "client": "0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd",
+    "deadline": 1781770674,
+    "posted_at": 1781165947
+  }
+}

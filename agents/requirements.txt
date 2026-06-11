@@ -1,3 +1,10 @@
+# AgentWorks agent runtime (Phase 6.5). Pinned to the versions verified in the venv.
 cobo-agentic-wallet==0.1.40
+web3>=7.0,<8
 python-dotenv>=1.0
-web3>=7.0
+openai>=2.0            # DeepSeek via the OpenAI-compatible API (reasoning)
+requests>=2.32         # transitive / HTTP
+# Control surface (Phase 6.5.4 — agents/server.py)
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7

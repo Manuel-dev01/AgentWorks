@@ -212,6 +212,116 @@ authority is the policy. Over-budget / non-whitelisted calls raise PolicyDeniedE
   - ⚠️ getJob now returns 9 fields: (client, provider, evaluator, amount, specHash, deliverableHash, **irysId**, deadline, status).
   - Client holds MockUSDC (minted 1000; ~960 after Phase 3/4 demo jobs). 25/25 forge tests pass with the change.
   - RETIRED Phase 3 escrow `0xe8eB3a0233D8E227636f91f45Cd17583Be6A1008` (no irysId) — superseded by the Phase 5 escrow.
+- ✅ **Escrow v2 (Phase 6.5 — OPEN marketplace)** `0xD6cB413c0E4a5839Fd4B02aFFeBF65e6868726b9`, bound to the same MockUSDC.
+  VERIFIED on Etherscan (`Pass - Verified`) 2026-06-11. Deploy tx `0xb79a3368535806c4ce8caed4345edcb4430bb3918058446265a6660e1ce8be9e`
+  (block 11035232, status success). Explorer: https://sepolia.etherscan.io/address/0xd6cb413c0e4a5839fd4b02affebf65e6868726b9
+  - Open lifecycle: `createJob(evaluator, amount, specHash, deadline)` (NO provider) → `fund` → `acceptJob(jobId)`
+    (sets provider = msg.sender; first claimer wins) → `submitWork` → `complete | reject | claimRefund`.
+  - Status enum (8): None, Open, Funded, Accepted, Submitted, Completed, Rejected, Refunded.
+  - New custom errors: `ProviderIsClient`, `ProviderIsEvaluator`. Accept-race 2nd-accept reverts `BadStatus(Accepted, Funded)`.
+  - JobCreated event drops the provider arg, indexes evaluator instead; new `JobAccepted(jobId, provider)` event.
+  - **55/55 forge tests pass** (25 v1 + 30 v2) — `forge test` 2026-06-11. ABI: `contracts/out/AgentWorksEscrowV2.sol/AgentWorksEscrowV2.json`.
+  - Agents layer: `agents/escrow_v2.py` (parallel to escrow.py; non-breaking). Config: `config.ESCROW_V2_ADDRESS`
+    (env `ESCROW_V2_CONTRACT_ADDRESS`, defaults to the deployed address). Live read confirmed: `nextJobId == 1`.
+- ✅ **Pact templates + registry (Phase 6.5.2)** — VERIFIED LIVE 2026-06-11:
+  - `agents/pacts.py` templates parameterized: `client_escrow_pact(escrow, usdc, tx_cap=50)`,
+    `provider_pact(escrow, tx_cap=20)`. No-arg defaults stay the v1 escrow (so v1 flow.py is unaffected);
+    the marketplace passes `escrow=config.ESCROW_V2_ADDRESS`. `dump_all()` now also writes
+    `docs/pacts/client_escrow_pact_v2.json` + `provider_pact_v2.json` (allowlist binds v2 `0xD6cB…`; the
+    provider template EXCLUDES USDC → a provider can never move escrowed funds = security-isolation evidence).
+  - `agents/registry.py`: participant pool (canonical Client+Provider from env; auto-discovers
+    `CAW_PROVIDER2_*`,… ; external participants via gitignored `agents/registry.local.json`). Onboarding =
+    `submit_pact(template)` + `wait_pact_active` (no new SDK). `public()` never returns the api_key.
+  - LIVE onboard (`python registry.py --onboard`, both wallets) → both pacts **active**, bound to v2:
+    Client pact `607ddf74-d281-40f0-97b7-20339033cee7`, Provider pact `32dc4f91-5275-449a-a74a-c0c1e30a2bc1`
+    (each `pact_status: active`, `has_scoped_key: true`). NOTE: only 1 live provider wallet exists today;
+    the 2-provider accept-race is proven in Foundry (`test_acceptJob_secondAcceptReverts_raceFirstWins`) and
+    the registry is structured for a 2nd provider once one is onboarded + funded.
+- ✅ **2nd provider for the live accept-race (gap fix)** — VERIFIED LIVE 2026-06-11:
+  - Provisioned a SECOND EVM address on the EXISTING Provider wallet (`agents/scripts/make_provider2.py`):
+    **ProviderB = `0x7ea0701d657e3427c2bb3bc195e943a81c5fc69e`** (wallet `bdecbada…`). A distinct on-chain
+    msg.sender signed by the same Provider TSS node + bound by the same provider Pact — a genuine 2nd provider
+    without a new wallet/daemon/invitation. Funded with gas from the deployer (0.012 SETH, tx
+    `0xb4c58557136f879ad58a58f2f6897b792fb727f1966085f5edf0d8248320b779`). Registry discovers it via
+    `CAW_PROVIDER_ADDRESS_2` (public address; reuses the provider wallet_id/api_key).
+- ✅ **Autonomous open-marketplace run (Phase 6.5.3)** — VERIFIED LIVE 2026-06-11, `agents/autonomous.py`,
+  full lifecycle on v2, both branches' machinery exercised (this run = payout):
+  - Client loop reasoned + funded; provider-pool workers (Provider A + ProviderB) both genuinely reasoned
+    (`accept=true` each) then RACED on-chain. **Provider A (`0xef93…`) WON; ProviderB (`0x7ea0…`) acceptJob
+    REVERTED** (lost the race) — single-acceptance enforced by the contract, live. Job **#3**, all tx receipts
+    `status=true`, final status **Completed (5)**, Provider A paid (USDC 30→65 incl. this 5):
+    - createJob `0xe35d535c7375266b4e8f5b308ba197bc90608cd70e66a7eddc8dd95064a6e9cf`
+    - approve   `0x2aaf13bccf33d5e984f99d195220c1d98c17dbe6ad5c056eb66f23862feee869`
+    - fund      `0x06387d8d9d41fa2bc0911ad82b8e4c422c8b661e7ce370589d19a7aed31904fa`
+    - acceptJob `0xc7668d9cb7e38f631fa6eed627173937d09d2def3dbb46d5fc18b89c06c11985` (Provider A, the winner)
+    - submitWork`0xf1001a3b3d70550ba97a8826557e8e932eb549a09013499ff5d4b07773722a32`
+    - complete  `0x0704815876dca70f2a90dcc410d072369aef14227efa60db99a842a47a5dc2c0` (payout)
+    - Irys `5aTvnchzJgGuGqtzuc3AgrsJrFoH2T72Qi4sGwH6ZDix`; content_verified = keccak(Irys)==on-chain hash ✓.
+  - Proof artifact: `agents/scripts/.market/runs/3.json` (decisions + race losers + txs). Off-chain listing:
+    `agents/scripts/.market/board.json`. New reasoning fn `reasoning.provider_decide_accept`.
+  - INFRA NOTE: CAW's TSS relay can drop + re-register over a ~3-min window (logs "duplicate node ID...
+    register refused" while the relay holds the stale session), stalling a signature at status 400 "signing".
+    First two run attempts timed out at the old 180s wait; raised `autonomous._call` tx-wait to 420s — run
+    then completed clean. (Orphan unfunded jobs #1, #2 from the timed-out attempts are harmless; no funds locked.)
+- ✅/🔧 **Agent service + container artifacts (Phase 6.5.4)** — 2026-06-11:
+  - `agents/server.py` — FastAPI control surface (`/health`, `/board`, `/runs`, `/runs/{id}`, `POST /trigger`).
+    Talks to the CAW cloud API; holds NO key material. `/trigger` optionally guarded by `AGENT_TRIGGER_TOKEN`;
+    CORS via `AGENT_CORS_ORIGINS`. Added fastapi/uvicorn/pydantic to `agents/requirements.txt` (completed the
+    file: cobo, web3, dotenv, openai, requests + the server deps).
+  - ✅ VERIFIED LOCALLY: `GET /health` → ok + 3 participants (2 providers); `GET /runs` → job #3 artifact.
+    **`POST /trigger` → real on-chain signing via the HTTP path**: createJob
+    `0x6b8b2f2bb607037c97f953188324bcb38deafc29612896a7a82e4eb5d0b65e8c` (→ escrow, status true), approve
+    `0xe02db8a322f21d3b8949a7bd874e2d9a0da0daf87a035ded4788a7e420d55c28` (→ MockUSDC, status true), fund
+    landed → **job #4 Funded** (5 USDC escrowed, open). Proves trigger→CAW→signed Sepolia tx.
+  - The triggered run then HUNG mid-lifecycle on another TSS relay reconnect (websocket dropped ~10:30, the
+    client node spent the reconnect window unable to sign; the txs landed but the run loop didn't progress).
+    Infra flakiness, not a code defect (run #3 completed the full path). Job #4 (Funded+open) is reclaimable
+    and will serve as a live Open+Funded fixture on the 6.5.5 Marketplace board. ROBUSTNESS TODO: per-request
+    HTTP timeouts in the CAW client so a relay disruption can't hang a long unattended run.
+  - ✅ **Containers BUILT + VERIFIED (Docker, 2026-06-11)** — both proof gates met:
+    - `agentworks-agent` (882MB; `agents/Dockerfile`, python+node+v2 ABI) RUNS in a container and serves
+      `GET /health` → ok + 2 providers (`docker run --env-file .env -p 8001:8000`).
+    - `agentworks-tss` (212MB; `agents/tss/Dockerfile.tss`) — the Linux CAW node. **KEY-SHARE PORTABILITY
+      RESOLVED = YES:** the Linux binary loaded the **Windows-generated** key shares from a mounted `/keys`
+      volume and connected to the relay with the SAME node ids (`coborRoDar4hq…` client, `cobo2HM2Lbo…`
+      provider) — identity is NOT OS/keygen-bound; no re-onboard/re-fund needed.
+    - **CONTAINER-SIGNED TX (proof gate CLOSED):** with ONLY the containerized TSS nodes on the relay,
+      ProviderB accepted job #4 → `acceptJob` tx `0xdc60b338b1b01aca99e58edf69a261a8f3cb3524e44988f6ab0dec88848bf541`
+      (Success; TSS container log: "Got Signing request … Node IDs: [cobo2HM2Lbo…]"). Job #4 now Accepted by
+      ProviderB `0x7ea0…` (5 USDC escrowed, pending submit/complete or refund).
+    - The tarball extracts to a DIR `cobo-tss-node/` (binary + SHA256SUMS + configs) — Dockerfile.tss now
+      `find`s + `install`s the real binary (initial naive extract made `/usr/local/bin/cobo-tss-node` a dir → EACCES).
+  - Railway Option B provisioning: mount a volume at **`/keys`** (subdirs `/keys/<name>/` each with `.password`
+    + `db/secrets.db` + `configs/`). Essential key material ≈ 170KB tgz / 234KB base64 per profile. Env-var
+    transport (`TSS_KEYSHARE_<NAME>_B64`, reconstructed by `entrypoint.sh`; producer `agents/tss/make_keyshare_env.sh`)
+    is a platform-dependent option — **docker `--env-file` rejects it (bufio "token too long", ~64KB line cap)**,
+    so the MOUNTED VOLUME is the proven/primary method (a small always-on VM running
+    `docker compose --profile tss up` with `keys/` present is the simplest always-on signer).
+  - User deployed the AGENT SERVICE on Railway (their action, 2026-06-11). Deploy guide + config checklist:
+    `docs/DEPLOY_AGENTS.md`. Local `keys/` (gitignored) holds copies of both key shares for the container.
+- ✅/⏸️ **Railway deployment (2026-06-11, live-driven via railway CLI v5.8, project "AgentWorks" 026e4fba…):**
+  - ✅ **Agent service `insightful-wisdom` LIVE** at **https://insightful-wisdom-production-5c62.up.railway.app**
+    (`GET /health` → 200, escrow v2 + 3 participants). FIX that unblocked it: the v2 ABI lived in gitignored
+    `contracts/out/`, so Railway's (git-tracked) build context omitted it → `COPY contracts/out/... not found`.
+    Vendored the ABI to **`agents/abi/AgentWorksEscrowV2.json`** (tracked); `escrow_v2.py` prefers it; dropped the
+    `contracts/out` COPY from `agents/Dockerfile`. Service builds via repo-root context + the user's Dockerfile-path setting.
+  - ⏸️ **TSS signer Option B on Railway — built + provisioned but node crash-loops; PAUSED.** What works: created
+    service `agentworks-tss` + a 500MB volume at `/keys`; Railway ignored `railway.json`'s builder so the file had
+    to be named `Dockerfile` AND the service needs `RAILWAY_DOCKERFILE_PATH=agents/tss/Dockerfile` (repo-root
+    context → COPY paths made repo-root-relative); `railway volume files`/`railway ssh` need an SSH key (none set),
+    and Railway caps each VARIABLE at **32768 bytes**, so the ~234KB key-share blob is split into 8 chunks/profile
+    (`TSS_KEYSHARE_<NAME>_B64_00..07`) reassembled by `entrypoint.sh`. The entrypoint reconstructs `/keys/<name>/`
+    correctly, but the node then exits in a restart loop with NO node output (it's a backgrounded subprocess, so
+    Railway logs only the entrypoint). Almost certainly the node can't write the db on the Railway volume — same
+    signature as the LOCAL repro where a non-writable bind mount gave FATAL "Database init failed" (a writable
+    repo-dir mount did NOT). Needs SSH into the container to confirm; not pursued further (blind redeploys
+    unproductive). Recommendation: run the verified container on a small Linux VM with a Docker volume, or keep the
+    signer local (hybrid: Railway agent + local/VM signer).
+  - ✅ **Signer health re-confirmed:** after the container churn, the local Windows nodes load the db fine and
+    derive their correct node ids (`coborRoDar4hq…`, `cobo2HM2Lbo…`); provider reconnected to the relay. (A
+    transient DNS failure resolving `ws.caw.tss.cobo.com` on the local machine delays connect; nodes auto-retry.)
+    Key shares + funds intact. The earlier local "/tmp Database init failed" was a Docker-Desktop file-share
+    writability artifact, not corruption.
 - RETIRED: escrow `0x19Ea8a44…` on Eth Sepolia (bound to real SETH_USDC, deploy tx `0xc92b258f…`) — superseded by the
   MockUSDC stack for determinism. Earlier Base Sepolia escrow `0x19Ea8a44…` (tx `0x630490a5…`) retired by the chain switch. Kept for history.
 - Escrow ABI location (path in repo): `contracts/out/AgentWorksEscrow.sol/AgentWorksEscrow.json` (generated by `forge build`)
@@ -407,6 +517,23 @@ Notes:
   Phase-2 funded addresses remain valid + hold funds (client `0x6dfb…` 970 MockUSDC, provider `0xef93…` 30).
 - The relay host had a transient DNS failure ("no such host") earlier in the day; it resolves fine now —
   if the node can't connect, check DNS/network to ws.caw.tss.cobo.com before assuming a node fault.
+
+### TSS node — Linux binary availability (VERIFIED 2026-06-11, source: official install.sh)
+Phase 6.5 (containerized always-on agents) gating question — RESOLVED: **Cobo publishes a Linux CAW TSS node
+binary**, so a Linux container (Railway/Fly) is viable. From `https://raw.githubusercontent.com/CoboGlobal/
+cobo-agentic-wallet/master/install.sh` (the official CAW installer):
+- OS via `uname -s` → supports **`linux`** and `darwin`; **Windows is rejected** by the script (our local
+  `cobo-tss-node.exe` came via a different/older path — Linux is the first-class server target).
+- Arch via `uname -m` → **`amd64`** and `arm64`.
+- CAW CLI download: `https://download.agenticwallet.cobo.com/binary-release/caw-${os}-${arch}-${version}.tar.gz`
+  (+ `.sha256`), e.g. `caw-linux-amd64-v0.2.84.tar.gz`.
+- TSS node download: `https://download.tss.cobo.com/binary-release/latest/cobo-tss-node-${os}-${arch}.tar.gz`,
+  e.g. `cobo-tss-node-linux-amd64.tar.gz`. Extracted executables are `caw` / `cobo-tss-node` (no `.exe`).
+- Install one-liner: `curl -fsSL https://raw.githubusercontent.com/CoboGlobal/cobo-agentic-wallet/master/install.sh | bash`.
+- OPEN (defer to 6.5.4): provisioning the **key share** into the container. The signer runs against an existing
+  encrypted `secrets.db` + `.password` + node identity (per profile). Either (a) `caw onboard` fresh wallets
+  inside the Linux env (new wallet_uuids → must re-fund), or (b) test whether the Windows-generated key share
+  loads under the Linux binary (unverified — node identity may be platform/keygen-bound). Decide in 6.5.4.
 
 ═══════════════════════════════════════════════════════════════════════
 ## Phase 6 redesign — app FLOW + live per-step journey (VERIFIED 2026-06-10)
