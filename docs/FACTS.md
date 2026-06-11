@@ -305,7 +305,19 @@ authority is the policy. Over-budget / non-whitelisted calls raise PolicyDeniedE
     `contracts/out/`, so Railway's (git-tracked) build context omitted it → `COPY contracts/out/... not found`.
     Vendored the ABI to **`agents/abi/AgentWorksEscrowV2.json`** (tracked); `escrow_v2.py` prefers it; dropped the
     `contracts/out` COPY from `agents/Dockerfile`. Service builds via repo-root context + the user's Dockerfile-path setting.
-  - ⏸️ **TSS signer Option B on Railway — built + provisioned but node crash-loops; PAUSED.** What works: created
+  - ✅ **TSS signer Option B on Railway — ROOT CAUSE FOUND via SSH (2026-06-11): the container works; the
+    blocker is a relay "duplicate node ID and seq ID" refusal, not code.** Set up `railway ssh keys add`
+    (key `agentworks-railway`) + a `TSS_DEBUG_SLEEP=1` entrypoint mode (stay alive for `railway ssh`).
+    Running the node by hand inside the Railway container proved: config loads, **db init SUCCEEDS** (volume
+    writable), node starts and dials the relay — then `Connection refused, reason: duplicate node ID and seq ID,
+    register refused` (seq `8a1a79c5e9`). So the earlier crash-loop was SELF-INFLICTED: each container restart +
+    each SSH test run re-attempted registration with the SAME identity, and the relay holds a phantom session,
+    refusing all duplicates. The node otherwise runs fine (logs to `logs/cobo-tss-node-.log`, which the entrypoint
+    now tees + dumps). RESOLUTION (operational, not code): exactly ONE node may hold an identity on the relay at a
+    time; after a QUIET period (no attempts on that seq) the relay releases it and a single clean start registers.
+    The earlier railway.json-ignored / 32KB-var / writable-volume notes below still hold.
+  - ⏸️ **TSS signer Option B on Railway — built + provisioned; the only remaining step is a clean single relay
+    registration (above).** What works: created
     service `agentworks-tss` + a 500MB volume at `/keys`; Railway ignored `railway.json`'s builder so the file had
     to be named `Dockerfile` AND the service needs `RAILWAY_DOCKERFILE_PATH=agents/tss/Dockerfile` (repo-root
     context → COPY paths made repo-root-relative); `railway volume files`/`railway ssh` need an SSH key (none set),

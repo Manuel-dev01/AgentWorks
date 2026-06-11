@@ -32,5 +32,8 @@ export const erc20Abi = [
   { type: "function", name: "decimals", stateMutability: "view", inputs: [], outputs: [{ type: "uint8" }] },
 ] as const;
 
-/** Status enum index → human label (matches the Solidity `Status` enum). */
+/** v1 Status enum index → human label (matches AgentWorksEscrow.sol). */
 export const STATUS_LABELS = ["None", "Created", "Funded", "Submitted", "Completed", "Rejected", "Refunded"] as const;
+
+/** v2 Status enum index → human label (matches AgentWorksEscrowV2.sol — adds Open + Accepted). */
+export const STATUS_LABELS_V2 = ["None", "Open", "Funded", "Accepted", "Submitted", "Completed", "Rejected", "Refunded"] as const;

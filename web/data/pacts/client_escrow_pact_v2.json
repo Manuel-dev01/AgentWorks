@@ -1,0 +1,39 @@
+{
+  "policies": [
+    {
+      "name": "client-escrow-allowlist",
+      "type": "contract_call",
+      "rules": {
+        "effect": "allow",
+        "when": {
+          "chain_in": [
+            "SETH"
+          ],
+          "target_in": [
+            {
+              "chain_id": "SETH",
+              "contract_addr": "0xD6cB413c0E4a5839Fd4B02aFFeBF65e6868726b9"
+            },
+            {
+              "chain_id": "SETH",
+              "contract_addr": "0x4C4D1223BcC47E380CF4C37652EaDFe10A9Fd910"
+            }
+          ]
+        },
+        "deny_if": {
+          "usage_limits": {
+            "rolling_24h": {
+              "tx_count_gt": 50
+            }
+          }
+        }
+      }
+    }
+  ],
+  "completion_conditions": [
+    {
+      "type": "time_elapsed",
+      "threshold": "86400"
+    }
+  ]
+}

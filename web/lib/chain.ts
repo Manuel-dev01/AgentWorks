@@ -4,7 +4,7 @@
 import { createPublicClient, http, formatUnits } from "viem";
 import { sepolia } from "viem/chains";
 import { CFG } from "./config";
-import { escrowAbi, erc20Abi, STATUS_LABELS } from "./abi";
+import { escrowAbi, erc20Abi, STATUS_LABELS, STATUS_LABELS_V2 } from "./abi";
 
 const client = createPublicClient({
   chain: sepolia,
@@ -86,6 +86,44 @@ export async function listJobs(max = 40): Promise<ChainJob[] | null> {
         amountUsdc: Number(formatUnits(job.amount, 6)),
         statusLabel: STATUS_LABELS[job.status] ?? "Unknown",
         badge: STATUS_BADGE[job.status] ?? "open",
+        irysId: job.irysId,
+        client: job.client,
+        provider: job.provider,
+      } as ChainJob;
+    }),
+  );
+  return rows.filter((r): r is ChainJob => r !== null).reverse();
+}
+
+// ── v2 open marketplace (escrowV2) ──
+// v2 Status enum index → badge: None, Open, Funded, Accepted, Submitted, Completed, Rejected, Refunded.
+const STATUS_BADGE_V2: BadgeState[] = ["open", "open", "escrow", "work", "work", "settled", "reclaim", "reclaim"];
+
+/** Current v2 job counter, or null if unreachable. */
+export async function nextJobIdV2(): Promise<number | null> {
+  const n = await safe(client.readContract({ address: CFG.escrowV2, abi: escrowAbi, functionName: "nextJobId" }));
+  return n === null ? null : Number(n as bigint);
+}
+
+/** Every job on the v2 open-marketplace escrow (newest first). The Job tuple is identical to v1, so
+ *  the same ABI reads it; only the status enum (8 states) differs. Null if the RPC is unreachable. */
+export async function listJobsV2(max = 40): Promise<ChainJob[] | null> {
+  const n = await nextJobIdV2();
+  if (n === null) return null;
+  const ids: number[] = [];
+  for (let i = Math.max(1, n - max); i < n; i++) ids.push(i);
+  const rows = await Promise.all(
+    ids.map(async (id) => {
+      const j = await safe(
+        client.readContract({ address: CFG.escrowV2, abi: escrowAbi, functionName: "getJob", args: [BigInt(id)] }),
+      );
+      if (!j) return null;
+      const job = j as { client: string; provider: string; amount: bigint; irysId: string; status: number };
+      return {
+        jobId: id,
+        amountUsdc: Number(formatUnits(job.amount, 6)),
+        statusLabel: STATUS_LABELS_V2[job.status] ?? "Unknown",
+        badge: STATUS_BADGE_V2[job.status] ?? "open",
         irysId: job.irysId,
         client: job.client,
         provider: job.provider,

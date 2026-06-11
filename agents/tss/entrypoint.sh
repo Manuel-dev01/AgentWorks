@@ -31,19 +31,59 @@ for NAME in $(env | sed -nE 's/^TSS_KEYSHARE_([A-Z0-9]+)_B64(_[0-9]+)?=.*/\1/p' 
   printf '%s' "$blob" | base64 -d | tar -xz -C "$dest" || echo "[tss] WARN: reconstruct of '$name' failed"
 done
 
+# Surface file-logged errors from a previous (crashed) iteration: after the node loads its config it
+# logs detail to logs/cobo-tss-node-*.log, which a fast crash-loop hides from stdout. Dump them once.
+dump_prev_logs() {
+  shopt -s nullglob
+  local prof lf
+  for prof in "$PROFILES_DIR"/*/; do
+    for lf in "${prof}logs/"*.log "${prof}node.log"; do
+      [ -f "$lf" ] || continue
+      echo "[tss] ===== previous log $lf (tail) ====="
+      tail -25 "$lf" | sed "s/^/[prev $(basename "$prof")] /"
+    done
+  done
+}
+
 start_signers() {
   shopt -s nullglob
-  local started=0 prof
+  local started=0 prof name
   for prof in "$PROFILES_DIR"/*/; do
     if [ -f "${prof}.password" ]; then
+      name=$(basename "$prof")
+      # The node's config enables FILE logging to logs/ and may read recovery/ + .tss-env; the chunked
+      # reconstruction only ships db/.password/configs, so create the rest the node expects.
+      mkdir -p "${prof}logs" "${prof}recovery"
+      [ -f "${prof}.tss-env" ] || printf 'prod' > "${prof}.tss-env"
+      # writability preflight — SQLite must write the db + its journal/wal alongside secrets.db
+      if ( touch "${prof}db/.wtest" 2>/dev/null && rm -f "${prof}db/.wtest" 2>/dev/null ); then
+        echo "[tss][$name] db dir is writable"
+      else
+        echo "[tss][$name] WARN: ${prof}db is NOT writable — db init will fail"
+      fi
       echo "[tss] starting signer for profile: ${prof}"
-      ( cd "$prof" && exec "$BIN" start --caw --prod --key-file .password ) &
+      # Tee the node's own stdout/stderr to a file on the volume (survives crashes) AND to the
+      # container log (tagged, unbuffered) — a bare `&` subprocess's output is otherwise easily lost.
+      ( cd "$prof" && exec "$BIN" start --caw --prod --key-file .password ) 2>&1 \
+        | stdbuf -oL tee -a "${prof}node.log" | sed -u "s/^/[$name] /" &
       started=$((started + 1))
     fi
   done
   return "$started"
 }
 
+# Debug: skip starting signers and stay alive so you can `railway ssh` in and run the node by hand.
+if [ "${TSS_DEBUG_SLEEP:-0}" = "1" ]; then
+  for prof in "$PROFILES_DIR"/*/; do
+    [ -f "${prof}.password" ] || continue
+    mkdir -p "${prof}logs" "${prof}recovery"; [ -f "${prof}.tss-env" ] || printf 'prod' > "${prof}.tss-env"
+  done
+  echo "[tss] DEBUG_SLEEP=1: keys ready at $PROFILES_DIR. SSH in and run, e.g.:"
+  echo "[tss]   cd $PROFILES_DIR/client && /usr/local/bin/cobo-tss-node start --caw --prod --key-file .password"
+  exec sleep infinity
+fi
+
+dump_prev_logs
 start_signers
 started=$?
 
