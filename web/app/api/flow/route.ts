@@ -18,11 +18,18 @@ export async function POST(req: Request) {
     return Response.json({ error: "live flow disabled in production" }, { status: 403 });
 
   let step = "", runId: string | undefined, mode = "good";
+  let startParams: Record<string, unknown> = {};
   try {
     const body = await req.json();
     step = String(body?.step ?? "");
     if (body?.runId) runId = String(body.runId);
     if (body?.mode === "bad") mode = "bad";
+    startParams = {
+      mode,
+      ...(body?.task ? { task: String(body.task).slice(0, 600) } : {}),
+      ...(body?.criteria ? { criteria: String(body.criteria).slice(0, 600) } : {}),
+      ...(body?.amountUsdc ? { amount_usdc: Number(body.amountUsdc) } : {}),
+    };
   } catch {
     /* ignore */
   }
@@ -32,7 +39,7 @@ export async function POST(req: Request) {
   const repoRoot = path.resolve(process.cwd(), "..");
   const py = path.join(repoRoot, "agents", ".venv", "Scripts", "python.exe");
   const script = path.join(repoRoot, "agents", "scripts", "flow_step.py");
-  const args = step === "start" ? [script, "start", mode] : [script, step, runId!];
+  const args = step === "start" ? [script, "start", JSON.stringify(startParams)] : [script, step, runId!];
 
   return await new Promise<Response>((resolve) => {
     const child = spawn(py, args, { cwd: repoRoot, env: { ...process.env, PYTHONUNBUFFERED: "1" } });

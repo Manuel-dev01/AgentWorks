@@ -44,3 +44,15 @@ export interface Balances {
   client: number | null;
   provider: number | null;
 }
+
+/** A row on the Marketplace board — live on-chain state joined with artifact/flow detail. */
+export interface BoardJob {
+  jobId: number;
+  title: string;
+  amountUsdc: number;
+  badge: BadgeState;
+  statusLabel: string;
+  branch: "payout" | "refund" | null;
+  phase: string;
+  live: boolean; // true when the row reflects a live on-chain read
+}

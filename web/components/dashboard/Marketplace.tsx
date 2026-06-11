@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { JobVM } from "../../lib/types";
+import type { BoardJob } from "../../lib/types";
 import type { BadgeState } from "../Badge";
 import { Badge } from "../Badge";
 
@@ -22,11 +22,11 @@ const FILTERS: { key: BadgeState | "all"; label: string; dot?: string }[] = [
   { key: "reclaim", label: "Reclaimed", dot: "var(--reclaim)" },
 ];
 
-export function Marketplace({ jobs }: { jobs: (JobVM & { idx: number })[] }) {
+export function Marketplace({ jobs, live }: { jobs: BoardJob[]; live: boolean }) {
   const [f, setF] = useState<BadgeState | "all">("all");
   const shown = f === "all" ? jobs : jobs.filter((j) => j.badge === f);
 
-  const sum = (pred: (j: JobVM) => boolean) => jobs.filter(pred).reduce((a, j) => a + j.amountUsdc, 0);
+  const sum = (pred: (j: BoardJob) => boolean) => jobs.filter(pred).reduce((a, j) => a + j.amountUsdc, 0);
   const inEscrow = sum((j) => j.badge === "escrow" || j.badge === "work" || j.badge === "open");
   const settledAmt = sum((j) => j.badge === "settled");
   const reclaimedAmt = sum((j) => j.badge === "reclaim");
@@ -44,7 +44,8 @@ export function Marketplace({ jobs }: { jobs: (JobVM & { idx: number })[] }) {
           </button>
         ))}
         <span className="count">
-          {jobs.length} jobs · {inEscrow.toFixed(2)} USDC in escrow
+          {live ? <span style={{ color: "var(--settle-deep)" }}>● live</span> : "snapshot"} · {jobs.length} jobs ·{" "}
+          {inEscrow.toFixed(2)} USDC in escrow
         </span>
         <Link className="new" href="/dashboard/new">+ Post job</Link>
       </div>
@@ -54,7 +55,7 @@ export function Marketplace({ jobs }: { jobs: (JobVM & { idx: number })[] }) {
       ) : (
         <div className="joblist">
           {shown.map((j) => (
-            <Link key={j.idx} className="job" href={`/dashboard/jobs/${j.idx}`}>
+            <Link key={j.jobId} className="job" href={`/dashboard/jobs/${j.jobId}`}>
               <div>
                 <div className="jt">{j.title.length > 60 ? j.title.slice(0, 60) + "…" : j.title}</div>
                 <div className="jm">

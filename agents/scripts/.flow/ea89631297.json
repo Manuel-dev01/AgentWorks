@@ -1,0 +1,40 @@
+{
+  "run_id": "ea89631297",
+  "mode": "good",
+  "status": "settled",
+  "task": "Write a clear 2-3 sentence explanation, for a non-expert, of how an on-chain escrow lets two agents who don't trust each other transact safely.",
+  "amount_usdc": 10.0,
+  "created_at": 1781122245,
+  "client": "0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd",
+  "provider": "0xef9349b3273b1a54faaf701231f499fe0282e643",
+  "txs": {
+    "createJob": "0xe7732ac38cd96aff9fd9791a0a2dc28ca02c2621a4dfe65be731118561f99214",
+    "approve": "0xe5324e52b99cbbc6b5e892937bddcbef849c6fbb717e2283d896ebe7f861104f",
+    "fund": "0x7ad67dafa1ab29c82a938f0b4f9cd606429f90e56b43dd062649821bc62140fa",
+    "submitWork": "0xbafe6a89a5665e234ff547b918504eec2019bf699fff642ec72b06ef19e72b9b",
+    "complete": "0x71bab253dd3de3f21be238f50b3402681d97bd809b2bc939292a175cc058fe6e"
+  },
+  "irys": {
+    "id": "TcGDdqjybeDdMdupWyRgCatH2TGV3CoBijiiZcpwLwV",
+    "url": "https://devnet.irys.xyz/TcGDdqjybeDdMdupWyRgCatH2TGV3CoBijiiZcpwLwV",
+    "bytes": 396,
+    "price": "1335550653691",
+    "funded": "0"
+  },
+  "deliverable": "An on-chain escrow uses a smart contract to hold funds from both parties until agreed-upon conditions are met. This way, even if the agents don\u2019t trust each other, neither can run off with the money or goods because the contract automatically releases assets only when the deal is fulfilled. The blockchain ensures the process is transparent and tamper-proof, removing the need for a middleman.",
+  "verdict": {
+    "accept": true,
+    "reason": "The explanation is clear, concise, and addresses how on-chain escrow enables safe transactions between untrusted parties using smart contracts and blockchain transparency."
+  },
+  "branch": "payout",
+  "client_pact_id": "80c3b705-95d3-4103-a55c-a36e5d628eba",
+  "provider_pact_id": "7ccfbd05-fb7e-4ba0-8d65-4d4cede2a21c",
+  "fund_decision": {
+    "fund": true,
+    "reason": "The task is legitimate and fairly priced at 10 USDC, well within the remaining budget."
+  },
+  "updated_at": 1781122567,
+  "job_id": 9,
+  "final_status": "Completed",
+  "content_verified": true
+}

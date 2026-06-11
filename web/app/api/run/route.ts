@@ -1,4 +1,4 @@
-/** Live-run trigger (additive, guarded). Spawns the verified Phase 5 Python lifecycle and streams
+/** Live-run trigger (additive, guarded). Spawns the verified Python lifecycle and streams
  *  its stdout to the dashboard. Localhost-only. The proof artifacts remain the source of truth; if
  *  this fails the UI keeps rendering the last verified run. */
 

@@ -1,0 +1,24 @@
+{
+  "run_id": "97f81589d5",
+  "mode": "good",
+  "status": "accepted",
+  "task": "Summarize a 5-page DeFi audit into 3 risk bullets",
+  "criteria": "Three concrete risk bullets",
+  "amount_usdc": 25.0,
+  "amount_base": 25000000,
+  "created_at": 1781146653,
+  "client": "0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd",
+  "provider": "0xef9349b3273b1a54faaf701231f499fe0282e643",
+  "txs": {},
+  "irys": null,
+  "deliverable": null,
+  "verdict": null,
+  "branch": null,
+  "client_pact_id": "97e73e82-fffa-44a3-a877-62eda157904b",
+  "provider_pact_id": "50923f52-bf53-4b4e-84f9-c0bd0260ad88",
+  "fund_decision": {
+    "fund": true,
+    "reason": "The task is legitimate and straightforward, the price is reasonable and within the remaining budget."
+  },
+  "updated_at": 1781146686
+}

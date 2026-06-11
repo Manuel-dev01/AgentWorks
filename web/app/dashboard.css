@@ -104,6 +104,10 @@
 .dp .inp{ border:1px solid var(--line); border-radius:9px; padding:12px 14px; background:var(--paper-2); font-family:var(--sans); font-size:14px; color:var(--ink); }
 .dp .inp.big{ font-weight:600; font-size:16px; letter-spacing:-0.01em; }
 .dp .inp.area{ min-height:60px; line-height:1.5; color:var(--ink-2); }
+.dp input.inp, .dp textarea.inp{ width:100%; font-family:var(--sans); outline:none; appearance:none; }
+.dp textarea.inp{ resize:vertical; color:var(--ink); }
+.dp input.inp:focus, .dp textarea.inp:focus, .dp .amtin:focus-within{ border-color:var(--settle-line); box-shadow:0 0 0 3px var(--settle-wash); }
+.dp .amtin input{ outline:none; }
 .dp .row2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
 .dp .amtin{ display:flex; align-items:center; gap:10px; border:1px solid var(--line); border-radius:9px; padding:12px 14px; background:var(--paper-2); }
 .dp .amtin .v{ font-family:var(--mono); font-weight:600; font-size:18px; } .dp .amtin .u{ font-family:var(--mono); font-size:11px; color:var(--ink-3); margin-left:auto; }

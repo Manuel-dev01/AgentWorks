@@ -14,6 +14,7 @@ const REPO = path.resolve(WEB, "..");
 const jobs = [
   { from: path.join(REPO, "agents", "scripts"), to: path.join(WEB, "data", "proofs"), match: (f) => f.endsWith("_proof.json") },
   { from: path.join(REPO, "docs", "pacts"), to: path.join(WEB, "data", "pacts"), match: (f) => f.endsWith(".json") },
+  { from: path.join(REPO, "agents", "scripts", ".flow"), to: path.join(WEB, "data", "flows"), match: (f) => f.endsWith(".json") },
 ];
 
 let copied = 0;

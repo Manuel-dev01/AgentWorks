@@ -34,7 +34,15 @@ def main() -> int:
     arg = sys.argv[2] if len(sys.argv) > 2 else None
     try:
         if step == "start":
-            state = flow.run_step("start", mode=(arg or "good"))
+            # arg is either a bare mode ("good"/"bad") or a JSON blob {mode,task,criteria,amount_usdc}
+            params = {"mode": "good"}
+            if arg:
+                if arg.strip().startswith("{"):
+                    params.update(json.loads(arg))
+                else:
+                    params["mode"] = arg
+            state = flow.run_step("start", mode=params.get("mode", "good"), task=params.get("task"),
+                                  criteria=params.get("criteria"), amount_usdc=params.get("amount_usdc"))
         else:
             state = flow.run_step(step, run_id=arg)
         print(json.dumps(state, default=str))

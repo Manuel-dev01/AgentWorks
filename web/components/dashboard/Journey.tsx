@@ -7,63 +7,92 @@ import { CFG, txUrl, irysUrl, addrUrl, shortHex } from "../../lib/config";
 import { Badge } from "../Badge";
 
 const STEP_LABELS = ["Post", "Accept", "Submit", "Review", "Settle"];
-// status → step index
-const STATUS_STEP: Record<string, number> = {
-  started: 0, declined: 0, posted: 1, accepted: 2, submitted: 3, settled: 4,
+const STATUS_STEP: Record<string, number> = { started: 0, declined: 0, posted: 1, accepted: 2, submitted: 3, settled: 4 };
+const ORDER = ["started", "posted", "accepted", "submitted", "settled"];
+
+const DEFAULT_FORM = {
+  task: "Explain on-chain escrow for a non-expert",
+  criteria: "A clear 2–3 sentence explanation a non-expert understands; judged against the Irys deliverable.",
+  reward: "10",
 };
 
 const check = (
   <svg width="11" height="11" viewBox="0 0 12 12"><path d="M3 6.5l2 2 4-5" fill="none" stroke="var(--settled)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
 );
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export function Journey({ enabled }: { enabled: boolean }) {
+type Form = typeof DEFAULT_FORM;
+
+// progressively reveal a recorded run up to `target` status (deterministic replay)
+function slice(full: FlowState, target: string, form: Form): FlowState {
+  const at = (s: string) => ORDER.indexOf(s) <= ORDER.indexOf(target);
+  const txs: Record<string, string> = {};
+  if (at("posted")) { txs.createJob = full.txs.createJob; txs.approve = full.txs.approve; txs.fund = full.txs.fund; }
+  if (at("submitted") && full.txs.submitWork) txs.submitWork = full.txs.submitWork;
+  if (at("settled")) { if (full.txs.complete) txs.complete = full.txs.complete; if (full.txs.reject) txs.reject = full.txs.reject; }
+  return {
+    ...full, status: target, task: form.task, amount_usdc: Number(form.reward) || full.amount_usdc, txs,
+    fund_decision: at("posted") ? full.fund_decision : undefined,
+    irys: at("submitted") ? full.irys : null,
+    deliverable: at("submitted") ? full.deliverable : null,
+    verdict: at("settled") ? full.verdict : null,
+    branch: at("settled") ? full.branch : null,
+    final_status: at("settled") ? full.final_status : undefined,
+    content_verified: at("settled") ? full.content_verified : undefined,
+  };
+}
+
+export function Journey({ enabled, replay }: { enabled: boolean; replay: { good: FlowState | null; bad: FlowState | null } }) {
+  const live = enabled;
   const [mode, setMode] = useState<"good" | "bad">("good");
+  const [form, setForm] = useState<Form>(DEFAULT_FORM);
   const [flow, setFlow] = useState<FlowState | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const step = flow ? STATUS_STEP[flow.status] ?? 0 : 0;
+  const canReplay = !!replay[mode];
 
-  const step = flow ? (STATUS_STEP[flow.status] ?? 0) : 0;
-
-  async function go(label: string, fn: () => Promise<FlowState>) {
-    setBusy(label);
-    setErr(null);
+  async function liveGo(label: string, fn: () => Promise<FlowState>) {
+    setBusy(label); setErr(null);
     try {
       const s = await fn();
-      if (s.error) setErr(s.error);
-      else setFlow(s);
-    } catch (e) {
-      setErr(String(e));
-    } finally {
-      setBusy(null);
-    }
+      if (s.error) setErr(s.error); else setFlow(s);
+    } catch (e) { setErr(String(e)); } finally { setBusy(null); }
+  }
+  async function replayGo(label: string, target: string) {
+    const full = replay[mode];
+    if (!full) { setErr("no recorded run available"); return; }
+    setBusy(label); setErr(null);
+    await delay(1100);
+    setFlow(slice(full, target, form));
+    setBusy(null);
   }
 
   const postJob = () =>
-    go("Posting (createJob + escrow)…", async () => {
-      const started = await runStep("start", { mode });
-      if (started.error || started.status === "declined") return started;
-      setFlow(started); // surface fund decision immediately
-      return runStep("post", { runId: started.run_id });
-    });
-  const accept = () => flow && go("Provider binding Pact…", () => runStep("accept", { runId: flow.run_id }));
-  const submit = () => flow && go("Working → Irys → submitWork…", () => runStep("submit", { runId: flow.run_id }));
-  const settle = () => flow && go("Evaluator deciding → settle…", () => runStep("settle", { runId: flow.run_id }));
-
-  if (!enabled) {
-    return (
-      <div className="panel" style={{ padding: 24 }}>
-        <p className="muted mono" style={{ fontSize: 12, lineHeight: 1.7 }}>
-          The live journey drives the real Python agents on Ethereum Sepolia and is available only when running
-          locally (<span className="mono">pnpm --filter web dev</span>). Browse the <Link className="lnk" href="/dashboard">Marketplace</Link>{" "}
-          for the verified runs, or the <Link className="lnk" href="/dashboard/proofs">Proofs</Link> tab for the CAW criticality beats.
-        </p>
-      </div>
-    );
-  }
+    live
+      ? liveGo("Posting (createJob + escrow)…", async () => {
+          const started = await runStep("start", { mode, task: form.task, criteria: form.criteria, amountUsdc: Number(form.reward) });
+          if (started.error || started.status === "declined") return started;
+          setFlow(started);
+          return runStep("post", { runId: started.run_id });
+        })
+      : replayGo("Posting (replay)…", "posted");
+  const accept = () => (live ? flow && liveGo("Provider binding Pact…", () => runStep("accept", { runId: flow.run_id })) : replayGo("Provider binding Pact…", "accepted"));
+  const submit = () => (live ? flow && liveGo("Working → Irys → submitWork…", () => runStep("submit", { runId: flow.run_id })) : replayGo("Working → Irys → submitWork…", "submitted"));
+  const settle = () => (live ? flow && liveGo("Evaluator deciding → settle…", () => runStep("settle", { runId: flow.run_id })) : replayGo("Evaluator deciding → settle…", "settled"));
 
   return (
     <div>
-      {/* step rail */}
+      {/* mode banner */}
+      <div className={`runbar`} style={{ borderColor: live ? "var(--settle-line)" : "var(--line)", background: live ? "var(--settle-wash)" : "var(--paper-2)" }}>
+        <span className="lbl" style={{ color: live ? "var(--settle-deep)" : "var(--ink-3)" }}>
+          {live ? "● LIVE — real txs on Ethereum Sepolia" : "▷ DEMO REPLAY — a recorded verified run (every hash opens on Etherscan)"}
+        </span>
+        <span className="grow" />
+        <button className={`filter${mode === "good" ? " on" : ""}`} disabled={!!flow || !!busy} onClick={() => setMode("good")} style={{ marginRight: 6 }}>good → payout</button>
+        <button className={`filter${mode === "bad" ? " on" : ""}`} disabled={!!flow || !!busy} onClick={() => setMode("bad")}>bad → refund</button>
+      </div>
+
       <div className="stepnav">
         {STEP_LABELS.map((l, i) => (
           <span key={l} className={`sx${i < step ? " done" : ""}${i === step ? " on" : ""}`}>
@@ -71,15 +100,11 @@ export function Journey({ enabled }: { enabled: boolean }) {
           </span>
         ))}
       </div>
-      <p className="runline">
-        Mode:{" "}
-        <button className={`filter${mode === "good" ? " on" : ""}`} disabled={!!flow || !!busy} onClick={() => setMode("good")} style={{ marginRight: 6 }}>good → payout</button>
-        <button className={`filter${mode === "bad" ? " on" : ""}`} disabled={!!flow || !!busy} onClick={() => setMode("bad")}>bad → refund</button>
-        {flow?.run_id && <span> · run {flow.run_id}</span>}
-      </p>
+      {flow?.run_id && flow.run_id !== "recorded" && <p className="runline">run {flow.run_id}</p>}
 
       {busy && <p className="running"><span className="spin" />{busy}</p>}
       {err && <div className="err">⚠ {err}<br />The verified runs in the Marketplace remain intact.</div>}
+      {!live && !canReplay && <div className="err">No recorded run is bundled for this mode.</div>}
 
       {flow?.status === "declined" && (
         <div className="panel sc-body">
@@ -89,12 +114,11 @@ export function Journey({ enabled }: { enabled: boolean }) {
         </div>
       )}
 
-      {/* screen by step */}
-      {step === 0 && flow?.status !== "declined" && <PostScreen mode={mode} flow={flow} busy={!!busy} onPost={postJob} />}
+      {step === 0 && flow?.status !== "declined" && <PostScreen form={form} setForm={setForm} live={live} flow={flow} busy={!!busy} onPost={postJob} />}
       {step === 1 && flow && <InboxScreen flow={flow} busy={!!busy} onAccept={accept} />}
       {step === 2 && flow && <SubmitScreen flow={flow} busy={!!busy} onSubmit={submit} />}
       {step === 3 && flow && <ReviewScreen flow={flow} busy={!!busy} onSettle={settle} />}
-      {step === 4 && flow && <ReceiptScreen flow={flow} />}
+      {step === 4 && flow && <ReceiptScreen flow={flow} onReset={() => { setFlow(null); }} />}
     </div>
   );
 }
@@ -102,16 +126,23 @@ export function Journey({ enabled }: { enabled: boolean }) {
 const PROVIDER = () => shortHex(CFG.providerCaw);
 const CLIENT = () => shortHex(CFG.clientCaw);
 
-function PostScreen({ mode, flow, busy, onPost }: { mode: string; flow: FlowState | null; busy: boolean; onPost: () => void }) {
+function field(set: (f: (p: Form) => Form) => void, key: keyof Form) {
+  return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => set((p) => ({ ...p, [key]: e.target.value }));
+}
+
+function PostScreen({ form, setForm, live, flow, busy, onPost }: { form: Form; setForm: (f: (p: Form) => Form) => void; live: boolean; flow: FlowState | null; busy: boolean; onPost: () => void }) {
   return (
     <div className="panel">
-      <div className="sc-head"><div><h3>Post a job — Client escrows USDC</h3><div className="sc-sub">Client CAW {CLIENT()} signs createJob + escrow in one flow</div></div><span className="badge b-open"><span className="bd" />New</span></div>
+      <div className="sc-head"><div><h3>Post a job — Client escrows USDC</h3><div className="sc-sub">Client CAW {CLIENT()} signs createJob + escrow{live ? "" : " · (replay shows a recorded run)"}</div></div><span className="badge b-open"><span className="bd" />New</span></div>
       <div className="post">
         <div className="form">
-          <div className="field"><div className="lab">Task</div><div className="inp big">Explain on-chain escrow for a non-expert</div></div>
-          <div className="field"><div className="lab">Scope / acceptance criteria</div><div className="inp area">A clear 2–3 sentence explanation. Acceptance is judged by the evaluator against the Irys-stored deliverable.</div></div>
+          <div className="field"><div className="lab">Task title</div>
+            <input className="inp big" value={form.task} onChange={field(setForm, "task")} placeholder="What should the provider do?" /></div>
+          <div className="field"><div className="lab">Scope / acceptance criteria</div>
+            <textarea className="inp area" value={form.criteria} onChange={field(setForm, "criteria")} placeholder="How is the deliverable judged?" /></div>
           <div className="row2">
-            <div className="field"><div className="lab">Reward</div><div className="amtin"><span className="v">10.00</span><span className="u">USDC</span></div></div>
+            <div className="field"><div className="lab">Reward (USDC)</div>
+              <div className="amtin"><input className="v" value={form.reward} onChange={field(setForm, "reward")} inputMode="decimal" style={{ width: 90, border: 0, background: "transparent", fontFamily: "var(--mono)", fontWeight: 600, fontSize: 18, color: "var(--ink)" }} /><span className="u">USDC</span></div></div>
             <div className="field"><div className="lab">Deadline</div><div className="inp">7 days from escrow</div></div>
           </div>
           <div className="field"><div className="lab">Provider agent</div><div className="inp mono" style={{ fontSize: 13 }}>{CFG.providerCaw} · Provider CAW</div></div>
@@ -127,10 +158,10 @@ function PostScreen({ mode, flow, busy, onPost }: { mode: string; flow: FlowStat
         </div>
         <div className="summary">
           <h4>Escrow summary</h4>
-          <div className="sline"><span className="k">Reward</span><span className="v">10.00 USDC</span></div>
+          <div className="sline"><span className="k">Reward</span><span className="v">{(Number(form.reward) || 0).toFixed(2)} USDC</span></div>
           <div className="sline"><span className="k">Held by</span><span className="v">Escrow contract</span></div>
           <div className="sline"><span className="k">Released on</span><span className="v">accepted proof</span></div>
-          <div className="stotal"><span className="k">Total to escrow</span><span className="v">10.00<span className="u"> USDC</span></span></div>
+          <div className="stotal"><span className="k">Total to escrow</span><span className="v">{(Number(form.reward) || 0).toFixed(2)}<span className="u"> USDC</span></span></div>
           {flow?.fund_decision && (
             <div className="rcard" style={{ margin: "4px 0 14px" }}>
               <div className="rk">Client · fund decision (LLM)</div>
@@ -140,7 +171,7 @@ function PostScreen({ mode, flow, busy, onPost }: { mode: string; flow: FlowStat
           )}
           <p className="enote">Funds move into the escrow contract — held by neither party. The Provider gains a payment guarantee; the Client reclaims on rejection or expiry.</p>
           <button className="btn accept" style={{ justifyContent: "center", padding: 13 }} disabled={busy} onClick={onPost}>
-            Escrow &amp; post job ({mode}) <span className="k" style={{ opacity: 0.7 }}>⏎</span>
+            Escrow &amp; post job <span className="k" style={{ opacity: 0.7 }}>⏎</span>
           </button>
           <p className="enote" style={{ textAlign: "center", margin: "12px 0 0" }}>SIGNS WITH CLIENT CAW · {CLIENT()}</p>
         </div>
@@ -163,7 +194,7 @@ function InboxScreen({ flow, busy, onAccept }: { flow: FlowState; busy: boolean;
     <div className="panel sc-body">
       <div className="offer">
         <div className="oh">
-          <div><h3>New job offer · Job #{flow.job_id}</h3><div className="osub">FROM CLIENT {CLIENT()} · ESCROWED ON-CHAIN</div></div>
+          <div><h3>New job offer · Job #{flow.job_id}</h3><div className="osub">{flow.task} · FROM CLIENT {CLIENT()}</div></div>
           <span className="locked"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>Funds locked</span>
         </div>
         <div className="reward">
@@ -177,7 +208,7 @@ function InboxScreen({ flow, busy, onAccept }: { flow: FlowState; busy: boolean;
             fund · <a className="lnk" href={txUrl(flow.txs.fund)} target="_blank" rel="noreferrer">{shortHex(flow.txs.fund || "", 10)}</a>
           </p>
         </div>
-        <p className="myscope">Accepting binds the Provider CAW Pact to <b style={{ color: "var(--ink)", fontWeight: 500 }}>submitWork</b> on the escrow only. The Provider cannot move the escrowed funds — only the contract can.</p>
+        <p className="myscope">Accepting binds the Provider CAW Pact to <b style={{ color: "var(--ink)", fontWeight: 500 }}>submitWork</b> on the escrow only — the Provider cannot move the escrowed funds, only the contract can.</p>
         <div className="sc-actions" style={{ padding: "16px 0 0", background: "none", border: 0 }}>
           <button className="btn accept" disabled={busy} onClick={onAccept}>Accept job — bind Pact <span className="k" style={{ opacity: 0.7 }}>⏎</span></button>
         </div>
@@ -226,10 +257,6 @@ function ReviewScreen({ flow, busy, onSettle }: { flow: FlowState; busy: boolean
           <TStep done ti="Proof submitted" td={<>{check}{flow.irys ? `Irys ${shortHex(flow.irys.id, 8)} anchored` : "submitWork"}</>} tt="step 4" />
           <TStep active ti="Evaluator decision" td="Evaluator LLM judges → contract settles (pay or reclaim)" tt="now" />
         </div>
-        <p className="muted" style={{ fontSize: 13, margin: "14px 0 0" }}>
-          The evaluator agent (not a human) decides — acceptance is matched to the deliverable, then{" "}
-          <span className="mono">settle()</span> pays the Provider, or reclaims to the Client on reject.
-        </p>
       </div>
       <div className="sc-actions">
         <button className="btn accept" disabled={busy} onClick={onSettle}>Run evaluation &amp; settle <span className="k" style={{ opacity: 0.7 }}>⏎</span></button>
@@ -239,7 +266,7 @@ function ReviewScreen({ flow, busy, onSettle }: { flow: FlowState; busy: boolean
   );
 }
 
-function ReceiptScreen({ flow }: { flow: FlowState }) {
+function ReceiptScreen({ flow, onReset }: { flow: FlowState; onReset: () => void }) {
   const payout = flow.branch === "payout";
   const settleTx = flow.txs.complete || flow.txs.reject || "";
   return (
@@ -266,7 +293,8 @@ function ReceiptScreen({ flow }: { flow: FlowState }) {
       </div>
       <div className="sc-actions" style={{ padding: "18px 0 0", background: "none", border: 0 }}>
         {settleTx && <a className="btn primary" href={txUrl(settleTx)} target="_blank" rel="noreferrer">View settle() on explorer</a>}
-        <Link className="btn" href="/dashboard">Back to Marketplace</Link>
+        <button className="btn" onClick={onReset}>Run another</button>
+        <Link className="btn" href="/dashboard">Marketplace</Link>
       </div>
       <p className="footnote">SETTLED BY CONTRACT · HELD BY NEITHER PARTY · VERIFIABLE ON-CHAIN</p>
     </div>

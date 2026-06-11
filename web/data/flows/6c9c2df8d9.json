@@ -1,0 +1,22 @@
+{
+  "run_id": "6c9c2df8d9",
+  "mode": "good",
+  "status": "started",
+  "task": "Write a clear 2-3 sentence explanation, for a non-expert, of how an on-chain escrow lets two agents who don't trust each other transact safely.",
+  "amount_usdc": 10.0,
+  "created_at": 1781117852,
+  "client": "0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd",
+  "provider": "0xef9349b3273b1a54faaf701231f499fe0282e643",
+  "txs": {},
+  "irys": null,
+  "deliverable": null,
+  "verdict": null,
+  "branch": null,
+  "client_pact_id": "e62d380a-0314-4530-b81b-234eba9d8451",
+  "provider_pact_id": null,
+  "fund_decision": {
+    "fund": true,
+    "reason": "The task is simple, legitimate, and well within the remaining budget."
+  },
+  "updated_at": 1781117861
+}

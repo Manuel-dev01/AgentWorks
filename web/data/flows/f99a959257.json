@@ -1,0 +1,40 @@
+{
+  "run_id": "f99a959257",
+  "mode": "good",
+  "status": "settled",
+  "task": "Write a clear 2-3 sentence explanation, for a non-expert, of how an on-chain escrow lets two agents who don't trust each other transact safely.",
+  "amount_usdc": 10.0,
+  "created_at": 1781119927,
+  "client": "0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd",
+  "provider": "0xef9349b3273b1a54faaf701231f499fe0282e643",
+  "txs": {
+    "createJob": "0x01e07e2666c9cbfc75ca7aa9c1f73894b56ebb6d5b2d0364efbfb25c5cd8eac9",
+    "approve": "0x0248d351e61fbaee62ee236a49ce1949275e7c2ebf2b2b03dac0ba27eedd8563",
+    "fund": "0x56c48a27acd287202294ff52926c17998b6bec2c232995c3a996eaaf453b13e9",
+    "submitWork": "0xd2677326763daf02ed15bbbc0f1e47e9d6946166333a450dd8eb6b1aa84d4265",
+    "complete": "0x77f93630943e367d490886cb7469cc1b056660a854d7ba5cda3f7d159dc01323"
+  },
+  "irys": {
+    "id": "3GZU7do1TGEseoFJRRRc7E4ywQjMKgpnbTkGmrMo8m4B",
+    "url": "https://devnet.irys.xyz/3GZU7do1TGEseoFJRRRc7E4ywQjMKgpnbTkGmrMo8m4B",
+    "bytes": 390,
+    "price": "1342756917855",
+    "funded": "0"
+  },
+  "deliverable": "An on-chain escrow uses a smart contract to hold funds from both parties until pre-agreed conditions are met, like a delivery confirmation. The contract automatically releases payments only when these conditions are fulfilled, so neither side can cheat or run off with the money. This removes the need for trust between agents, as the code enforces the agreement transparently and securely.",
+  "verdict": {
+    "accept": true,
+    "reason": "The deliverable provides a clear, non-expert explanation of on-chain escrow in three sentences, covering how a smart contract holds funds and enforces conditions to remove trust."
+  },
+  "branch": "payout",
+  "client_pact_id": "127547de-0be2-4e1e-abaa-f8bc121df4e1",
+  "provider_pact_id": "47a674cb-9cc9-41de-99b4-d79ca65ff020",
+  "fund_decision": {
+    "fund": true,
+    "reason": "The task is legitimate and the price is reasonable within the remaining budget."
+  },
+  "updated_at": 1781120145,
+  "job_id": 4,
+  "final_status": "Completed",
+  "content_verified": true
+}

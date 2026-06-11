@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { loadJobs } from "../../../../lib/proofs";
+import { findJobByJobId } from "../../../../lib/proofs";
+import { liveJob } from "../../../../lib/chain";
 import { CFG, txUrl, irysUrl, addrUrl, shortHex } from "../../../../lib/config";
 import { Badge } from "../../../../components/Badge";
+import type { JobVM } from "../../../../lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -19,11 +21,24 @@ const check = (
   <svg width="11" height="11" viewBox="0 0 12 12"><path d="M3 6.5l2 2 4-5" fill="none" stroke="var(--settled)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
 );
 
-export default async function JobDetailPage({ params }: { params: Promise<{ idx: string }> }) {
-  const { idx } = await params;
-  const jobs = loadJobs();
-  const job = jobs[Number(idx)];
-  if (!job) notFound();
+export default async function JobDetailPage({ params }: { params: Promise<{ jobId: string }> }) {
+  const { jobId: jobIdStr } = await params;
+  const jobId = Number(jobIdStr);
+  if (!Number.isFinite(jobId)) notFound();
+
+  const artifact = findJobByJobId(jobId);
+  const live = await liveJob(jobId);
+  if (!artifact && !live) notFound();
+
+  // Prefer the artifact/flow record for rich detail; fall back to a minimal on-chain view.
+  const job: JobVM = artifact ?? {
+    jobId, source: "chain", phase: "On-chain", title: `Escrow job #${jobId}`,
+    amountUsdc: live!.amountUsdc, badge: badgeFromStatus(live!.statusLabel), statusLabel: live!.statusLabel,
+    branch: null, txs: {}, irys: live!.irysId ? { id: live!.irysId, url: irysUrl(live!.irysId) } : null,
+    deliverable: null, reasoning: {}, contentVerified: null,
+  };
+  const amount = live?.amountUsdc || job.amountUsdc;
+  const statusLabel = live?.statusLabel ?? job.statusLabel;
   const payout = job.branch === "payout";
   const settleTx = job.txs.complete || job.txs.reject || "";
   const steps = STEP_DEFS.filter((s) => job.txs[s.key]);
@@ -31,17 +46,16 @@ export default async function JobDetailPage({ params }: { params: Promise<{ idx:
   return (
     <>
       <div className="head">
-        <h1 style={{ fontSize: 26 }}>Escrow · Job #{job.jobId}</h1>
+        <h1 style={{ fontSize: 26 }}>Escrow · Job #{jobId}</h1>
         <p style={{ maxWidth: "70ch" }}>{job.title}</p>
       </div>
 
       <div className="panel sc-body">
         <div className="sc-head" style={{ padding: 0 }}>
-          <div><h3>Settlement detail</h3><div className="sc-sub">{job.phase} · {job.source}</div></div>
-          <Badge state={job.badge} label={job.statusLabel} />
+          <div><h3>Settlement detail</h3><div className="sc-sub">{job.phase} · {amount.toFixed(2)} USDC</div></div>
+          <Badge state={job.badge} label={statusLabel} />
         </div>
 
-        {/* agents */}
         <div className="agents">
           <div className="agent">
             <div className="role">Client · A</div>
@@ -56,7 +70,6 @@ export default async function JobDetailPage({ params }: { params: Promise<{ idx:
           </div>
         </div>
 
-        {/* reasoning */}
         {(job.reasoning.client_fund || job.reasoning.evaluate) && (
           <div className="reason">
             {job.reasoning.client_fund && (
@@ -72,18 +85,18 @@ export default async function JobDetailPage({ params }: { params: Promise<{ idx:
           </div>
         )}
 
-        {/* timeline */}
-        <div className="timeline">
-          {steps.map((s, i) => (
-            <div key={s.key} className={`tstep done${s.key === "reject" ? "" : ""}`}>
-              <div className="mk"><span className="o" />{i < steps.length - 1 && <span className="ln" />}</div>
-              <div><div className="ti">{s.ti}</div><div className="td">{check}{s.key}() · <a className="lnk" href={txUrl(job.txs[s.key])} target="_blank" rel="noreferrer">{shortHex(job.txs[s.key], 10)}</a></div></div>
-              <div className="tt" />
-            </div>
-          ))}
-        </div>
+        {steps.length > 0 && (
+          <div className="timeline">
+            {steps.map((s, i) => (
+              <div key={s.key} className="tstep done">
+                <div className="mk"><span className="o" />{i < steps.length - 1 && <span className="ln" />}</div>
+                <div><div className="ti">{s.ti}</div><div className="td">{check}{s.key}() · <a className="lnk" href={txUrl(job.txs[s.key])} target="_blank" rel="noreferrer">{shortHex(job.txs[s.key], 10)}</a></div></div>
+                <div className="tt" />
+              </div>
+            ))}
+          </div>
+        )}
 
-        {/* irys + verification */}
         {job.irys && (
           <div className="proof" style={{ marginTop: 18 }}>
             <div className="ph"><span className="t">Deliverable · Irys</span><span className="when"><a className="lnk" href={irysUrl(job.irys.id)} target="_blank" rel="noreferrer">{shortHex(job.irys.id, 10)}</a></span></div>
@@ -95,12 +108,11 @@ export default async function JobDetailPage({ params }: { params: Promise<{ idx:
           </div>
         )}
 
-        {/* receipt */}
         <div className="receipt" style={{ marginTop: 18 }}>
           <div className="rcell"><div className="rk">Outcome</div><div className="rv">{job.branch === "payout" ? "Provider paid" : job.branch === "refund" ? "Client refunded" : "—"}</div></div>
-          <div className="rcell"><div className="rk">Amount</div><div className="rv">{job.amountUsdc.toFixed(2)} USDC</div></div>
+          <div className="rcell"><div className="rk">Amount</div><div className="rv">{amount.toFixed(2)} USDC</div></div>
           <div className="rcell"><div className="rk">settle() tx</div><div className="rv">{settleTx ? <a href={txUrl(settleTx)} target="_blank" rel="noreferrer">{shortHex(settleTx, 10)}</a> : "—"}</div></div>
-          <div className="rcell"><div className="rk">Final status</div><div className="rv">{job.statusLabel}</div></div>
+          <div className="rcell"><div className="rk">Final status</div><div className="rv">{statusLabel}</div></div>
         </div>
 
         <div className="sc-actions" style={{ padding: "18px 0 0", background: "none", border: 0 }}>
@@ -110,4 +122,9 @@ export default async function JobDetailPage({ params }: { params: Promise<{ idx:
       </div>
     </>
   );
+}
+
+function badgeFromStatus(s: string): JobVM["badge"] {
+  return s === "Completed" ? "settled" : s === "Rejected" || s === "Refunded" ? "reclaim"
+    : s === "Submitted" ? "work" : s === "Funded" ? "escrow" : "open";
 }

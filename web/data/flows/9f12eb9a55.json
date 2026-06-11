@@ -1,0 +1,40 @@
+{
+  "run_id": "9f12eb9a55",
+  "mode": "good",
+  "status": "settled",
+  "task": "Write a clear 2-3 sentence explanation, for a non-expert, of how an on-chain escrow lets two agents who don't trust each other transact safely.",
+  "amount_usdc": 10.0,
+  "created_at": 1781120401,
+  "client": "0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd",
+  "provider": "0xef9349b3273b1a54faaf701231f499fe0282e643",
+  "txs": {
+    "createJob": "0x7a9b6f195455a7368e289a071e28b8a3e4a0d984bd680a65016f9a5e682f41f3",
+    "approve": "0xa5318c68b95d6f560a15adf9930de6fb1b421a70fd7510e4886c325d533fdca6",
+    "fund": "0x1ce7030502d807b220037dee5a7e7b94c231b6c18c1fe0ab2df8381bcdd31dd0",
+    "submitWork": "0x9b5731f947e7fc90ff2750875057fc7f040d8ee38452cb9716e21d3f8046c20d",
+    "complete": "0xabcb748af22c77dc31cba6abb460a843338beba1a758f4b88e30c1f3548bc040"
+  },
+  "irys": {
+    "id": "AGwYha8grhTRE23KnZrJ7fgFz4R32YaWikUMUvw2wjXn",
+    "url": "https://devnet.irys.xyz/AGwYha8grhTRE23KnZrJ7fgFz4R32YaWikUMUvw2wjXn",
+    "bytes": 420,
+    "price": "1342661889984",
+    "funded": "0"
+  },
+  "deliverable": "An on-chain escrow uses a smart contract to hold funds from both parties, releasing them only when pre-agreed conditions are met\u2014like a digital middleman that neither side can cheat. If either agent tries to break the deal, the contract enforces penalties or returns the money automatically. This way, two strangers can trade securely without needing to trust each other, because the blockchain code enforces fairness.",
+  "verdict": {
+    "accept": true,
+    "reason": "The deliverable provides a clear, non-expert-friendly 3-sentence explanation of how on-chain escrow uses smart contracts to ensure safe transactions between untrusting parties."
+  },
+  "branch": "payout",
+  "client_pact_id": "0954a452-13ab-4fed-89f9-0b1d45908ecb",
+  "provider_pact_id": "8930d1a8-2d3f-46a9-b08c-1dc054ff2ee2",
+  "fund_decision": {
+    "fund": true,
+    "reason": "The task is legitimate, the price is reasonable, and it's within the remaining budget."
+  },
+  "updated_at": 1781120578,
+  "job_id": 8,
+  "final_status": "Completed",
+  "content_verified": true
+}

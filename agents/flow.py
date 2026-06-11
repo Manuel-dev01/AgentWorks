@@ -55,6 +55,13 @@ def save_state(state: dict) -> dict:
     return state
 
 
+def _spec(state: dict) -> str:
+    """The full task spec the LLM works against (title + acceptance criteria)."""
+    task = state.get("task") or TASK
+    crit = (state.get("criteria") or "").strip()
+    return f"{task}\n\nAcceptance criteria: {crit}" if crit else task
+
+
 def _client():
     return config.client_agent()
 
@@ -87,19 +94,23 @@ async def _call(agent: CawWallet, src: str, target: str, calldata: str, label: s
 
 # ── steps ──────────────────────────────────────────────────────────────────
 
-async def start(mode: str = "good") -> dict:
+async def start(mode: str = "good", task: str | None = None, criteria: str | None = None,
+                amount_usdc: float | None = None) -> dict:
     assert mode in ("good", "bad")
     run_id = uuid4().hex[:10]
     cc = _client()
+    amt = float(amount_usdc) if amount_usdc else AMOUNT / 1e6
+    amt_base = int(round(amt * 1_000_000))
     state = {
-        "run_id": run_id, "mode": mode, "status": "started", "task": TASK,
-        "amount_usdc": AMOUNT / 1e6, "created_at": int(time.time()),
+        "run_id": run_id, "mode": mode, "status": "started",
+        "task": (task or TASK).strip(), "criteria": (criteria or "").strip(),
+        "amount_usdc": amt, "amount_base": amt_base, "created_at": int(time.time()),
         "client": cc.address, "provider": _provider().address,
         "txs": {}, "irys": None, "deliverable": None, "verdict": None, "branch": None,
         "client_pact_id": None, "provider_pact_id": None,
     }
     # Client genuinely decides whether to fund (criterion 1).
-    fund = reasoning.client_decide_fund(TASK, AMOUNT / 1e6, BUDGET)
+    fund = reasoning.client_decide_fund(_spec(state), amt, BUDGET)
     state["fund_decision"] = fund
     if not fund.get("fund"):
         state["status"] = "declined"
@@ -119,15 +130,16 @@ async def post(run_id: str) -> dict:
     cc = _client()
     w3 = esc.web3()
     job_id = esc.next_job_id(w3)
-    spec_hash = Web3.keccak(text=f"{TASK}#{job_id}")
+    amt = int(state["amount_base"])
+    spec_hash = Web3.keccak(text=f"{_spec(state)}#{job_id}")
     deadline = int(time.time()) + 7 * 24 * 3600
     state["job_id"] = job_id
     async with CawWallet(api_url=config.CAW_API_URL, api_key=cc.api_key, wallet_uuid=cc.wallet_id, name="Client") as cw:
         client = cw.scoped(await cw.get_pact(state["client_pact_id"]))
         state["txs"]["createJob"] = await _call(client, cc.address, config.ESCROW_ADDRESS,
-            esc.create_job(_provider().address, cc.address, AMOUNT, spec_hash, deadline), "createJob", run_id, 1)
+            esc.create_job(_provider().address, cc.address, amt, spec_hash, deadline), "createJob", run_id, 1)
         state["txs"]["approve"] = await _call(client, cc.address, config.USDC_ADDRESS,
-            esc.approve(config.ESCROW_ADDRESS, AMOUNT), "approve", run_id, 2)
+            esc.approve(config.ESCROW_ADDRESS, amt), "approve", run_id, 2)
         state["txs"]["fund"] = await _call(client, cc.address, config.ESCROW_ADDRESS,
             esc.fund(job_id), "fund", run_id, 3)
     state["status"] = "posted"
@@ -150,7 +162,7 @@ async def accept(run_id: str) -> dict:
 async def submit(run_id: str) -> dict:
     state = load_state(run_id)
     pp = _provider()
-    deliverable = reasoning.provider_do_task(TASK, sabotage=(state["mode"] == "bad"))
+    deliverable = reasoning.provider_do_task(_spec(state), sabotage=(state["mode"] == "bad"))
     state["deliverable"] = deliverable
     dhash = Web3.keccak(text=deliverable)
     irys = irys_store.upload(deliverable, tags={"app": "AgentWorks", "job-id": str(state["job_id"]),
@@ -169,7 +181,7 @@ async def settle(run_id: str) -> dict:
     cc = _client()
     # Evaluator fetches the deliverable FROM Irys (by the on-chain id) and judges it.
     fetched = irys_store.fetch(state["irys"]["id"]).decode("utf-8", "replace")
-    verdict = reasoning.evaluate(TASK, fetched)
+    verdict = reasoning.evaluate(_spec(state), fetched)
     state["verdict"] = verdict
     async with CawWallet(api_url=config.CAW_API_URL, api_key=cc.api_key, wallet_uuid=cc.wallet_id, name="Client") as cw:
         client = cw.scoped(await cw.get_pact(state["client_pact_id"]))
@@ -191,9 +203,10 @@ async def settle(run_id: str) -> dict:
 
 # ── dispatch ─────────────────────────────────────────────────────────────────
 
-def run_step(step: str, run_id: str | None = None, mode: str = "good") -> dict:
+def run_step(step: str, run_id: str | None = None, mode: str = "good", task: str | None = None,
+             criteria: str | None = None, amount_usdc: float | None = None) -> dict:
     if step == "start":
-        return asyncio.run(start(mode))
+        return asyncio.run(start(mode, task, criteria, amount_usdc))
     if run_id is None:
         raise RuntimeError(f"step '{step}' requires a run_id")
     fn = {"post": post, "accept": accept, "submit": submit, "settle": settle}.get(step)

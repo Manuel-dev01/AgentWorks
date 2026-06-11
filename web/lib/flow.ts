@@ -24,12 +24,12 @@ export interface FlowState {
 
 export async function runStep(
   step: "start" | "post" | "accept" | "submit" | "settle",
-  opts: { runId?: string; mode?: "good" | "bad" } = {},
+  opts: { runId?: string; mode?: "good" | "bad"; task?: string; criteria?: string; amountUsdc?: number } = {},
 ): Promise<FlowState> {
   const res = await fetch("/api/flow", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ step, runId: opts.runId, mode: opts.mode }),
+    body: JSON.stringify({ step, runId: opts.runId, mode: opts.mode, task: opts.task, criteria: opts.criteria, amountUsdc: opts.amountUsdc }),
   });
   const data = await res.json();
   if (!res.ok && !data?.error) throw new Error(`flow ${step} failed (${res.status})`);

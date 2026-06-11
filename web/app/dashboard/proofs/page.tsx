@@ -13,8 +13,8 @@ export default function ProofsPage() {
         <h1>Proofs — the load-bearing trust layer</h1>
         <p>
           A Pact is enforced server-side by the Cobo Agentic Wallet — an agent cannot exceed it regardless of what its
-          LLM decides. These three beats and the literal Pact policies are the risk-boundary evidence (from the verified
-          Phase 4 runs).
+          LLM decides. These three beats and the literal Pact policies are the risk-boundary evidence, captured from
+          verified CAW runs.
         </p>
       </div>
 
