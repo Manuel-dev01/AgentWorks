@@ -34,10 +34,11 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
   const live = await liveJobV2(jobId);
   if (!run && !live) notFound();
 
+  const clean = (s?: string | null) => (s ? s.replace(/[—–]/g, "-") : s); // normalize LLM dashes for display
   const amount = run?.amount_usdc ?? live?.amountUsdc ?? 0;
-  const statusLabel = live?.statusLabel ?? run?.final_status ?? "—";
+  const statusLabel = live?.statusLabel ?? run?.final_status ?? "-";
   const badge = run ? runBadge(run) : runBadge({ job_id: jobId, final_status: live!.statusLabel } as AgentRun);
-  const title = run?.task ?? `Escrow job #${jobId}`;
+  const title = clean(run?.task) ?? `Escrow job #${jobId}`;
   const provider = run?.provider ?? live?.provider ?? "";
   const accepts = Object.entries(run?.accept_decisions ?? {});
   const raced = accepts.length > 1;
@@ -77,17 +78,17 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
             {run?.fund_decision && (
               <div className="rcard"><div className="rk">Client · fund decision (LLM)</div>
                 <div className={`verdict ${run.fund_decision.fund ? "y" : "n"}`}>{run.fund_decision.fund ? "FUND ✓" : "DECLINE ✕"}</div>
-                <div className="why">{run.fund_decision.reason}</div></div>
+                <div className="why">{clean(run.fund_decision.reason)}</div></div>
             )}
             {accepts.map(([who, d]) => (
               <div className="rcard" key={who}><div className="rk">{who} · accept {raced ? (who === run?.winner ? "· won race" : "· lost race") : ""}</div>
                 <div className={`verdict ${d.accept ? "y" : "n"}`}>{d.accept ? "ACCEPT ✓" : "PASS ✕"}</div>
-                <div className="why">{raced && who !== run?.winner ? "acceptJob reverted — " : ""}{d.reason}</div></div>
+                <div className="why">{raced && who !== run?.winner ? "acceptJob reverted - " : ""}{clean(d.reason)}</div></div>
             ))}
             {run?.verdict && (
               <div className="rcard"><div className="rk">Evaluator · verdict (LLM)</div>
                 <div className={`verdict ${run.verdict.accept ? "y" : "n"}`}>{run.verdict.accept ? "ACCEPT ✓ → payout" : "REJECT ✕ → refund"}</div>
-                <div className="why">{run.verdict.reason}</div></div>
+                <div className="why">{clean(run.verdict.reason)}</div></div>
             )}
           </div>
         )}
@@ -109,16 +110,16 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
             <div className="ph"><span className="t">Deliverable · Irys</span><span className="when"><a className="lnk" href={irysUrl(irys.id)} target="_blank" rel="noreferrer">{shortHex(irys.id, 10)}</a></span></div>
             <div className="pb">
               <div className="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 7h16M4 12h16M4 17h10" /></svg></div>
-              <div><div className="fn">deliverable.txt</div>{run?.deliverable && <div className="fh" style={{ color: "var(--ink-3)" }}>{run.deliverable.slice(0, 90)}…</div>}</div>
+              <div><div className="fn">deliverable.txt</div>{run?.deliverable && <div className="fh" style={{ color: "var(--ink-3)" }}>{clean(run.deliverable.slice(0, 90))}…</div>}</div>
               {run?.content_verified && <span className="verified" style={{ marginLeft: "auto" }}>{check} hash verified</span>}
             </div>
           </div>
         )}
 
         <div className="receipt" style={{ marginTop: 18 }}>
-          <div className="rcell"><div className="rk">Outcome</div><div className="rv">{run?.branch === "payout" ? "Provider paid" : run?.branch === "refund" ? "Client refunded" : "—"}</div></div>
+          <div className="rcell"><div className="rk">Outcome</div><div className="rv">{run?.branch === "payout" ? "Provider paid" : run?.branch === "refund" ? "Client refunded" : "-"}</div></div>
           <div className="rcell"><div className="rk">Amount</div><div className="rv">{amount.toFixed(2)} USDC</div></div>
-          <div className="rcell"><div className="rk">settle() tx</div><div className="rv">{settleTx ? <a href={txUrl(settleTx)} target="_blank" rel="noreferrer">{shortHex(settleTx, 10)}</a> : "—"}</div></div>
+          <div className="rcell"><div className="rk">settle() tx</div><div className="rv">{settleTx ? <a href={txUrl(settleTx)} target="_blank" rel="noreferrer">{shortHex(settleTx, 10)}</a> : "-"}</div></div>
           <div className="rcell"><div className="rk">Final status</div><div className="rv">{statusLabel}</div></div>
         </div>
 

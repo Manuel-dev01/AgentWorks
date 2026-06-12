@@ -16,9 +16,9 @@ export default function ProofsPage() {
   return (
     <>
       <div className="head">
-        <h1>Proofs — the load-bearing trust layer</h1>
+        <h1>Proofs - the load-bearing trust layer</h1>
         <p>
-          A Pact is enforced server-side by the Cobo Agentic Wallet — an agent cannot exceed it regardless of what its
+          A Pact is enforced server-side by the Cobo Agentic Wallet - an agent cannot exceed it regardless of what its
           LLM decides. These three beats and the literal Pact policies are the risk-boundary evidence, captured from
           verified CAW runs.
         </p>
@@ -38,9 +38,9 @@ export default function ProofsPage() {
       </div>
       <p className="pact-onboard">
         Each agent is onboarded into its own Cobo Agentic Wallet and bound to a scoped Pact at submit time
-        (a pact-scoped API key carries the authority). The provider Pact omits USDC entirely — a provider can
+        (a pact-scoped API key carries the authority). The provider Pact omits USDC entirely - a provider can
         accept and deliver but can never move escrowed funds; only the escrow contract settles. New participants
-        join by onboarding a wallet and binding the same template Pact — the authority boundary travels with them.
+        join by onboarding a wallet and binding the same template Pact - the authority boundary travels with them.
       </p>
 
       <div className="beats">
@@ -63,7 +63,7 @@ export default function ProofsPage() {
         {/* FREEZE */}
         <div className="beat">
           <div className="bh"><span className="bnum">BEAT 02</span><h3>Emergency freeze</h3>{beats.freeze?.afterFreezeDenied && <span className="denied-pill">403 AFTER</span>}</div>
-          <p>CAW has no native freeze API, so freeze = <b style={{ color: "var(--ink)", fontWeight: 600 }}>revoke_pact</b>. A call succeeds, the Pact is revoked, and the very next call is denied — authority stripped instantly.</p>
+          <p>CAW has no native freeze API, so freeze = <b style={{ color: "var(--ink)", fontWeight: 600 }}>revoke_pact</b>. A call succeeds, the Pact is revoked, and the very next call is denied - authority stripped instantly.</p>
           {beats.freeze && (
             <>
               <div className="codeline">allowed before · <a className="lnk" href={txUrl(beats.freeze.allowedTx)} target="_blank" rel="noreferrer">{shortHex(beats.freeze.allowedTx, 10)}</a><br />revoke_pact · {shortHex(beats.freeze.pactId, 8)}</div>
@@ -75,7 +75,7 @@ export default function ProofsPage() {
         {/* REVIEW */}
         <div className="beat">
           <div className="bh"><span className="bnum">BEAT 03</span><h3>Human-in-the-loop review</h3>{beats.review && <span className="denied-pill ok-pill">APPROVED</span>}</div>
-          <p>A <code>review_if</code> Pact holds a sensitive transfer as <b style={{ color: "var(--ink)", fontWeight: 600 }}>PendingApproval</b> until the owner approves — then it executes on-chain.</p>
+          <p>A <code>review_if</code> Pact holds a sensitive transfer as <b style={{ color: "var(--ink)", fontWeight: 600 }}>PendingApproval</b> until the owner approves - then it executes on-chain.</p>
           {beats.review && (
             <>
               <div className="codeline">decision · <span className="c" style={{ color: "var(--work)" }}>{beats.review.effect}</span><br />pending · {shortHex(beats.review.pendingId, 8)} → {beats.review.status}</div>
@@ -86,7 +86,7 @@ export default function ProofsPage() {
       </div>
 
       <div className="head" style={{ paddingTop: 8 }}>
-        <h1 style={{ fontSize: 22 }}>Pact policies — the literal risk boundary</h1>
+        <h1 style={{ fontSize: 22 }}>Pact policies - the literal risk boundary</h1>
         <p>The exact JSON each agent operates within, shipped as a first-class deliverable. The allowlist binds the live v2 escrow ({shortHex(CFG.escrowV2)}) + MockUSDC; caps + review thresholds are enforced by CAW, not by our code.</p>
       </div>
       <div className="pacts">

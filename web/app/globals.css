@@ -1,5 +1,5 @@
 /* =====================================================================
-   AgentWorks — brand tokens + shared primitives
+   AgentWorks - brand tokens + shared primitives
    Ported verbatim from the brand direction (AgentWorks Brand.html /
    AgentWorks Landing.html). "Neutral financial plumbing": warm paper +
    ink, hairline ledger rules, one disciplined Settle Blue. Space Grotesk
@@ -63,7 +63,7 @@ p{ margin:0; }
 .sec-tag .num{ color:var(--settle); }
 .sec-tag::after{ content:""; flex:1; height:1px; background:var(--line); }
 
-/* badges — the five lifecycle states */
+/* badges - the five lifecycle states */
 .badge{
   display:inline-flex; align-items:center; gap:6px; font-family:var(--mono);
   font-size:10px; font-weight:500; letter-spacing:0.06em; text-transform:uppercase;

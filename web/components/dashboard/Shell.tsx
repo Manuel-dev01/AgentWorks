@@ -15,7 +15,7 @@ const TABS = [
 export function Shell({ clientBal, providerBal }: { clientBal: number | null; providerBal: number | null }) {
   const path = usePathname();
   const active = (href: string) => (href === "/dashboard" ? path === href : path.startsWith(href));
-  const bal = (n: number | null) => (n === null ? "—" : `${n.toFixed(2)}`);
+  const bal = (n: number | null) => (n === null ? "-" : `${n.toFixed(2)}`);
   return (
     <div className="bar">
       <div className="wrap">

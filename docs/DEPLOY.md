@@ -1,54 +1,144 @@
-# Deploying the AgentWorks dashboard to Vercel
+# Deploying AgentWorks
 
-The `/web` Next.js 15 app (landing `/`, brand `/brand`, dashboard `/dashboard`) is the demo surface — one
-of **three** deployments (Vercel web + Railway agent service + a TSS signer host; see
-[ARCHITECTURE.md](ARCHITECTURE.md) and [DEPLOY_AGENTS.md](DEPLOY_AGENTS.md)). The dashboard itself holds no
-keys: it reads chain via viem and **triggers the deployed agent service** over HTTPS.
+AgentWorks runs as **three deployments**. The dashboard holds no keys; the agent service holds no keys;
+only the TSS signer holds the MPC key share — that separation is Cobo's security model.
 
-## What runs where
-| Capability | Local (`pnpm --filter web dev`) | Vercel (hosted) |
+```
+        reads (viem)                       POST /trigger, /runs, /health
+   ┌──────────────────┐        ┌──────────────────────────────┐
+   │                  ▼        ▼                               │
+┌──┴───────────────┐   ┌──────────────────────────┐  HTTPS  ┌─────────────────────┐
+│  Dashboard /web  │   │  Agent service (FastAPI) │ ──────▶ │   CAW cloud API     │
+│  (Vercel)        │   │  autonomous loops · NO   │  pact / │ (pact enforcement,  │
+│                  │   │  key material (Railway)  │  call   │  routes signing)    │
+└──────────────────┘   └──────────────────────────┘         └──────────┬──────────┘
+        │                         │ reads chain (web3)                  │ websocket (relay)
+        │ reads chain (viem)      ▼                                     ▼
+        └───────────▶  ┌──────────────────────────┐         ┌──────────────────────────┐
+                       │  Ethereum Sepolia        │◀────────│  TSS signer (always-on)  │
+                       │  Escrow v2 + MockUSDC    │ broadcast│  holds the key share     │
+                       └──────────────────────────┘         │  (Railway: agentworks-tss)│
+                                                             └──────────────────────────┘
+```
+
+| Piece | What | Where |
+|---|---|---|
+| **Dashboard** (`/web`, Next.js 15) | demo surface — live reads + triggers the agents | **Vercel** |
+| **Agent service** (`agents/server.py`) | autonomous orchestration + LLM reasoning; **no keys** | **Railway** |
+| **TSS signer** (`cobo-tss-node`) | CAW MPC node that co-signs; **holds the key share** | **Railway** (`agentworks-tss`) |
+
+---
+
+## 1. Dashboard → Vercel
+
+The dashboard reads chain via viem and triggers the agent service over HTTPS; it never holds keys, so it
+deploys as a normal static/SSR Next.js app.
+
+**What runs where**
+
+| Capability | Local (`pnpm --filter web dev`) | Vercel |
 |---|---|---|
 | Landing / brand / dashboard pages | ✅ | ✅ |
-| Live USDC balances + job/run status (viem + agent `/runs`, read-only) | ✅ | ✅ |
-| Verified proof artifacts (autonomous runs, criticality beats, Pact JSON) | ✅ from `../agents` + `../docs` | ✅ from committed `web/data/` |
+| Live balances + job/run status (viem + agent `/runs`) | ✅ | ✅ |
+| Verified proof artifacts (autonomous runs, criticality beats, Pact JSON) | ✅ | ✅ from committed `web/data/` |
 | Etherscan / Irys deep links | ✅ | ✅ |
-| **New job → trigger** the autonomous agents (`POST /trigger` to the agent service) | ✅ | ✅ (calls the Railway service; needs a TSS signer up — see DEPLOY_AGENTS.md) |
+| **New job → trigger** the agents (`POST /trigger`) | ✅ | ✅ (calls the Railway service) |
 
-## Why `web/data/` exists
-Next only bundles files under the project root, so the dashboard cannot `fs`-read the sibling
-`../agents/scripts` / `../docs/pacts` from a serverless function. `web/scripts/snapshot-proofs.mjs`
-copies the verified `*_proof.json` + Pact JSON into **`web/data/`** (committed to git, and refreshed by
-`predev`/`prebuild`). `web/lib/proofs.ts` reads `web/data/` first and falls back to the sibling dirs for
-local dev. Refresh after a new agent run with: `pnpm --filter web snapshot`.
+**Vercel project settings**
+- **Root Directory:** `web` (recommended). Vercel auto-detects Next.js and walks up to the repo-root
+  `pnpm-workspace.yaml` for the lockfile + `allowBuilds: sharp`. Enable *"Include source files outside of the
+  Root Directory"* so `prebuild` can snapshot from `../agents` / `../docs` (though `web/data/` is committed,
+  so it works even without it).
+- **Framework:** Next.js · **Install:** `pnpm install` · **Build:** default (`pnpm run build` → snapshot +
+  `next build`) · **Output:** `.next`.
+- **Environment variables** (public `NEXT_PUBLIC_*`; sensible defaults are baked in, so the app works even if
+  unset): `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_ESCROW_V2_ADDRESS`, `NEXT_PUBLIC_USDC_ADDRESS`,
+  `NEXT_PUBLIC_CLIENT_CAW`, `NEXT_PUBLIC_PROVIDER_CAW`, `NEXT_PUBLIC_PROVIDER_CAW_B`,
+  `NEXT_PUBLIC_EXPLORER_BASE`, `NEXT_PUBLIC_IRYS_GATEWAY`, **`NEXT_PUBLIC_AGENT_API`** (the agent-service URL —
+  defaults to the live Railway URL). Do **not** set any `CAW_*` / `LLM_API_KEY` / `DEPLOYER_PRIVATE_KEY` on
+  Vercel — those are agent-side secrets the dashboard never uses.
 
-## Vercel project settings
-- **Root Directory:** **`web`** (recommended). Vercel auto-detects Next.js, and for a pnpm workspace it
-  walks up to the repo-root `pnpm-workspace.yaml` (so `allowBuilds: sharp` + the lockfile apply) and installs
-  from there. Turn ON **"Include source files outside of the Root Directory"** so `prebuild` can snapshot
-  from `../agents` / `../docs` — though `web/data/` is committed, so the dashboard works even without it.
-- **Framework preset:** Next.js (auto-detected)
-- **Install Command:** default (`pnpm install`)
-- **Build Command:** default (`pnpm run build` → runs `prebuild` snapshot, then `next build`)
-- **Output Directory:** default (`.next`)
-- *(Alternative — Root Directory = repo root: set Build Command `pnpm --filter web build`, Output `web/.next`.)*
-- **Environment Variables** — the public `NEXT_PUBLIC_*` block from `.env.example` (all non-secret testnet
-  values; sensible defaults are also baked in, so the app works even if these are unset):
-  `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_ESCROW_V2_ADDRESS`, `NEXT_PUBLIC_USDC_ADDRESS`,
-  `NEXT_PUBLIC_CLIENT_CAW`, `NEXT_PUBLIC_PROVIDER_CAW`, `NEXT_PUBLIC_EXPLORER_BASE`,
-  `NEXT_PUBLIC_IRYS_GATEWAY`, and **`NEXT_PUBLIC_AGENT_API`** (the deployed agent service base URL — defaults
-  to the live Railway URL, so the New-job trigger works even if unset). Do **not** set any `CAW_*` /
-  `LLM_API_KEY` / `DEPLOYER_PRIVATE_KEY` on Vercel — those are agent-side secrets the hosted dashboard never uses.
+**`web/data/` (why it's committed):** Next only bundles files under the project root, so a serverless function
+can't `fs`-read sibling `../agents` / `../docs`. `web/scripts/snapshot-proofs.mjs` (run on `predev`/`prebuild`)
+copies the verified run artifacts + Pact JSON into `web/data/`. Refresh after a new run with
+`pnpm --filter web snapshot`. If a Vercel build ever errors `ERR_PNPM_IGNORED_BUILDS`, set Install to
+`pnpm install --no-frozen-lockfile`.
 
-## pnpm build-script note (`sharp`)
-This repo pins `pnpm@11.1.2`, which gates native install scripts. `pnpm-workspace.yaml` approves the one
-we hit: `allowBuilds: { sharp: true }` (sharp is Next's optional image optimizer; prebuilt binary, fast).
-If a Vercel build ever errors with `ERR_PNPM_IGNORED_BUILDS`, set the Install Command to
-`pnpm install --no-frozen-lockfile` or add the package under `onlyBuiltDependencies` for the pnpm version
-Vercel resolves. Locally, `web/node_modules/.bin/next dev` bypasses the dep-status gate entirely.
+## 2. Agent service → Railway
 
-## Local dev quickstart
+`agents/server.py` (FastAPI) runs the autonomous loops and exposes `/health`, `/runs`, `/board`,
+`POST /trigger`. It talks to the CAW cloud API over HTTPS and holds **no key material**.
+
 ```bash
-pnpm install                 # approves sharp build; links web deps
-pnpm --filter web dev        # http://localhost:3000  (/, /brand, /dashboard)
-# Run-live buttons shell out to: agents/.venv/Scripts/python.exe agents/scripts/phase5_demo.py {good|bad}
+# from repo root, Railway CLI logged in
+railway up --dockerfile agents/Dockerfile      # build context = repo root
+# Railway gives a public URL, e.g. https://<service>.up.railway.app
 ```
+
+**Secrets/env on the service** (copy values from your local `.env`; never commit them):
+- CAW: `CAW_CLIENT_WALLET_ID`, `CAW_CLIENT_API_KEY`, `CAW_CLIENT_ADDRESS`, `CAW_PROVIDER_WALLET_ID`,
+  `CAW_PROVIDER_API_KEY`, `CAW_PROVIDER_ADDRESS`, `CAW_PROVIDER_ADDRESS_2`, `AGENT_WALLET_API_URL`, `CAW_CHAIN_ID=SETH`.
+- Chain: `RPC_URL`, `ESCROW_V2_CONTRACT_ADDRESS=0xD6cB413c0E4a5839Fd4B02aFFeBF65e6868726b9`,
+  `USDC_TOKEN_ADDRESS=0x4C4D1223BcC47E380CF4C37652EaDFe10A9Fd910`.
+- LLM: `LLM_API_KEY`, `LLM_MODEL`, `LLM_BASE_URL`. · Irys: `IRYS_PRIVATE_KEY` (falls back to `DEPLOYER_PRIVATE_KEY`).
+- Hardening for a public URL: `AGENT_TRIGGER_TOKEN=<random>` (protects `POST /trigger`),
+  `AGENT_CORS_ORIGINS=https://<your-vercel-domain>` (locks CORS to the dashboard).
+
+## 3. TSS signer → Railway (always-on)
+
+The signer is the only piece that holds your key share. It runs as its own Railway service
+(`agentworks-tss`, image `agents/tss/Dockerfile.tss`) so the whole system is hands-off — nothing on your
+machine. **One node per wallet identity may be on the CAW relay at a time**, so stop any local
+`cobo-tss-node` before the Railway signer runs (and vice-versa).
+
+**Setup**
+1. **Volume at `/keys`** (the image hardcodes `PROFILES_DIR=/keys`), one subdir per wallet holding that
+   profile's `tss-node` contents (`db/secrets.db` + `.password` + `configs/`):
+   ```
+   /keys/client/    ← %USERPROFILE%\.cobo-agentic-wallet\profiles\profile_caw_agent_4bc15e6348db0514\tss-node\
+   /keys/provider/  ← …\profile_caw_agent_e6318ac84f123085\tss-node\
+   ```
+   Populate a fresh Railway volume via `railway ssh` + base64-over-stdin
+   (`bash agents/tss/make_keyshare_env.sh ./keys` emits the blobs; `echo '<blob>' | base64 -d | tar -xz -C /keys/client`).
+   **Key-share portability is verified:** the Linux node loads the Windows-generated shares and connects with
+   the same node ids — no re-onboard, no re-fund.
+2. **Env:** `TSS_DEBUG_SLEEP=0` (run the signers), plus the retry tuning the entrypoint reads —
+   `TSS_MAX_RETRIES=5`, `TSS_INITIAL_BACKOFF=60`, `TSS_MAX_BACKOFF=300`, `TSS_HEALTHY_SECS=300`.
+3. The entrypoint (`agents/tss/entrypoint.sh`) starts **one signer per profile in parallel**, each with its own
+   retry + exponential-backoff loop, and keeps the container alive so logs stay inspectable. Healthy state:
+   `started 2 signer(s)` then two `[Websocket.Client] connected.`, and `Signing task … completed` when a run signs.
+
+**VM alternative (Option A).** Any small Linux VM with Docker runs the identical setup:
+```bash
+mkdir -p keys/client keys/provider     # copy each profile's tss-node contents into keys/<name>/
+docker compose --profile tss up -d     # one signer per keys/<name>/ ; mounts ./keys:/keys
+docker compose logs -f agentworks-tss  # look for: started 2 signer(s); [Websocket.Client] connected.
+```
+
+## 4. Gas + USDC
+
+Keep the Client and both provider addresses funded with Sepolia ETH (gas); keep the Client holding MockUSDC
+(`mint` on the MockUSDC contract if needed). All addresses are in the README.
+
+## 5. Verify the deployment
+```bash
+curl https://<agent-host>/health     # → {"status":"ok", escrow_v2, providers:2, …}
+curl https://<agent-host>/runs       # → past run artifacts
+curl -X POST https://<agent-host>/trigger \
+  -H "authorization: Bearer $AGENT_TRIGGER_TOKEN" -H "content-type: application/json" \
+  -d '{"mode":"good","reward_usdc":5,"max_jobs":1}'
+# poll /runs, then open the resulting tx hashes on https://sepolia.etherscan.io
+```
+The system is fully hands-off once a `POST /trigger` settles a job with **no local signer running** — the
+agent service signs through the Railway TSS node. (Verified: job #10 → Completed, co-signed by the Railway
+container; see the README evidence table.)
+
+## Local development
+```bash
+pnpm install
+pnpm --filter web dev                 # http://localhost:3000  (/, /brand, /dashboard, /dashboard/new)
+# drive the agents locally instead of via the cloud service (needs a local cobo-tss-node signer up):
+agents/.venv/Scripts/python.exe agents/autonomous.py --mode good --max-jobs 1   # payout
+agents/.venv/Scripts/python.exe agents/autonomous.py --mode bad  --max-jobs 1   # refund
+```
+If `pnpm --filter web dev` errors on an ignored `sharp` build, run `web/node_modules/.bin/next dev` directly.

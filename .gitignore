@@ -47,5 +47,11 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 
-# NOTE: docs/FACTS.md IS committed on purpose (verified facts, no secrets).
 keyshares.tgz
+
+# ── Internal working docs (kept local, NOT shipped in the submission) ───
+CLAUDE.md
+docs/FACTS.md
+docs/STATUS.md
+docs/DEMO_SCRIPT.md
+docs/DEPLOY_AGENTS.md

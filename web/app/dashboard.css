@@ -1,4 +1,4 @@
-/* Dashboard — the app FLOW, scoped under .dp. Ported from the screens/ design (screens.css +
+/* Dashboard - the app FLOW, scoped under .dp. Ported from the screens/ design (screens.css +
    per-screen styles), adapted from the centered "browser window" showcase into a real full-width
    app shell. Brand tokens live in globals.css. */
 
@@ -261,9 +261,10 @@
 .dp .rc-v{ font-family:var(--mono); font-size:10px; font-weight:600; letter-spacing:0.06em; }
 .dp .rc-v.y{ color:var(--settled); } .dp .rc-v.n{ color:var(--reclaim); }
 .dp .rc-rz{ color:var(--ink-2); line-height:1.55; }
-.dp .rc-tx{ display:flex; flex-wrap:wrap; gap:7px; padding:0 18px 16px; }
-.dp .rc-chip{ font-family:var(--mono); font-size:10px; letter-spacing:0.02em; text-decoration:none; color:var(--settle-deep);
-  border:1px solid var(--settle-line); background:var(--settle-wash); padding:5px 10px; border-radius:999px; transition:background .14s,color .14s; }
+.dp .rc-tx{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:0 18px 16px; }
+.dp .rc-chip{ display:inline-flex; align-items:center; font-family:var(--mono); font-size:10px; line-height:1; letter-spacing:0.02em;
+  text-decoration:none; color:var(--settle-deep); border:1px solid var(--settle-line); background:var(--settle-wash);
+  padding:5px 8px; border-radius:6px; transition:background .14s,color .14s; }
 .dp .rc-chip:hover{ background:var(--settle); color:var(--paper); }
 .dp .rc-chip.irys{ color:var(--work); border-color:color-mix(in oklch, var(--work) 40%, transparent); background:transparent; }
 .dp .rc-chip.irys:hover{ background:var(--work); color:var(--paper); }
@@ -297,6 +298,11 @@
 .dp .lj-role.client{ background:var(--settle); } .dp .lj-role.provider{ background:var(--work); }
 .dp .lj-pn{ font-weight:600; font-size:13px; } .dp .lj-pa{ font-family:var(--mono); font-size:11px; color:var(--ink-3); }
 .dp .lj-note{ font-family:var(--mono); font-size:10.5px; color:var(--ink-3); line-height:1.65; margin-top:14px; max-width:74ch; }
+
+/* history pagination */
+.dp .pager{ display:flex; align-items:center; justify-content:center; gap:14px; padding:4px 18px 20px; }
+.dp .pager .filter:disabled{ opacity:0.4; cursor:default; }
+.dp .pager .pg{ font-family:var(--mono); font-size:11px; color:var(--ink-3); letter-spacing:0.04em; }
 
 /* ===== proofs · participants / onboarding boundary ===== */
 .dp .pact-parts{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:14px; }

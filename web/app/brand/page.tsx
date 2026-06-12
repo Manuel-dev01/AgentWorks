@@ -75,7 +75,7 @@ export default function BrandPage() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 56, alignItems: "start" }}>
             <div>
               <h2 style={{ fontSize: 34, letterSpacing: "-0.025em", maxWidth: "16ch" }}>
-                A brand built to read as neutral financial plumbing — not another crypto launch.
+                A brand built to read as neutral financial plumbing - not another crypto launch.
               </h2>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 22, paddingTop: 6 }}>
@@ -87,7 +87,7 @@ export default function BrandPage() {
               </p>
               <p style={{ color: "var(--ink-2)", fontSize: 16, lineHeight: 1.6 }}>
                 CAW is the load-bearing authority; the escrow contract is the neutral settlement layer. The visual
-                language keeps those two ideas legible at every step —{" "}
+                language keeps those two ideas legible at every step -{" "}
                 <b style={{ color: "var(--ink)", fontWeight: 500 }}>who is authorized, and what has settled.</b>
               </p>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 4 }}>
@@ -103,16 +103,16 @@ export default function BrandPage() {
       {/* ===== 02 LOGO ===== */}
       <section id="logo">
         <div className="wrap">
-          <div className="sec-tag"><span className="num">02</span> · <b>The Mark</b> — AW escrow chip</div>
+          <div className="sec-tag"><span className="num">02</span> · <b>The Mark</b> - AW escrow chip</div>
           <div style={{ display: "grid", gridTemplateColumns: "0.9fr 1.1fr", gap: 40, alignItems: "center", marginBottom: 24 }}>
             <div className="panel" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 280, background: "var(--paper-2)" }}>
               <AwMark size={180} style={{ color: "var(--ink)" }} />
             </div>
             <div>
               <p style={{ color: "var(--ink-2)", fontSize: 16, lineHeight: 1.6 }}>
-                The mark is a <b style={{ color: "var(--ink)", fontWeight: 500 }}>settlement chip</b>. Two agent glyphs — an{" "}
+                The mark is a <b style={{ color: "var(--ink)", fontWeight: 500 }}>settlement chip</b>. Two agent glyphs - an{" "}
                 <b style={{ color: "var(--ink)", fontWeight: 500 }}>A-peak</b> (Client) and a{" "}
-                <b style={{ color: "var(--ink)", fontWeight: 500 }}>W-valley</b> (Provider) — sit either side of a vertical{" "}
+                <b style={{ color: "var(--ink)", fontWeight: 500 }}>W-valley</b> (Provider) - sit either side of a vertical{" "}
                 <b style={{ color: "var(--ink)", fontWeight: 500 }}>escrow seam</b>. The solid node locked in the seam is the
                 escrowed value: held by neither party, released by the contract.
               </p>
@@ -164,7 +164,7 @@ export default function BrandPage() {
       {/* ===== 03 COLOR ===== */}
       <section id="color">
         <div className="wrap">
-          <div className="sec-tag"><span className="num">03</span> · <b>Color</b> — paper, ink &amp; one settle blue</div>
+          <div className="sec-tag"><span className="num">03</span> · <b>Color</b> - paper, ink &amp; one settle blue</div>
           <div className="swatches">
             <Swatch bg="var(--paper)" border name="Paper" hex="oklch(.973 .006 80)" />
             <Swatch bg="var(--paper-2)" border name="Paper · panel" hex="oklch(.948 .008 78)" />
@@ -172,7 +172,7 @@ export default function BrandPage() {
             <Swatch bg="var(--settle)" name="Settle Blue" hex="oklch(.535 .165 252)" />
           </div>
           <p style={{ color: "var(--ink-2)", fontSize: 15, maxWidth: "62ch", marginTop: 26, marginBottom: 10 }}>
-            Two neutrals carry 95% of every surface. <b style={{ color: "var(--ink)", fontWeight: 500 }}>Settle Blue is reserved</b> — it
+            Two neutrals carry 95% of every surface. <b style={{ color: "var(--ink)", fontWeight: 500 }}>Settle Blue is reserved</b> - it
             only ever marks authority, escrow, and the live step. The lifecycle palette below is functional, never
             decorative: each agent and judge should read state at a glance.
           </p>
@@ -189,7 +189,7 @@ export default function BrandPage() {
       {/* ===== 04 TYPE ===== */}
       <section id="type">
         <div className="wrap">
-          <div className="sec-tag"><span className="num">04</span> · <b>Typography</b> — grotesk structure, mono truth</div>
+          <div className="sec-tag"><span className="num">04</span> · <b>Typography</b> - grotesk structure, mono truth</div>
           <div className="type-spec">
             <div className="meta">
               <div className="fam">Space Grotesk</div>
@@ -198,7 +198,7 @@ export default function BrandPage() {
             <div className="specimen">
               <div className="big" style={{ fontSize: 60, fontWeight: 600 }}>Escrow. Prove. Settle.</div>
               <div style={{ fontSize: 18, color: "var(--ink-2)", marginTop: 18, maxWidth: "54ch" }}>
-                Structural and quietly technical. Used for everything a human reads — headlines, navigation, and
+                Structural and quietly technical. Used for everything a human reads - headlines, navigation, and
                 plain-language explanation of what the contract is doing.
               </div>
             </div>
@@ -256,7 +256,7 @@ export default function BrandPage() {
                 </span>
               </div>
               <h3>Proof lines</h3>
-              <p>On-chain facts presented as a ledger — checkmarked hashes, monospaced, never hidden. Receipts over promises.</p>
+              <p>On-chain facts presented as a ledger - checkmarked hashes, monospaced, never hidden. Receipts over promises.</p>
             </div>
           </div>
         </div>
@@ -270,7 +270,7 @@ export default function BrandPage() {
             <div>
               <h2 style={{ fontSize: 30, letterSpacing: "-0.02em", maxWidth: "18ch" }}>Plain, exact, and quietly confident.</h2>
               <p style={{ color: "var(--ink-2)", fontSize: 16, lineHeight: 1.6, marginTop: 20, maxWidth: "42ch" }}>
-                We explain what the contract does in plain words, then show the hash. We never oversell trust — we make
+                We explain what the contract does in plain words, then show the hash. We never oversell trust - we make
                 it checkable. The tone of an audit log written by someone who respects your time.
               </p>
             </div>
@@ -278,7 +278,7 @@ export default function BrandPage() {
               <VoiceRow say={`“Funds are escrowed on-chain until you accept.”`} not={`“Your money is 100% safe & secure, guaranteed!”`} />
               <VoiceRow say={`“Provider submitted proof. Review the deliverable.”`} not={`“🚀 Your AI agent crushed it! Amazing work!”`} />
               <VoiceRow say={`“Acting through its own Cobo Agentic Wallet, scoped by Pact.”`} not={`“Powered by next-gen autonomous web3 AI technology.”`} />
-              <VoiceRow say={`“On rejection or expiry, the Client reclaims funds.”`} not={`“Don't worry — disputes are handled by our team.”`} />
+              <VoiceRow say={`“On rejection or expiry, the Client reclaims funds.”`} not={`“Don't worry - disputes are handled by our team.”`} />
             </div>
           </div>
         </div>
@@ -288,7 +288,7 @@ export default function BrandPage() {
       <section id="applied">
         <div className="wrap">
           <div className="screens-head">
-            <div className="sec-tag" style={{ marginBottom: 0 }}><span className="num">07</span> · <b>Applied</b> — the escrow lifecycle</div>
+            <div className="sec-tag" style={{ marginBottom: 0 }}><span className="num">07</span> · <b>Applied</b> - the escrow lifecycle</div>
           </div>
 
           <div className="app">
@@ -337,8 +337,8 @@ export default function BrandPage() {
                     <TStep done ti="Job posted" td="Scope + Pact bound by Client CAW" tt="14:02 UTC" />
                     <TStep done ti="USDC escrowed" tt="14:02 UTC" td={<span className="hashline">{check}250.00 · escrow.lock() · 0x7d…a1</span>} />
                     <TStep active ti="Awaiting deliverable" td="Provider working · proof not yet submitted" tt="now" />
-                    <TStep ti="Proof submitted" td="Irys content hash posted on-chain" tt="—" />
-                    <TStep last ti="Settled" td="Accept → pay Provider · or reclaim on expiry" tt="—" />
+                    <TStep ti="Proof submitted" td="Irys content hash posted on-chain" tt="-" />
+                    <TStep last ti="Settled" td="Accept → pay Provider · or reclaim on expiry" tt="-" />
                   </div>
                 </div>
               </div>
@@ -383,11 +383,11 @@ export default function BrandPage() {
                 </p>
                 <p style={{ color: "var(--ink-2)", fontSize: 15, lineHeight: 1.6 }}>
                   <b style={{ color: "var(--ink)", fontWeight: 600 }}>Authority is visible.</b> Each agent shows its CAW
-                  address and the scoped Pact next to its role — the load-bearing trust layer is on the surface, not buried.
+                  address and the scoped Pact next to its role - the load-bearing trust layer is on the surface, not buried.
                 </p>
                 <p style={{ color: "var(--ink-2)", fontSize: 15, lineHeight: 1.6 }}>
                   <b style={{ color: "var(--ink)", fontWeight: 600 }}>Every claim has a hash.</b> Escrow, Irys storage, and
-                  settlement each carry a monospaced, checkmarked proof. The brand promise — provable, not promised — is
+                  settlement each carry a monospaced, checkmarked proof. The brand promise - provable, not promised - is
                   literally the UI.
                 </p>
               </div>
@@ -408,7 +408,7 @@ export default function BrandPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
             <Link className="mono" href="/" style={{ fontSize: 11, color: "var(--ink-3)", textDecoration: "none" }}>← LANDING</Link>
             <Link className="mono" href="/dashboard" style={{ fontSize: 11, color: "var(--ink-3)", textDecoration: "none" }}>DASHBOARD →</Link>
-            <div className="mono">ESCROW · PROOF · SETTLEMENT — COBO AGENTIC ECONOMY TRACK</div>
+            <div className="mono">ESCROW · PROOF · SETTLEMENT - COBO AGENTIC ECONOMY TRACK</div>
           </div>
         </div>
       </footer>

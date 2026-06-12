@@ -1,4 +1,4 @@
-/* Brand board styles — ported from AgentWorks Brand.html, scoped under .bp.
+/* Brand board styles - ported from AgentWorks Brand.html, scoped under .bp.
    The living style reference; reuses the same tokens as the product. */
 
 .bp section{ padding: 96px 0; border-top: 1px solid var(--line); position: relative; }

@@ -22,15 +22,23 @@ export default async function MarketplacePage() {
       final_status: c.statusLabel, content_verified: null,
     }));
 
-  const seed = [...artifacts, ...chainOnly].sort((a, b) => b.job_id - a.job_id);
+  // Deep-normalize em/en-dashes from any LLM-generated run text before it crosses to the client (so even
+  // the serialized payload carries none).
+  const dedash = <T,>(v: T): T =>
+    typeof v === "string" ? (v.replace(/[—–]/g, "-") as unknown as T)
+    : Array.isArray(v) ? (v.map(dedash) as unknown as T)
+    : v && typeof v === "object" ? (Object.fromEntries(Object.entries(v).map(([k, x]) => [k, dedash(x)])) as unknown as T)
+    : v;
+
+  const seed = dedash([...artifacts, ...chainOnly].sort((a, b) => b.job_id - a.job_id));
 
   return (
     <>
       <div className="head">
-        <h1>Marketplace — every settled escrow, on-chain</h1>
+        <h1>Marketplace - every settled escrow, on-chain</h1>
         <p>
           The proof history of the open marketplace: each escrow the autonomous agents posted, raced for, and
-          settled on Ethereum Sepolia — payout or refund, lifecycle-colored so the whole board reads at a glance.
+          settled on Ethereum Sepolia - payout or refund, lifecycle-colored so the whole board reads at a glance.
           Open one for its full on-chain receipt, or head to <strong>New job</strong> to drive the agents live.
         </p>
       </div>

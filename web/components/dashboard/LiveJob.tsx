@@ -22,7 +22,7 @@ export function LiveJob() {
   const [task, setTask] = useState("");
   const [criteria, setCriteria] = useState("");
   const [mode, setMode] = useState<"good" | "bad">("good");
-  const [reward, setReward] = useState(5);
+  const [reward, setReward] = useState("5"); // string so the field can be cleared / set below 5
   const [posting, setPosting] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -54,7 +54,7 @@ export function LiveJob() {
   const fresh = runs.find((r) => baseline.current && !baseline.current.has(r.job_id));
   useEffect(() => {
     if (posting && fresh && !active) {
-      setMsg(`Settled live — job #${fresh.job_id} ${fresh.branch === "refund" ? "refunded to client" : "paid out to the provider"}.`);
+      setMsg(`Settled live - job #${fresh.job_id} ${fresh.branch === "refund" ? "refunded to client" : "paid out to the provider"}.`);
       setPosting(false);
     }
   }, [posting, fresh, active]);
@@ -62,9 +62,11 @@ export function LiveJob() {
   async function onPost() {
     setErr(null); setMsg(null); setPosting(true);
     baseline.current = new Set(runs.map((r) => r.job_id));
-    const res = await trigger({ task: task.trim() || undefined, criteria: criteria.trim(), mode, reward_usdc: reward });
+    const r = Number(reward);
+    const reward_usdc = Number.isFinite(r) && r > 0 ? r : 5; // fall back to 5 only if blank/invalid
+    const res = await trigger({ task: task.trim() || undefined, criteria: criteria.trim(), mode, reward_usdc });
     if (!res.ok) { setErr(res.error ?? "trigger failed"); setPosting(false); return; }
-    setMsg("Agents triggered — the Client is reasoning about funding…");
+    setMsg("Agents triggered - the Client is reasoning about funding…");
     refresh();
   }
 
@@ -77,7 +79,7 @@ export function LiveJob() {
         {!enabled ? (
           <span className="off">Agent service not configured</span>
         ) : reachable === false ? (
-          <span className="off">● backend asleep — it wakes on the first request (~10s)</span>
+          <span className="off">● backend asleep - it wakes on the first request (~10s)</span>
         ) : active ? (
           <span className="on"><span className="spin" />agents live{health?.run.mode ? ` · ${health.run.mode} run` : ""}</span>
         ) : (
@@ -110,7 +112,7 @@ export function LiveJob() {
             <div className="lab">Reward (USDC)</div>
             <div className="amtin">
               <input className="v" inputMode="decimal" value={reward}
-                onChange={(e) => setReward(Number(e.target.value) || 5)}
+                onChange={(e) => setReward(e.target.value.replace(/[^0-9.]/g, ""))}
                 style={{ width: 90, border: 0, background: "transparent", fontFamily: "var(--mono)", fontWeight: 600, fontSize: 18, color: "var(--ink)" }} />
               <span className="u">USDC</span>
             </div>
@@ -136,13 +138,13 @@ export function LiveJob() {
       <div className="lj-section">
         <div className="lj-sh">{posting || active ? "This run" : "Recent autonomous runs"}</div>
         {recent.length === 0 ? (
-          <div className="empty">No runs yet — post a job to trigger the agents.</div>
+          <div className="empty">No runs yet - post a job to trigger the agents.</div>
         ) : (
           <div className="lj-runs">{recent.map((r) => <RunCard key={r.job_id} r={r} href={`/dashboard/jobs/${r.job_id}`} />)}</div>
         )}
       </div>
 
-      {/* participants — the scoped-authority boundary */}
+      {/* participants - the scoped-authority boundary */}
       {health?.participants?.length ? (
         <div className="lj-section">
           <div className="lj-sh">Participants · each bound by a scoped Pact in its Cobo Agentic Wallet</div>
@@ -156,7 +158,7 @@ export function LiveJob() {
             ))}
           </div>
           <p className="lj-note">
-            The provider Pact omits USDC entirely — a provider can accept and deliver but can never move escrowed
+            The provider Pact omits USDC entirely - a provider can accept and deliver but can never move escrowed
             funds; only the escrow contract settles. Authority is the Pact, not the code.
           </p>
         </div>

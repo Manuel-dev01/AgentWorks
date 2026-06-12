@@ -33,10 +33,9 @@ A runnable system on **Ethereum Sepolia**, not a mockup. What works end-to-end t
 - **A live dashboard** — *New job* triggers the agents and watches them settle; *Marketplace* is the
   read-only proof history of every settled escrow; *Proofs* ships the literal Pact policies + the beats.
 
-Submission + track-rule mapping: **[docs/SUBMISSION.md](docs/SUBMISSION.md)** · demo script:
-**[docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)** · architecture: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** ·
-risk boundaries: **[docs/RISK_BOUNDARIES.md](docs/RISK_BOUNDARIES.md)** · every verified fact:
-**[docs/FACTS.md](docs/FACTS.md)**.
+Project documentation + track-rule mapping: **[docs/SUBMISSION.md](docs/SUBMISSION.md)** · architecture:
+**[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** · risk boundaries:
+**[docs/RISK_BOUNDARIES.md](docs/RISK_BOUNDARIES.md)** · deploy: **[docs/DEPLOY.md](docs/DEPLOY.md)**.
 
 ## Deployment — three pieces
 
@@ -47,13 +46,15 @@ touches the stateless cloud service). So the system is three deployments:
 |---|---|---|
 | **Dashboard** (`/web`, Next.js 15) | the demo surface — live reads + triggers the agents | **Vercel** |
 | **Agent service** (`agents/server.py`, FastAPI) | autonomous orchestration + LLM reasoning; holds **no keys** | **Railway** (live) |
-| **TSS signer** (`cobo-tss-node`) | the CAW MPC node that co-signs; **holds the key share** | **a host you control** (local, or a small always-on VM) |
+| **TSS signer** (`cobo-tss-node`) | the CAW MPC node that co-signs; **holds the key share** | **Railway** (always-on; `agentworks-tss`) |
 
-So "**is it fully hands-off?**" — the dashboard and the agent service are fully hosted; the **signer** must
-run on a host you control and stay connected to the CAW relay. That separation is Cobo's security model, not
-a shortcut. Run it on your machine during a demo, or on a tiny always-on VM
-(`docker compose --profile tss up -d`) for zero local dependency. Details + runbook:
-**[docs/DEPLOY_AGENTS.md](docs/DEPLOY_AGENTS.md)**; the Vercel web deploy: **[docs/DEPLOY.md](docs/DEPLOY.md)**.
+So "**is it fully hands-off?**" — **yes.** All three pieces are hosted; nothing runs on your machine. The signer
+is kept separate from the agent service by design (Cobo's security model: the key share never touches the
+stateless cloud service), but it too runs always-on as its own Railway container. Verified end-to-end: with zero
+local signers, a `POST /trigger` settled **job #10 → Completed**, co-signed by the Railway TSS container (signature
+in its logs; `getJob(10)=Completed` on-chain). You can still run the signer locally as a dev fallback — but only one
+node per relay identity, so don't run both at once. Full deploy guide (all three pieces):
+**[docs/DEPLOY.md](docs/DEPLOY.md)**.
 
 ## Stack
 Foundry (escrow v2) · Python agents (CAW SDK `cobo-agentic-wallet` + web3, FastAPI control surface) ·
@@ -84,7 +85,9 @@ real 2-provider accept-race (Provider A won; Provider B's `acceptJob` reverted),
 
 The **refund** branch (job #6 → Rejected, evaluator rejected a sabotaged deliverable) reject tx
 [`0x95808768…`](https://sepolia.etherscan.io/tx/0x9580876824432e985c8c1e8522803912e4090fcac70ae6a4918a68b5f564849a), and the
-denial / freeze / review beats, are in **[docs/FACTS.md](docs/FACTS.md)**.
+fully hands-off run #10 (co-signed by the Railway TSS, zero local processes), are in
+**[docs/SUBMISSION.md](docs/SUBMISSION.md)**; the denial / freeze / review beats live in the dashboard **Proofs**
+tab and **[docs/RISK_BOUNDARIES.md](docs/RISK_BOUNDARIES.md)**.
 
 ## Repo layout
 - `/contracts` — Foundry escrow **v2** (`AgentWorksEscrowV2.sol`, open `createJob` + `acceptJob`), 55-test suite, deploy/verify
@@ -95,8 +98,8 @@ denial / freeze / review beats, are in **[docs/FACTS.md](docs/FACTS.md)**.
   (`/dashboard/new`, triggers the deployed agents + watches them settle), **Marketplace**
   (`/dashboard`, read-only proof history), **Proofs** (`/dashboard/proofs`), flow map (`/dashboard/flow`).
   `lib/agent.ts` calls the deployed service; verified runs seed the board (`web/data/`); viem for live reads.
-- `/docs` — `SUBMISSION.md`, `DEMO_SCRIPT.md`, `ARCHITECTURE.md`, `RISK_BOUNDARIES.md`, `DEPLOY.md`,
-  `DEPLOY_AGENTS.md`, `STATUS.md`, `FACTS.md`, `pacts/*.json` (the shipped Pact policies)
+- `/docs` — `SUBMISSION.md` (project documentation), `ARCHITECTURE.md`, `RISK_BOUNDARIES.md`, `DEPLOY.md`,
+  `pacts/*.json` (the shipped Pact policies)
 
 ## What CAW actually does here (claims discipline)
 CAW enforces each agent's authority boundary (Pact: contract allowlist + caps), server-side and
@@ -133,8 +136,9 @@ agents/.venv/Scripts/python.exe agents/autonomous.py --mode bad  --max-jobs 1   
 pnpm install && pnpm --filter web dev        # http://localhost:3000   (build: pnpm --filter web build)
 ```
 Running the agents (locally or via the deployed service) signs real txs, so a **CAW TSS signer** must be up
-and connected to the relay — locally that's `cobo-tss-node` per wallet profile (restart procedure in
-**[docs/FACTS.md](docs/FACTS.md)**); for an always-on signer see **[docs/DEPLOY_AGENTS.md](docs/DEPLOY_AGENTS.md)**.
+and connected to the relay. The hosted setup runs it always-on on Railway (`agentworks-tss`); to drive runs
+locally instead, run `cobo-tss-node` per wallet profile — one node per relay identity, so don't run the local
+and Railway signers at the same time. Setup + the VM/Railway signer guide: **[docs/DEPLOY.md](docs/DEPLOY.md)**.
 If `pnpm --filter web dev` errors on an ignored `sharp` build, run `web/node_modules/.bin/next dev` directly.
 
 ## Track-rules compliance

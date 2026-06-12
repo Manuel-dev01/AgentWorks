@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { AwMark } from "../AwMark";
 
-// The five lifecycle states — badge text + class per step (ported from the design's vanilla JS).
+// The five lifecycle states - badge text + class per step (ported from the design's vanilla JS).
 const STATES = [
   { txt: "Posted", cls: "b-open" },
   { txt: "Escrowed", cls: "b-escrow" },
@@ -15,17 +15,17 @@ const STATES = [
 const STEPS = [
   {
     ti: "Client posts a job",
-    td: "The Client Agent defines scope, price, and deadline — bound by a scoped Pact in its Cobo Agentic Wallet.",
+    td: "The Client Agent defines scope, price, and deadline - bound by a scoped Pact in its Cobo Agentic Wallet.",
     tcode: "caw.authorize · postJob(scope, 250 USDC)",
   },
   {
     ti: "USDC is escrowed",
-    td: "Funds move into the escrow contract — held by neither party. Provider now has a guarantee of payment.",
+    td: "Funds move into the escrow contract - held by neither party. Provider now has a guarantee of payment.",
     tcode: "escrow.lock() · 0x7d…a1",
   },
   {
     ti: "Provider does the work",
-    td: "The Provider Agent performs the task and stores the deliverable on Irys — permanent, content-addressed storage.",
+    td: "The Provider Agent performs the task and stores the deliverable on Irys - permanent, content-addressed storage.",
     tcode: "irys.store(deliverable) · bafy…q9",
   },
   {
