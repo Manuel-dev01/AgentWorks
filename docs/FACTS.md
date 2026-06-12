@@ -263,6 +263,67 @@ authority is the policy. Over-budget / non-whitelisted calls raise PolicyDeniedE
     register refused" while the relay holds the stale session), stalling a signature at status 400 "signing".
     First two run attempts timed out at the old 180s wait; raised `autonomous._call` tx-wait to 420s — run
     then completed clean. (Orphan unfunded jobs #1, #2 from the timed-out attempts are harmless; no funds locked.)
+- ✅ **Live end-to-end re-verification — BOTH branches (2026-06-12)** — `agents/autonomous.py` on v2 `0xD6cB…`,
+  fresh run of each branch, every tx `status=900 Success`, then independently re-read from the contract over RPC:
+  - **PAYOUT — job #5 → Completed** (`runs/5.json`). Client LLM `fund=true`; Provider LLM `accept=true`;
+    Evaluator LLM `accept=true` ("plain language, exactly 3 sentences, mentions the neutral escrow"). Provider paid 5.
+    - createJob `0x6cc69e53cdb8f901535517c39009cbefda3924c51da0a8e29b25395d68a87f63`
+    - approve   `0x9b52894138dc6668c4949a7ab0c8ce5cda17e98e2ec655e42ea48b8c2576934b`
+    - fund      `0x639848f3fa24e469cc4555318ea14eed79ef1c773020c71e9e5984bef07f4cfe`
+    - acceptJob `0x23ef9725e557a40d9869671a28a423f967c2975b46a96b01f7933d31b6cace88`
+    - submitWork`0xed7db721b36689a789da409fb70ed7000e131326962f9673450133b7dca66106` (Irys `4V3HnkjLCPj12QWYBRVQeA9bHeowzpN9nYG5FYyZxEbZ`)
+    - complete  `0x3722e0f2042fae184ed4382b5a4a2898b0118e6c7d94acd9dbc2e60aed570642` (payout); content_verified ✓.
+  - **REFUND — job #6 → Rejected** (`runs/6.json`). Provider LLM sabotaged (wrote about blockchain/proof-of-work,
+    not escrow); Evaluator LLM `accept=false` ("does not mention a neutral escrow holding funds") → client refunded.
+    - createJob `0xe42fe320470847d94cd8a9781beea252e2788878893158169e5b7bb38bc8bcf1`
+    - approve   `0xf672e0e0fce901d5b9103ed6f4fff1ae1727fbe6fc5524020c234869f0eb8d79`
+    - fund      `0x534e780106a3519cc32c268bfd66d7e6153a4e5aa064d64d084e878f5546d7a7`
+    - acceptJob `0xd99a210b6064b175246690da68e9e9cdd828151680f0023d7227889873f5df70`
+    - submitWork`0x6e989aff8a689f9ba31af2e27dd64768c46dd5443daccb009641cfeddd64c4dc` (Irys `3Kuy14Cv5DRt6kgDc5TiSCjDa9wiW3GxDvgUHb2gSt3s`)
+    - reject    `0x9580876824432e985c8c1e8522803912e4090fcac70ae6a4918a68b5f564849a` (refund); content_verified ✓.
+  - On-chain re-read (RPC): `nextJobId=7`; job#5 `Completed`, job#6 `Rejected`; provider USDC 65→**70** (+5 from #5
+    only); escrow holds **5** (= the leftover job #4, Accepted-by-ProviderB from the 6.5.4 container test, unsettled).
+  - NOTE: this pair of runs had **one provider** in the pool (registry didn't load `CAW_PROVIDER_ADDRESS_2` in this
+    env), so no live accept-race here — the live 2-provider race stays proven by run #3 + Foundry
+    `test_acceptJob_secondAcceptReverts_raceFirstWins`.
+  - ROOT-CAUSE (the "client seq" blocker from the prior session): the local client TSS node couldn't register
+    (`duplicate node ID and seq ID`) because **two stale `agentworks-tss` Docker containers** (running ~7h from the
+    6.5.4 test) still held the client identity on the relay. `docker stop` both → client node registered cleanly.
+    The relay enforces one holder per `(node_id, seq_id)`; a leftover container is enough to lock out the local node.
+  - INFRA: machine DNS via the active VPN resolver was intermittently dropping lookups (CAW SDK uses aiohttp/system
+    resolver) — two runs failed at `getaddrinfo`. Switching VPN endpoint + a stable DNS window cleared it; both
+    signers reconnected and the runs completed.
+- ✅ **CLOUD-TRIGGERED autonomous run from the DEPLOYED service (2026-06-12)** — the autonomy headline, end-to-end
+  from Railway. `POST /trigger` to `https://insightful-wisdom-production-5c62.up.railway.app` (no local script) →
+  the deployed agent service ran the FULL lifecycle autonomously → **job #7 → Completed (payout)**, re-read on-chain
+  (`getJob(7)=Completed`, provider `0xEf93…`, `nextJobId=8`). **2-provider race in the cloud**: both Provider and
+  ProviderB reasoned `accept=true`; Provider won acceptJob. Genuine LLM decisions (`fund=true`, evaluator accept).
+  - createJob `0x693c574e661b09d64847cf49e6d92f41a4275a2a0e75c52d6486e664b739271a`
+  - approve   `0xce44952c77121721d4e47e23016b5f66133b6e829fb6d520fc6ac068d1ce3e94`
+  - fund      `0x442637c49201a1ff74ab9257634846414ee527f7a5a6d16065d5e47d5ccc5c7b`
+  - acceptJob `0x028b2347edbd630e2f571baf894e195a6b1f5a724e417f47f04668f421f58dae` (Provider, race winner)
+  - submitWork`0x8536f951fc8d7bb67cbf2ba29d03c3ce3d412ee244c83d3dd728efc37d1debe1` (Irys `GzMyWEEw7W8hNdzSArZV7KzHUXppBXe7D4kaDKWBjhpD`)
+  - complete  `0x1201f793f3a004d6990f79b226ffaef7a435bc87aa62d3395c750b8d83f02718` (payout); content_verified ✓.
+  - HONEST ARCHITECTURE (claims §3): the deployed Railway service runs the autonomous ORCHESTRATION + LLM REASONING
+    in the cloud; on-chain SIGNING is done by the operator-controlled TSS node on the CAW relay (key material never
+    lives in the stateless cloud service — Cobo's security model). Path: cloud service → CAW cloud API → relay →
+    TSS node (local/host-controlled) → Sepolia. This closes the 6.5.4 gap (a real signed tx originating from a
+    `/trigger` to the deployed service) AND proves the cloud accept-race.
+- 🔧/⏸️ **Always-on TSS signer on Railway (Option B) — re-attempted 2026-06-12, STILL not stable.** Provisioning is
+  CORRECT and re-verified via `railway ssh`: volume `agentworks-tss-volume` at `/keys` (49MB), both profiles present
+  with valid `db/secrets.db` + non-empty `.password` + `.tss-env` (client AND provider — the earlier both-client bug
+  is gone). With `TSS_DEBUG_SLEEP=0` the entrypoint starts both signers (`db dir is writable` → `starting signer for
+  profile: /keys/client|provider`), the client node reaches `Init from default config … effective inner logger level:
+  info`, then the process exits almost immediately (the node switches to its file logger and writes nothing further;
+  the volume's `logs/cobo-tss-node-*.log` still shows only the prior 2026-06-11 graceful shutdown). The entrypoint's
+  `wait -n` then stops the container → Railway restarts it → loop, ending in `status: exited`. Root cause of the node
+  exit is NOT captured (no new file-log lines; SSH unavailable while exited). Tried: single clean instance (stopped
+  the double-redeploy churn), local signers stopped to free the relay — node still exits. **Conclusion:** Railway is
+  not a reliable always-on host for the CAW node in our testing; the container is parked back at `TSS_DEBUG_SLEEP=1`.
+  - **Reliable hands-off route = a small Linux VM** running `docker compose --profile tss up -d` with `./keys/` — the
+    EXACT setup already verified locally (container-signed `acceptJob` `0xdc60b338…`, FACTS 6.5.4). Needs the user's VM.
+  - Working signer restored 2026-06-12: local client (`coborRoDar4hq…`) + provider (`cobo2HM2Lbo…`) reconnected to the
+    relay (03:26Z). Demo + agent service sign normally again.
 - ✅/🔧 **Agent service + container artifacts (Phase 6.5.4)** — 2026-06-11:
   - `agents/server.py` — FastAPI control surface (`/health`, `/board`, `/runs`, `/runs/{id}`, `POST /trigger`).
     Talks to the CAW cloud API; holds NO key material. `/trigger` optionally guarded by `AGENT_TRIGGER_TOKEN`;

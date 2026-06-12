@@ -1,51 +1,40 @@
-import { loadJobs } from "../../lib/proofs";
-import { listJobs } from "../../lib/chain";
-import { Marketplace } from "../../components/dashboard/Marketplace";
-import type { BoardJob, JobVM } from "../../lib/types";
+import { loadMarketRuns } from "../../lib/proofs";
+import { listJobsV2 } from "../../lib/chain";
+import { HistoryBoard } from "../../components/dashboard/HistoryBoard";
+import { irysUrl } from "../../lib/config";
+import type { AgentRun } from "../../lib/agent";
 
 export const dynamic = "force-dynamic";
 
 export default async function MarketplacePage() {
-  const artifacts = loadJobs();
-  const byId = new Map<number, JobVM>();
-  for (const j of artifacts) if (!byId.has(j.jobId)) byId.set(j.jobId, j);
+  // Seed = verified autonomous run artifacts (3/5/6, snapshotted) joined with any on-chain-only v2 jobs
+  // (e.g. an Open/Funded escrow with no artifact). The client then merges live backend /runs on top.
+  const artifacts = loadMarketRuns() as AgentRun[];
+  const haveArtifact = new Set(artifacts.map((r) => r.job_id));
 
-  // Live on-chain state is the source of truth for the board so every escrow appears; we join the
-  // artifact/flow record by job id for the human title + branch. Falls back to artifacts if RPC is down.
-  const chain = await listJobs();
-  let board: BoardJob[];
-  if (chain && chain.length) {
-    board = chain.map((cj) => {
-      const a = byId.get(cj.jobId);
-      return {
-        jobId: cj.jobId,
-        title: a?.title ?? `Escrow job #${cj.jobId}`,
-        amountUsdc: cj.amountUsdc || a?.amountUsdc || 0,
-        badge: cj.badge,
-        statusLabel: cj.statusLabel,
-        branch: a?.branch ?? null,
-        phase: a?.phase ?? "On-chain",
-        live: true,
-      };
-    });
-  } else {
-    board = artifacts.map((a) => ({
-      jobId: a.jobId, title: a.title, amountUsdc: a.amountUsdc, badge: a.badge,
-      statusLabel: a.statusLabel, branch: a.branch, phase: a.phase, live: false,
+  const chain = (await listJobsV2()) ?? [];
+  const chainOnly: AgentRun[] = chain
+    .filter((c) => !haveArtifact.has(c.jobId))
+    .map((c) => ({
+      run_id: "chain", job_id: c.jobId, txs: {}, accept_decisions: {}, winner: null, winner_addr: null,
+      irys: c.irysId ? { id: c.irysId, url: irysUrl(c.irysId) } : null, deliverable: null, verdict: null,
+      branch: null, status: "chain", amount_usdc: c.amountUsdc, client: c.client, provider: c.provider,
+      final_status: c.statusLabel, content_verified: null,
     }));
-  }
+
+  const seed = [...artifacts, ...chainOnly].sort((a, b) => b.job_id - a.job_id);
 
   return (
     <>
       <div className="head">
-        <h1>Marketplace</h1>
+        <h1>Marketplace — every settled escrow, on-chain</h1>
         <p>
-          Every escrow on the contract, lifecycle-colored so the whole board reads at a glance — read live from
-          Ethereum Sepolia, so jobs you post in the live journey appear here. Open one for its full on-chain proof
-          trail, or post a new job to drive the flow yourself.
+          The proof history of the open marketplace: each escrow the autonomous agents posted, raced for, and
+          settled on Ethereum Sepolia — payout or refund, lifecycle-colored so the whole board reads at a glance.
+          Open one for its full on-chain receipt, or head to <strong>New job</strong> to drive the agents live.
         </p>
       </div>
-      <Marketplace jobs={board} live={!!(chain && chain.length)} />
+      <HistoryBoard seed={seed} />
     </>
   );
 }

@@ -1,7 +1,13 @@
 import { loadBeats, loadPacts } from "../../../lib/proofs";
-import { CFG, txUrl, shortHex } from "../../../lib/config";
+import { CFG, addrUrl, txUrl, shortHex } from "../../../lib/config";
 
 export const dynamic = "force-dynamic";
+
+const PARTICIPANTS = [
+  { role: "client", name: "Client", addr: CFG.clientCaw, pact: "escrow v2 + USDC allowlist · budget cap" },
+  { role: "provider", name: "Provider", addr: CFG.providerCaw, pact: "escrow v2 allowlist · no USDC" },
+  { role: "provider", name: "ProviderB", addr: CFG.providerCawB, pact: "escrow v2 allowlist · no USDC" },
+];
 
 export default function ProofsPage() {
   const beats = loadBeats();
@@ -17,6 +23,25 @@ export default function ProofsPage() {
           verified CAW runs.
         </p>
       </div>
+
+      {/* participants / wallet-onboarding boundary */}
+      <div className="pact-parts">
+        {PARTICIPANTS.map((p) => (
+          <a key={p.name} href={addrUrl(p.addr)} target="_blank" rel="noreferrer" className="pact-part">
+            <span className={`lj-role ${p.role}`}>{p.role}</span>
+            <div className="pp-body">
+              <div className="pp-n">{p.name} <span className="pp-a">{shortHex(p.addr)}</span></div>
+              <div className="pp-p">Pact · {p.pact}</div>
+            </div>
+          </a>
+        ))}
+      </div>
+      <p className="pact-onboard">
+        Each agent is onboarded into its own Cobo Agentic Wallet and bound to a scoped Pact at submit time
+        (a pact-scoped API key carries the authority). The provider Pact omits USDC entirely — a provider can
+        accept and deliver but can never move escrowed funds; only the escrow contract settles. New participants
+        join by onboarding a wallet and binding the same template Pact — the authority boundary travels with them.
+      </p>
 
       <div className="beats">
         {/* DENIAL */}
@@ -62,7 +87,7 @@ export default function ProofsPage() {
 
       <div className="head" style={{ paddingTop: 8 }}>
         <h1 style={{ fontSize: 22 }}>Pact policies — the literal risk boundary</h1>
-        <p>The exact JSON each agent operates within, shipped as a first-class deliverable. The allowlist binds the live escrow ({shortHex(CFG.escrow)}) + MockUSDC; caps + review thresholds are enforced by CAW, not by our code.</p>
+        <p>The exact JSON each agent operates within, shipped as a first-class deliverable. The allowlist binds the live v2 escrow ({shortHex(CFG.escrowV2)}) + MockUSDC; caps + review thresholds are enforced by CAW, not by our code.</p>
       </div>
       <div className="pacts">
         {pacts.map((p) => (

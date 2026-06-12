@@ -40,6 +40,15 @@ CAW decouples *deciding/submitting* a transaction from *signing* it:
 second connection is refused ("duplicate node ID … register refused"). So **stop the local signer before
 running another** for the same wallets.
 
+> **Status (2026-06-12): Option A on a VM is the recommended hands-off route. Option B *on Railway* is built
+> + provisioned but the node will not stay up there.** The Railway service `agentworks-tss` has the volume
+> at `/keys` with BOTH valid key shares (verified via `railway ssh`), and with `TSS_DEBUG_SLEEP=0` the
+> entrypoint starts both signers — but the node exits right after logger-init (→ the entrypoint's `wait -n`
+> stops the container → restart loop → `exited`), with no crash detail captured. The **identical**
+> `docker compose --profile tss` setup runs fine on a Linux host (it already co-signed a real `acceptJob`,
+> tx `0xdc60b338…` — FACTS 6.5.4). So for zero local dependency, run that compose on a small always-on VM
+> (steps below); that is the proven path. The local Windows signer remains the working default for demos.
+
 **Key-share portability (Option B) is VERIFIED ✅ (2026-06-11):** the Linux `cobo-tss-node` in `agentworks-tss`
 loaded the **Windows-generated** key shares (mounted at `/keys`) and connected to the relay with the *same*
 node ids, then **co-signed a real tx** (`acceptJob` `0xdc60b338…`). So you can run the containerized signer
@@ -128,6 +137,31 @@ curl -X POST https://<host>/trigger \ # launches a real run (needs the signer up
 **Proof gate (CLAUDE.md §4):** the deployment is only "always-on ✅" once a real signed tx originates
 through it (a job lifecycle settles via the deployed `/trigger`). Until then it is WRITTEN-UNVERIFIED.
 
-## Dashboard wiring (Phase 6.5.5)
-The dashboard will call this service via a public base URL (e.g. `NEXT_PUBLIC_AGENT_API=https://<host>`),
-keeping the deterministic verified-replay mode for the hosted judge demo. Wired in 6.5.5.
+## Always-on signer on a VM — quickstart (recommended for hands-off)
+The proven zero-local-dependency route. Any small Linux VM with Docker (a $5 droplet is plenty):
+```bash
+# on the VM, with Docker installed and this repo cloned (or just agents/ + docker-compose.yml):
+mkdir -p keys/client keys/provider
+# copy each profile's tss-node contents into keys/<name>/ (db/secrets.db, .password, configs/):
+#   from %USERPROFILE%\.cobo-agentic-wallet\profiles\profile_caw_agent_4bc15e6348db0514\tss-node\  → keys/client/
+#   from …\profile_caw_agent_e6318ac84f123085\tss-node\                                            → keys/provider/
+# free the relay first — stop the local Windows cobo-tss-node for these wallets (one node per identity).
+docker compose --profile tss up -d            # starts a signer per keys/<name>/
+docker compose logs -f agentworks-tss         # look for: started 2 signer(s); [Websocket.Client] connected.
+```
+Once both nodes show `connected.`, the deployed Railway agent service can sign through them — the dashboard's
+**New job** tab triggers a fully autonomous run with **no process on your machine**. The agent service holds
+no keys; only this VM does.
+
+**Proof gate (CLAUDE.md §4) — status:** the hands-off gate is "a `/trigger` settles with no local signer."
+It is closed once the VM signer above is up (verify by stopping your local signer, posting on **New job**,
+and opening the resulting tx hashes on Etherscan). The same gate was met *with a container signer locally*
+(`acceptJob 0xdc60b338…`, FACTS 6.5.4); the only open step is hosting that container on an always-on VM
+(your provisioning) — Railway specifically does not keep the node up (see the Status note above).
+
+## Dashboard wiring (Phase 6.5.5) — DONE
+The dashboard calls this service via `NEXT_PUBLIC_AGENT_API` (defaults to
+`https://insightful-wisdom-production-5c62.up.railway.app`). `web/lib/agent.ts` is the browser client for
+`/health`,`/runs`,`/board`,`POST /trigger`; the **New job** tab posts a job and watches the agents settle,
+and the **Marketplace** tab is the read-only proof history (verified runs seed it; live `/runs` merge on top).
+Every call degrades gracefully so a sleeping backend never blanks the page.

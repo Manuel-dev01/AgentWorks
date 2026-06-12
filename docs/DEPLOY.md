@@ -1,17 +1,18 @@
 # Deploying the AgentWorks dashboard to Vercel
 
-The `/web` Next.js 15 app (landing `/`, brand `/brand`, dashboard `/dashboard`) is the demo surface.
-It is built to run **hosted on Vercel** with live on-chain reads + the verified proof artifacts, while the
-Python live-run stays a **localhost-only** capability.
+The `/web` Next.js 15 app (landing `/`, brand `/brand`, dashboard `/dashboard`) is the demo surface — one
+of **three** deployments (Vercel web + Railway agent service + a TSS signer host; see
+[ARCHITECTURE.md](ARCHITECTURE.md) and [DEPLOY_AGENTS.md](DEPLOY_AGENTS.md)). The dashboard itself holds no
+keys: it reads chain via viem and **triggers the deployed agent service** over HTTPS.
 
 ## What runs where
 | Capability | Local (`pnpm --filter web dev`) | Vercel (hosted) |
 |---|---|---|
 | Landing / brand / dashboard pages | ✅ | ✅ |
-| Live USDC balances + job status (viem, read-only) | ✅ | ✅ |
-| Verified proof artifacts (jobs, criticality beats, Pact JSON) | ✅ from `../agents` + `../docs` | ✅ from committed `web/data/` |
+| Live USDC balances + job/run status (viem + agent `/runs`, read-only) | ✅ | ✅ |
+| Verified proof artifacts (autonomous runs, criticality beats, Pact JSON) | ✅ from `../agents` + `../docs` | ✅ from committed `web/data/` |
 | Etherscan / Irys deep links | ✅ | ✅ |
-| **Run-live** button (spawns the Python agents) | ✅ | ❌ hidden (serverless can't run the venv; `/api/run` is localhost-guarded) |
+| **New job → trigger** the autonomous agents (`POST /trigger` to the agent service) | ✅ | ✅ (calls the Railway service; needs a TSS signer up — see DEPLOY_AGENTS.md) |
 
 ## Why `web/data/` exists
 Next only bundles files under the project root, so the dashboard cannot `fs`-read the sibling
@@ -32,10 +33,11 @@ local dev. Refresh after a new agent run with: `pnpm --filter web snapshot`.
 - *(Alternative — Root Directory = repo root: set Build Command `pnpm --filter web build`, Output `web/.next`.)*
 - **Environment Variables** — the public `NEXT_PUBLIC_*` block from `.env.example` (all non-secret testnet
   values; sensible defaults are also baked in, so the app works even if these are unset):
-  `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_ESCROW_ADDRESS`, `NEXT_PUBLIC_USDC_ADDRESS`,
+  `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_ESCROW_V2_ADDRESS`, `NEXT_PUBLIC_USDC_ADDRESS`,
   `NEXT_PUBLIC_CLIENT_CAW`, `NEXT_PUBLIC_PROVIDER_CAW`, `NEXT_PUBLIC_EXPLORER_BASE`,
-  `NEXT_PUBLIC_IRYS_GATEWAY`. Do **not** set any `CAW_*` / `LLM_API_KEY` / `DEPLOYER_PRIVATE_KEY` on
-  Vercel — those are agent-side secrets the hosted dashboard never uses.
+  `NEXT_PUBLIC_IRYS_GATEWAY`, and **`NEXT_PUBLIC_AGENT_API`** (the deployed agent service base URL — defaults
+  to the live Railway URL, so the New-job trigger works even if unset). Do **not** set any `CAW_*` /
+  `LLM_API_KEY` / `DEPLOYER_PRIVATE_KEY` on Vercel — those are agent-side secrets the hosted dashboard never uses.
 
 ## pnpm build-script note (`sharp`)
 This repo pins `pnpm@11.1.2`, which gates native install scripts. `pnpm-workspace.yaml` approves the one

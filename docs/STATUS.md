@@ -1,14 +1,23 @@
-# AgentWorks — Project Status (as of 2026-06-09)
+# AgentWorks — Project Status (as of 2026-06-12)
 
 Fast-recall snapshot of where the build is. Stable law → `CLAUDE.md`; verified specifics
 (every tx hash, signature, address) → `docs/FACTS.md`. This file is the bridge.
 
 ## TL;DR
-**Phases 0–6 complete and verified. Phase 7 (demo script/video + architecture/risk docs) is NEXT.**
-Everything runs on **Ethereum Sepolia** (chainId 11155111) — we switched off Base Sepolia in Phase 2
-because CAW can't fund/index agents on Base. The Next.js dashboard is built (landing `/`, brand `/brand`,
-demo `/dashboard`), production build passes, and it's Vercel-deployable (see `docs/DEPLOY.md`). Nothing is
-committed to git yet (user commits).
+**Phases 0–6 complete. Phase 6.5 (autonomous open marketplace) sub-phases 6.5.0–6.5.5 done; live e2e +
+cloud-triggered run verified 2026-06-12. NEXT: Phase 7 (demo/docs) + commit.**
+Everything runs on **Ethereum Sepolia** (chainId 11155111). Escrow **v2** (open `createJob` + `acceptJob`
+race) `0xD6cB413c0E4a5839Fd4B02aFFeBF65e6868726b9` is live + Etherscan-verified.
+**2026-06-12 live e2e on v2, BOTH branches (genuine LLM decisions, every tx Success, re-read on-chain):**
+job **#5 → Completed** (payout) and job **#6 → Rejected** (refund). **Then the autonomy headline: a `POST /trigger`
+to the DEPLOYED Railway agent service ran the full lifecycle autonomously → job #7 → Completed, with a real
+2-provider accept-race IN THE CLOUD** (Provider + ProviderB both reasoned accept; Provider won). All tx hashes in
+FACTS.md ("Live end-to-end re-verification" + "CLOUD-TRIGGERED autonomous run").
+**Dashboard reshaped (6.5.5):** `/dashboard` is now a LIVE WINDOW onto the deployed agents — `components/dashboard/
+LiveMarketplace.tsx` + `lib/agent.ts` (browser client for the Railway `/health`,`/runs`,`/board`,`/trigger`).
+"Post job → trigger agents" fires the cloud service and the board polls it settling; verified runs (3/5/6) seed the
+board (snapshotted to `web/data/market/`). `NEXT_PUBLIC_AGENT_API` defaults to the Railway URL. `pnpm --filter web
+build` PASSES; `/dashboard` renders 200. Nothing is committed to git yet (user commits).
 
 ## Current addresses / identities (Ethereum Sepolia)
 | What | Value |
@@ -59,8 +68,16 @@ Foundry escrow · Python agents (CAW SDK `cobo-agentic-wallet` 0.1.40 + web3) ·
   `pnpm --filter web build` passes; all routes 200 in dev. Vercel-ready (artifacts snapshotted to `web/data/`).
   **Live signing depends on the local CAW TSS nodes running** — restart procedure in FACTS.md.
 
-## What's NEXT — Phase 7 (demo + docs)
-Demo script/video, architecture diagram, risk-boundary doc, README polish. The user performs the live Vercel deploy.
+## What's NEXT
+- **Phase 7 docs — DONE this session:** README rewritten (v2 + autonomy + 3-part deploy), new
+  `docs/ARCHITECTURE.md` + `docs/RISK_BOUNDARIES.md`, `DEMO_SCRIPT.md`/`SUBMISSION.md`/`DEPLOY*.md` refreshed.
+- **Dashboard 6.5.5 — DONE:** `/dashboard/new` = the live autonomous trigger (→ deployed Railway service,
+  watches the agents settle); `/dashboard` = read-only proof history; `/dashboard/proofs` on v2 + the Pact
+  participants boundary; flow map on the v2 open lifecycle. Demo-journey UI (`Journey.tsx`, `/api/flow`,
+  `/api/run`, replay loaders) deleted. `pnpm --filter web build` passes.
+- **Remaining for fully hands-off:** an always-on TSS signer on a VM (Option A, `docker compose --profile tss`).
+  Railway Option B is provisioned but the node won't stay up there (FACTS) — the local signer is the working
+  default; the VM is the proven zero-local route and needs the user's VM. Record the demo video; user does the Vercel deploy.
 
 ## Key gotchas to remember (full detail in FACTS.md)
 - CAW: every tx needs an active pact; non-matching → DENIED server-side; tx status 400→500→900 (Success);

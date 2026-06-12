@@ -1,18 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { findJobByJobId } from "../../../../lib/proofs";
-import { liveJob } from "../../../../lib/chain";
+import { findMarketRun } from "../../../../lib/proofs";
+import { liveJobV2 } from "../../../../lib/chain";
 import { CFG, txUrl, irysUrl, addrUrl, shortHex } from "../../../../lib/config";
 import { Badge } from "../../../../components/Badge";
-import type { JobVM } from "../../../../lib/types";
+import { runBadge } from "../../../../components/dashboard/RunCard";
+import type { AgentRun } from "../../../../lib/agent";
 
 export const dynamic = "force-dynamic";
 
 const STEP_DEFS: { key: string; ti: string }[] = [
-  { key: "createJob", ti: "Job created" },
+  { key: "createJob", ti: "Job created (open, no provider)" },
   { key: "approve", ti: "USDC approved" },
   { key: "fund", ti: "USDC escrowed" },
-  { key: "submitWork", ti: "Work submitted + Irys id" },
+  { key: "acceptJob", ti: "Provider won the race → claimed" },
+  { key: "submitWork", ti: "Work submitted + Irys id anchored" },
   { key: "complete", ti: "Accepted → Provider paid" },
   { key: "reject", ti: "Rejected → Client refunded" },
 ];
@@ -26,61 +28,66 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
   const jobId = Number(jobIdStr);
   if (!Number.isFinite(jobId)) notFound();
 
-  const artifact = findJobByJobId(jobId);
-  const live = await liveJob(jobId);
-  if (!artifact && !live) notFound();
+  // Prefer the verified autonomous-run artifact (rich: decisions + race + every tx); fall back to a
+  // minimal on-chain v2 view so any escrow still resolves.
+  const run = findMarketRun(jobId) as AgentRun | null;
+  const live = await liveJobV2(jobId);
+  if (!run && !live) notFound();
 
-  // Prefer the artifact/flow record for rich detail; fall back to a minimal on-chain view.
-  const job: JobVM = artifact ?? {
-    jobId, source: "chain", phase: "On-chain", title: `Escrow job #${jobId}`,
-    amountUsdc: live!.amountUsdc, badge: badgeFromStatus(live!.statusLabel), statusLabel: live!.statusLabel,
-    branch: null, txs: {}, irys: live!.irysId ? { id: live!.irysId, url: irysUrl(live!.irysId) } : null,
-    deliverable: null, reasoning: {}, contentVerified: null,
-  };
-  const amount = live?.amountUsdc || job.amountUsdc;
-  const statusLabel = live?.statusLabel ?? job.statusLabel;
-  const payout = job.branch === "payout";
-  const settleTx = job.txs.complete || job.txs.reject || "";
-  const steps = STEP_DEFS.filter((s) => job.txs[s.key]);
+  const amount = run?.amount_usdc ?? live?.amountUsdc ?? 0;
+  const statusLabel = live?.statusLabel ?? run?.final_status ?? "—";
+  const badge = run ? runBadge(run) : runBadge({ job_id: jobId, final_status: live!.statusLabel } as AgentRun);
+  const title = run?.task ?? `Escrow job #${jobId}`;
+  const provider = run?.provider ?? live?.provider ?? "";
+  const accepts = Object.entries(run?.accept_decisions ?? {});
+  const raced = accepts.length > 1;
+  const steps = STEP_DEFS.filter((s) => run?.txs?.[s.key]);
+  const settleTx = run?.txs?.complete || run?.txs?.reject || "";
+  const irys = run?.irys ?? (live?.irysId ? { id: live.irysId, url: irysUrl(live.irysId) } : null);
 
   return (
     <>
       <div className="head">
         <h1 style={{ fontSize: 26 }}>Escrow · Job #{jobId}</h1>
-        <p style={{ maxWidth: "70ch" }}>{job.title}</p>
+        <p style={{ maxWidth: "70ch" }}>{title}</p>
       </div>
 
       <div className="panel sc-body">
         <div className="sc-head" style={{ padding: 0 }}>
-          <div><h3>Settlement detail</h3><div className="sc-sub">{job.phase} · {amount.toFixed(2)} USDC</div></div>
-          <Badge state={job.badge} label={statusLabel} />
+          <div><h3>Settlement detail</h3><div className="sc-sub">Open marketplace · {amount.toFixed(2)} USDC</div></div>
+          <Badge state={badge.state} label={statusLabel} />
         </div>
 
         <div className="agents">
           <div className="agent">
-            <div className="role">Client · A</div>
-            <div className="addr"><span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--ink)" }} /><a href={addrUrl(CFG.clientCaw)} target="_blank" rel="noreferrer">{shortHex(CFG.clientCaw)}</a></div>
-            <div className="pact">Pact · escrow + USDC allowlist</div>
+            <div className="role">Client</div>
+            <div className="addr"><span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--settle)" }} /><a href={addrUrl(CFG.clientCaw)} target="_blank" rel="noreferrer">{shortHex(CFG.clientCaw)}</a></div>
+            <div className="pact">Pact · escrow v2 + USDC allowlist</div>
           </div>
           <div className="seam" />
           <div className="agent">
-            <div className="role">Provider · W</div>
-            <div className="addr"><span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--ink)" }} /><a href={addrUrl(CFG.providerCaw)} target="_blank" rel="noreferrer">{shortHex(CFG.providerCaw)}</a></div>
-            <div className="pact">Pact · escrow allowlist</div>
+            <div className="role">Provider {run?.winner ? `· ${run.winner}` : ""}</div>
+            <div className="addr"><span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--work)" }} /><a href={addrUrl(provider || CFG.providerCaw)} target="_blank" rel="noreferrer">{shortHex(provider || CFG.providerCaw)}</a></div>
+            <div className="pact">Pact · escrow v2 allowlist (no USDC)</div>
           </div>
         </div>
 
-        {(job.reasoning.client_fund || job.reasoning.evaluate) && (
+        {(run?.fund_decision || accepts.length > 0 || run?.verdict) && (
           <div className="reason">
-            {job.reasoning.client_fund && (
+            {run?.fund_decision && (
               <div className="rcard"><div className="rk">Client · fund decision (LLM)</div>
-                <div className={`verdict ${job.reasoning.client_fund.fund ? "y" : "n"}`}>{job.reasoning.client_fund.fund ? "FUND ✓" : "DECLINE ✕"}</div>
-                <div className="why">{job.reasoning.client_fund.reason}</div></div>
+                <div className={`verdict ${run.fund_decision.fund ? "y" : "n"}`}>{run.fund_decision.fund ? "FUND ✓" : "DECLINE ✕"}</div>
+                <div className="why">{run.fund_decision.reason}</div></div>
             )}
-            {job.reasoning.evaluate && (
+            {accepts.map(([who, d]) => (
+              <div className="rcard" key={who}><div className="rk">{who} · accept {raced ? (who === run?.winner ? "· won race" : "· lost race") : ""}</div>
+                <div className={`verdict ${d.accept ? "y" : "n"}`}>{d.accept ? "ACCEPT ✓" : "PASS ✕"}</div>
+                <div className="why">{raced && who !== run?.winner ? "acceptJob reverted — " : ""}{d.reason}</div></div>
+            ))}
+            {run?.verdict && (
               <div className="rcard"><div className="rk">Evaluator · verdict (LLM)</div>
-                <div className={`verdict ${job.reasoning.evaluate.accept ? "y" : "n"}`}>{job.reasoning.evaluate.accept ? "ACCEPT ✓ → payout" : "REJECT ✕ → refund"}</div>
-                <div className="why">{job.reasoning.evaluate.reason}</div></div>
+                <div className={`verdict ${run.verdict.accept ? "y" : "n"}`}>{run.verdict.accept ? "ACCEPT ✓ → payout" : "REJECT ✕ → refund"}</div>
+                <div className="why">{run.verdict.reason}</div></div>
             )}
           </div>
         )}
@@ -90,26 +97,26 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
             {steps.map((s, i) => (
               <div key={s.key} className="tstep done">
                 <div className="mk"><span className="o" />{i < steps.length - 1 && <span className="ln" />}</div>
-                <div><div className="ti">{s.ti}</div><div className="td">{check}{s.key}() · <a className="lnk" href={txUrl(job.txs[s.key])} target="_blank" rel="noreferrer">{shortHex(job.txs[s.key], 10)}</a></div></div>
+                <div><div className="ti">{s.ti}</div><div className="td">{check}{s.key}() · <a className="lnk" href={txUrl(run!.txs[s.key])} target="_blank" rel="noreferrer">{shortHex(run!.txs[s.key], 10)}</a></div></div>
                 <div className="tt" />
               </div>
             ))}
           </div>
         )}
 
-        {job.irys && (
+        {irys && (
           <div className="proof" style={{ marginTop: 18 }}>
-            <div className="ph"><span className="t">Deliverable · Irys</span><span className="when"><a className="lnk" href={irysUrl(job.irys.id)} target="_blank" rel="noreferrer">{shortHex(job.irys.id, 10)}</a></span></div>
+            <div className="ph"><span className="t">Deliverable · Irys</span><span className="when"><a className="lnk" href={irysUrl(irys.id)} target="_blank" rel="noreferrer">{shortHex(irys.id, 10)}</a></span></div>
             <div className="pb">
               <div className="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 7h16M4 12h16M4 17h10" /></svg></div>
-              <div><div className="fn">deliverable.txt</div>{job.deliverable && <div className="fh" style={{ color: "var(--ink-3)" }}>{job.deliverable.slice(0, 90)}…</div>}</div>
-              {job.contentVerified && <span className="verified" style={{ marginLeft: "auto" }}>{check} hash verified</span>}
+              <div><div className="fn">deliverable.txt</div>{run?.deliverable && <div className="fh" style={{ color: "var(--ink-3)" }}>{run.deliverable.slice(0, 90)}…</div>}</div>
+              {run?.content_verified && <span className="verified" style={{ marginLeft: "auto" }}>{check} hash verified</span>}
             </div>
           </div>
         )}
 
         <div className="receipt" style={{ marginTop: 18 }}>
-          <div className="rcell"><div className="rk">Outcome</div><div className="rv">{job.branch === "payout" ? "Provider paid" : job.branch === "refund" ? "Client refunded" : "—"}</div></div>
+          <div className="rcell"><div className="rk">Outcome</div><div className="rv">{run?.branch === "payout" ? "Provider paid" : run?.branch === "refund" ? "Client refunded" : "—"}</div></div>
           <div className="rcell"><div className="rk">Amount</div><div className="rv">{amount.toFixed(2)} USDC</div></div>
           <div className="rcell"><div className="rk">settle() tx</div><div className="rv">{settleTx ? <a href={txUrl(settleTx)} target="_blank" rel="noreferrer">{shortHex(settleTx, 10)}</a> : "—"}</div></div>
           <div className="rcell"><div className="rk">Final status</div><div className="rv">{statusLabel}</div></div>
@@ -122,9 +129,4 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
       </div>
     </>
   );
-}
-
-function badgeFromStatus(s: string): JobVM["badge"] {
-  return s === "Completed" ? "settled" : s === "Rejected" || s === "Refunded" ? "reclaim"
-    : s === "Submitted" ? "work" : s === "Funded" ? "escrow" : "open";
 }

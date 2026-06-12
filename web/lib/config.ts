@@ -9,11 +9,14 @@ export const CFG = {
   escrow: env("NEXT_PUBLIC_ESCROW_ADDRESS", "0x812BcEEc2De8C8aC71C7af7A8E2d4467E65Fdf18") as `0x${string}`,
   // v2 open-marketplace escrow (Phase 6.5): createJob without provider + acceptJob(jobId).
   escrowV2: env("NEXT_PUBLIC_ESCROW_V2_ADDRESS", "0xD6cB413c0E4a5839Fd4B02aFFeBF65e6868726b9") as `0x${string}`,
-  // Deployed autonomous agent service (Railway). Empty → live-trigger UI hidden; reads stay on-chain.
-  agentApi: env("NEXT_PUBLIC_AGENT_API", "").replace(/\/$/, ""),
+  // Deployed autonomous agent service (Railway). The dashboard is a live window onto these agents:
+  // "Post job" fires POST /trigger and the board watches them reason + settle. Empty → live-trigger UI hidden.
+  agentApi: env("NEXT_PUBLIC_AGENT_API", "https://insightful-wisdom-production-5c62.up.railway.app").replace(/\/$/, ""),
   usdc: env("NEXT_PUBLIC_USDC_ADDRESS", "0x4C4D1223BcC47E380CF4C37652EaDFe10A9Fd910") as `0x${string}`,
   clientCaw: env("NEXT_PUBLIC_CLIENT_CAW", "0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd") as `0x${string}`,
   providerCaw: env("NEXT_PUBLIC_PROVIDER_CAW", "0xef9349b3273b1a54faaf701231f499fe0282e643") as `0x${string}`,
+  // 2nd provider address (same Provider wallet, distinct msg.sender) — the live accept-race competitor.
+  providerCawB: env("NEXT_PUBLIC_PROVIDER_CAW_B", "0x7ea0701d657e3427c2bb3bc195e943a81c5fc69e") as `0x${string}`,
   explorer: env("NEXT_PUBLIC_EXPLORER_BASE", "https://sepolia.etherscan.io"),
   irysGateway: env("NEXT_PUBLIC_IRYS_GATEWAY", "https://devnet.irys.xyz"),
   enableLiveRun: env("NEXT_PUBLIC_ENABLE_LIVE_RUN", "1") !== "0",

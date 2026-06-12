@@ -6,8 +6,6 @@ import { readFileSync, existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import type { BadgeState } from "../components/Badge";
 import type { JobVM, Beats, DenialVM, AuditEntry, PactVM } from "./types";
-import type { FlowState } from "./flow";
-import { CFG } from "./config";
 
 export type { JobVM, Beats, DenialVM, AuditEntry, PactVM } from "./types";
 
@@ -22,6 +20,7 @@ const resolveDir = (snapshot: string, sibling: string) => (existsSync(snapshot) 
 const SCRIPTS = resolveDir(path.join(DATA, "proofs"), path.join(REPO_ROOT, "agents", "scripts"));
 const PACTS = resolveDir(path.join(DATA, "pacts"), path.join(REPO_ROOT, "docs", "pacts"));
 const FLOWS = resolveDir(path.join(DATA, "flows"), path.join(REPO_ROOT, "agents", "scripts", ".flow"));
+const MARKET = resolveDir(path.join(DATA, "market"), path.join(REPO_ROOT, "agents", "scripts", ".market", "runs"));
 
 function readJson<T>(p: string): T | null {
   try {
@@ -141,23 +140,24 @@ export function findJobByJobId(jobId: number): JobVM | undefined {
   return loadJobs().find((j) => j.jobId === jobId);
 }
 
-// ── replay: map a recorded verified run → the live flow shape, for the hosted demo ──
-function proofToFlow(raw: RawDemo | null): FlowState | null {
-  if (!raw) return null;
-  return {
-    run_id: "recorded", mode: raw.mode, status: "settled", task: raw.task, amount_usdc: 10,
-    client: CFG.clientCaw, provider: CFG.providerCaw, txs: raw.txs ?? {}, irys: raw.irys ?? null,
-    deliverable: raw.deliverable ?? null, verdict: raw.reasoning?.evaluate ?? null,
-    fund_decision: raw.reasoning?.client_fund, branch: raw.branch ?? null, job_id: raw.job_id,
-    final_status: raw.final_status, content_verified: raw.content_verified ?? undefined,
-  };
+/** Verified autonomous open-marketplace runs (agents/scripts/.market/runs/*.json), newest first.
+ *  These seed the live marketplace board so it shows the proven track record even before the deployed
+ *  agent service has produced a fresh run. Shape mirrors the AgentRun type the backend /runs returns. */
+export function loadMarketRuns(): unknown[] {
+  try {
+    return readdirSync(MARKET)
+      .filter((f) => /^\d+\.json$/.test(f))
+      .map((f) => readJson<{ job_id?: number }>(path.join(MARKET, f)))
+      .filter((r): r is { job_id?: number } => r !== null && typeof r.job_id === "number")
+      .sort((a, b) => (b.job_id ?? 0) - (a.job_id ?? 0));
+  } catch {
+    return [];
+  }
 }
 
-export function loadReplay(): { good: FlowState | null; bad: FlowState | null } {
-  return {
-    good: proofToFlow(readJson<RawDemo>(path.join(SCRIPTS, "phase5_demo_good_proof.json"))),
-    bad: proofToFlow(readJson<RawDemo>(path.join(SCRIPTS, "phase5_demo_bad_proof.json"))),
-  };
+/** One verified market-run artifact by job id, or null. */
+export function findMarketRun(jobId: number): unknown | null {
+  return readJson<unknown>(path.join(MARKET, `${jobId}.json`));
 }
 
 export function loadBeats(): Beats {
@@ -215,9 +215,10 @@ export function loadBeats(): Beats {
 }
 
 export function loadPacts(): PactVM[] {
+  // Prefer the v2 (open-marketplace) escrow/provider allowlists; the budget + review pacts are generic.
   const files = [
-    ["client_escrow_pact.json", "Client · escrow + USDC allowlist"],
-    ["provider_pact.json", "Provider · escrow allowlist"],
+    ["client_escrow_pact_v2.json", "Client · escrow v2 + USDC allowlist"],
+    ["provider_pact_v2.json", "Provider · escrow v2 allowlist (no USDC)"],
     ["client_budget_transfer_pact.json", "Client · budget cap (deny_if)"],
     ["review_pact.json", "Client · review threshold (review_if)"],
   ];

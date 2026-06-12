@@ -105,6 +105,30 @@ export async function nextJobIdV2(): Promise<number | null> {
   return n === null ? null : Number(n as bigint);
 }
 
+export interface LiveJobV2 {
+  amountUsdc: number;
+  statusLabel: string;
+  irysId: string;
+  client: string;
+  provider: string;
+}
+
+/** Live getJob() on the v2 open-marketplace escrow, or null if unreachable / not found. */
+export async function liveJobV2(jobId: number): Promise<LiveJobV2 | null> {
+  const j = await safe(
+    client.readContract({ address: CFG.escrowV2, abi: escrowAbi, functionName: "getJob", args: [BigInt(jobId)] }),
+  );
+  if (!j) return null;
+  const job = j as { client: string; provider: string; amount: bigint; irysId: string; status: number };
+  return {
+    amountUsdc: Number(formatUnits(job.amount, 6)),
+    statusLabel: STATUS_LABELS_V2[job.status] ?? "Unknown",
+    irysId: job.irysId,
+    client: job.client,
+    provider: job.provider,
+  };
+}
+
 /** Every job on the v2 open-marketplace escrow (newest first). The Job tuple is identical to v1, so
  *  the same ABI reads it; only the status enum (8 states) differs. Null if the RPC is unreachable. */
 export async function listJobsV2(max = 40): Promise<ChainJob[] | null> {
