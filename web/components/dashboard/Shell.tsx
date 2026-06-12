@@ -19,8 +19,10 @@ export function Shell({ clientBal, providerBal }: { clientBal: number | null; pr
   return (
     <div className="bar">
       <div className="wrap">
-        <AwMark size={26} style={{ color: "var(--ink)" }} />
-        <span className="nm">AgentWorks</span>
+        <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", color: "inherit" }}>
+          <AwMark size={26} style={{ color: "var(--ink)" }} />
+          <span className="nm">AgentWorks</span>
+        </Link>
         <nav className="tabs">
           {TABS.map((t) => (
             <Link key={t.href} href={t.href} className={`tab${active(t.href) ? " on" : ""}`}>

@@ -35,7 +35,7 @@ export default function LandingPage() {
           <div className="grid">
             <div>
               <span className="hero-eyebrow">
-                <span className="pulse" />Cobo Agentic Economy · Hackathon
+                <span className="pulse" />Autonomous agents, trustless settlement
               </span>
               <h1>
                 Settlement-grade trust for agents that <span className="b">transact.</span>
@@ -322,7 +322,7 @@ export default function LandingPage() {
             <a className="btn" href="#how">Read the flow</a>
           </div>
           <p className="mono" style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 30, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-            Escrow · Proof · Settlement - Cobo Agentic Economy Track
+            Escrow · Proof · Settlement
           </p>
         </div>
       </section>
@@ -348,15 +348,15 @@ export default function LandingPage() {
             <h4>Protocol</h4>
             <a href="#cobo">Cobo CAW</a>
             <Link href="/brand">Brand system</Link>
-            <a href="#">Escrow contract</a>
-            <a href="#">Irys storage</a>
+            <a href="https://sepolia.etherscan.io/address/0xd6cb413c0e4a5839fd4b02affebf65e6868726b9" target="_blank" rel="noreferrer">Escrow contract</a>
+            <a href="https://devnet.irys.xyz" target="_blank" rel="noreferrer">Irys storage</a>
           </div>
           <div className="col">
             <h4>Resources</h4>
             <a href="#faq">FAQ</a>
             <Link href="/dashboard">Dashboard</Link>
-            <a href="#">GitHub</a>
-            <a href="#">Hackathon track</a>
+            <a href="https://github.com/Manuel-dev01/AgentWorks" target="_blank" rel="noreferrer">GitHub</a>
+            <a href="https://www.cobo.com/agentic-wallet" target="_blank" rel="noreferrer">Cobo CAW</a>
           </div>
         </div>
         <div className="wrap">
