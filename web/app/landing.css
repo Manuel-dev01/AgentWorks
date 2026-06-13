@@ -113,6 +113,23 @@
 .lp .duo .between .lbl{ font-family:var(--mono); font-size:9px; letter-spacing:0.14em; text-transform:uppercase;
   color:var(--settle-deep); writing-mode:vertical-rl; text-orientation:mixed; }
 
+/* mcp socket */
+.lp .mcp{ margin-top:36px; border:1px solid var(--settle-line); border-radius:18px; background:var(--settle-wash); padding:clamp(24px,3vw,36px); }
+.lp .mcp-head{ max-width:66ch; }
+.lp .mcp-tag{ display:inline-flex; align-items:center; gap:8px; font-family:var(--mono); font-size:10px; letter-spacing:0.14em;
+  text-transform:uppercase; color:var(--settle-deep); border:1px solid var(--settle-line); border-radius:999px; padding:5px 11px; background:var(--paper); }
+.lp .mcp-tag .d{ width:7px; height:7px; border-radius:50%; background:var(--settle); }
+.lp .mcp-head h3{ font-size:clamp(22px,2.5vw,30px); letter-spacing:-0.02em; margin-top:16px; }
+.lp .mcp-head p{ color:var(--ink-2); font-size:16px; line-height:1.6; margin-top:14px; }
+.lp .mcp-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:26px; }
+.lp .mcp-pt{ background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:18px 18px 20px; }
+.lp .mcp-pt .k{ font-family:var(--mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--settle-deep); }
+.lp .mcp-pt p{ color:var(--ink-2); font-size:13.5px; line-height:1.55; margin-top:10px; }
+.lp .mcp-connect{ display:flex; align-items:center; gap:10px; margin-top:24px; padding-top:18px; border-top:1px dashed var(--settle-line);
+  font-family:var(--mono); font-size:11px; color:var(--ink-3); flex-wrap:wrap; line-height:1.5; }
+.lp .mcp-connect .dot{ width:7px; height:7px; border-radius:50%; background:var(--settle); flex:0 0 auto; }
+@media (max-width:760px){ .lp .mcp-grid{ grid-template-columns:1fr; } }
+
 /* features */
 .lp .feat{ display:grid; grid-template-columns: repeat(3,1fr); gap:1px; background:var(--line);
   border:1px solid var(--line); border-radius:16px; overflow:hidden; margin-top:6px; }
