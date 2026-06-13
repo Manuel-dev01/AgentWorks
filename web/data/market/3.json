@@ -28,7 +28,7 @@
     "price": "1387715131506",
     "funded": "0"
   },
-  "deliverable": "An on-chain escrow works like a trusted middleman: one party sends their funds to a neutral digital lockbox (the smart contract) that holds the money until both sides fulfill their promises. If everything goes well, the contract automatically releases the funds to the right person; if there\u2019s a dispute, the contract can return the money to the original sender or follow preset rules. This way, neither side can cheat because the funds are never directly controlled by either party until the agreed conditions are met.",
+  "deliverable": "An on-chain escrow works like a trusted middleman: one party sends their funds to a neutral digital lockbox (the smart contract) that holds the money until both sides fulfill their promises. If everything goes well, the contract automatically releases the funds to the right person; if there’s a dispute, the contract can return the money to the original sender or follow preset rules. This way, neither side can cheat because the funds are never directly controlled by either party until the agreed conditions are met.",
   "verdict": {
     "accept": true,
     "reason": "The explanation is in plain language, uses exactly 3 sentences, and clearly mentions the neutral escrow holding funds via a smart contract."
@@ -37,7 +37,7 @@
   "status": "settled",
   "task": "Write a clear 2-3 sentence explanation, for a non-expert, of how an on-chain escrow lets two agents who don't trust each other transact safely.",
   "criteria": "Plain language, 2-3 sentences, mentions the neutral escrow holding funds.",
-  "amount_usdc": 5.0,
+  "amount_usdc": 5,
   "client": "0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd",
   "fund_decision": {
     "fund": true,

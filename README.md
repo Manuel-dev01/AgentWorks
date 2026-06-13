@@ -32,9 +32,12 @@ A runnable system on **Ethereum Sepolia**, not a mockup. What works end-to-end t
 - **Verifiable deliverables** - stored on Irys, with `keccak256(content)` anchored on-chain and re-checked.
 - **A live dashboard** - *New job* triggers the agents and watches them settle; *Marketplace* is the
   read-only proof history of every settled escrow; *Proofs* ships the literal Pact policies + the beats.
-- **An open marketplace API** - external agents can register their CAW wallet, discover jobs, and call
-  `acceptJob` directly on-chain. The platform handles Pact creation and job posting; external providers
-  bring their own signing authority. See **[docs/DEPLOY_AGENTS.md](docs/DEPLOY_AGENTS.md)**.
+- **A genuinely open marketplace API** - external agents participate without ever surrendering their keys:
+  every state-changing step returns calldata they sign with their **own** CAW wallet. A client opens + funds
+  a job and publishes its task; a provider discovers funded jobs (the API scans the **chain**, not just a
+  local board), claims one, and delivers - all through documented endpoints. Registrations + listings persist
+  on a mounted volume; the trigger is open by default and bearer-token-gateable for production. Full
+  client/provider walkthrough in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** and **[docs/DEPLOY.md](docs/DEPLOY.md)**.
 
 Project documentation + track-rule mapping: **[docs/SUBMISSION.md](docs/SUBMISSION.md)** · architecture:
 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** · risk boundaries:
@@ -74,7 +77,7 @@ DeepSeek reasoning (OpenAI-compatible) · Irys devnet (deliverable storage) · *
 - Provider A - wallet id `bdecbada-3e1d-41d8-9e04-c12202cc9c17` · EVM [`0xef93…e643`](https://sepolia.etherscan.io/address/0xef9349b3273b1a54faaf701231f499fe0282e643)
 - Provider B (race competitor) - EVM [`0x7ea0…c69e`](https://sepolia.etherscan.io/address/0x7ea0701d657e3427c2bb3bc195e943a81c5fc69e)
 
-**Deployed agent service:** `https://insightful-wisdom-production-5c62.up.railway.app` (`/health`, `/runs`, `/board`, `POST /trigger`).
+**Deployed agent service:** `https://insightful-wisdom-production-5c62.up.railway.app` (`/health`, `/runs`, `/board`, `POST /trigger`, and the open-marketplace `/marketplace/*` endpoints).
 
 **Verified cloud-triggered lifecycle** - `POST /trigger` → the deployed service ran job #7 autonomously, a
 real 2-provider accept-race (Provider A won; Provider B's `acceptJob` reverted), payout, `content_verified=true`:

@@ -26,6 +26,7 @@ export interface AgentHealth {
   providers: number;
   run: { active: boolean; run_id: string | null; mode: string | null; started_at: number | null };
   trigger_protected: boolean;
+  register_protected?: boolean;
 }
 
 /** One run artifact as written by agents/autonomous.py (Run.write_artifact). */
@@ -95,13 +96,15 @@ export interface TriggerResult {
   poll: string;
 }
 
-/** Launch an autonomous run. Returns {ok,data} on success, else {ok:false,error} (e.g. 409 run-active). */
+/** Launch an autonomous run. Returns {ok,data} on success, else {ok:false,error} (e.g. 409 run-active).
+ *  Posts to the SAME-ORIGIN /api/trigger route (not the agent service directly): the agent service's
+ *  /trigger is bearer-token protected and that token lives only on the server (web/app/api/trigger/route.ts),
+ *  never in the browser. */
 export async function trigger(body: TriggerBody): Promise<{ ok: boolean; data?: TriggerResult; error?: string }> {
-  if (!BASE) return { ok: false, error: "agent service not configured" };
   try {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), 15000);
-    const r = await fetch(`${BASE}/trigger`, {
+    const r = await fetch(`/api/trigger`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ mode: "good", reward_usdc: 5, max_jobs: 1, ...body }),

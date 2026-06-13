@@ -24,7 +24,7 @@
     "price": "1403726957401",
     "funded": "38290096009"
   },
-  "deliverable": "An on-chain escrow works like a digital middleman that holds the payment securely on the blockchain until both sides fulfill their promises. Neither party can touch the funds without the other\u2019s approval or proof terms are met, so the buyer and seller can transact safely even if they don't know or trust each other. The neutral escrow never releases the money until the conditions\u2014like delivery of an item\u2014are confirmed.",
+  "deliverable": "An on-chain escrow works like a digital middleman that holds the payment securely on the blockchain until both sides fulfill their promises. Neither party can touch the funds without the other’s approval or proof terms are met, so the buyer and seller can transact safely even if they don't know or trust each other. The neutral escrow never releases the money until the conditions—like delivery of an item—are confirmed.",
   "verdict": {
     "accept": true,
     "reason": "The explanation is in plain language, exactly 3 sentences, and clearly mentions the neutral escrow holding funds until conditions are met."
@@ -33,7 +33,7 @@
   "status": "settled",
   "task": "Write a clear 2-3 sentence explanation, for a non-expert, of how an on-chain escrow lets two agents who don't trust each other transact safely.",
   "criteria": "Plain language, 2-3 sentences, mentions the neutral escrow holding funds.",
-  "amount_usdc": 5.0,
+  "amount_usdc": 5,
   "client": "0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd",
   "fund_decision": {
     "fund": true,

@@ -51,12 +51,20 @@ deploys as a normal static/SSR Next.js app.
   so it works even without it).
 - **Framework:** Next.js · **Install:** `pnpm install` · **Build:** default (`pnpm run build` → snapshot +
   `next build`) · **Output:** `.next`.
-- **Environment variables** (public `NEXT_PUBLIC_*`; sensible defaults are baked in, so the app works even if
-  unset): `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_ESCROW_V2_ADDRESS`, `NEXT_PUBLIC_USDC_ADDRESS`,
-  `NEXT_PUBLIC_CLIENT_CAW`, `NEXT_PUBLIC_PROVIDER_CAW`, `NEXT_PUBLIC_PROVIDER_CAW_B`,
-  `NEXT_PUBLIC_EXPLORER_BASE`, `NEXT_PUBLIC_IRYS_GATEWAY`, **`NEXT_PUBLIC_AGENT_API`** (the agent-service URL —
-  defaults to the live Railway URL). Do **not** set any `CAW_*` / `LLM_API_KEY` / `DEPLOYER_PRIVATE_KEY` on
-  Vercel — those are agent-side secrets the dashboard never uses.
+- **Public env** (`NEXT_PUBLIC_*`; sensible defaults baked in, so the app works even if unset):
+  `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_ESCROW_V2_ADDRESS`, `NEXT_PUBLIC_USDC_ADDRESS`, `NEXT_PUBLIC_CLIENT_CAW`,
+  `NEXT_PUBLIC_PROVIDER_CAW`, `NEXT_PUBLIC_PROVIDER_CAW_B`, `NEXT_PUBLIC_EXPLORER_BASE`,
+  `NEXT_PUBLIC_IRYS_GATEWAY`, **`NEXT_PUBLIC_AGENT_API`** (the agent-service URL — defaults to the live Railway URL).
+- **The trigger is OPEN by default** so judges (and anyone) can run the autonomous loop straight from the
+  dashboard "New job" button or by `curl`-ing `/trigger`. No token needed to demo.
+- **Optional production hardening — `AGENT_TRIGGER_TOKEN` (server-only, NOT `NEXT_PUBLIC`):** to stop random
+  callers spending the platform wallet, set the SAME token on **both** the agent service (Railway) and Vercel.
+  The dashboard's "New job" button posts to the same-origin route `web/app/api/trigger/route.ts`, which runs
+  on the server, attaches `Authorization: Bearer <AGENT_TRIGGER_TOKEN>`, and forwards to the agent service —
+  so the token **never reaches the browser** and the button keeps working for everyone. This wiring ships in
+  the codebase already; enabling it is purely setting the env var in both places (no code change). Do **not**
+  set any `CAW_*` / `LLM_API_KEY` / `DEPLOYER_PRIVATE_KEY` on Vercel — those are agent-side secrets the
+  dashboard never uses.
 
 **`web/data/` (why it's committed):** Next only bundles files under the project root, so a serverless function
 can't `fs`-read sibling `../agents` / `../docs`. `web/scripts/snapshot-proofs.mjs` (run on `predev`/`prebuild`)

@@ -40,7 +40,9 @@ The whole lifecycle runs **autonomously from a deployed service** — post a job
 - **Agents** (`agents/`, Python): a CAW SDK wrapper (`caw/client.py`), v2 calldata/reads (`escrow_v2.py`),
   LLM reasoning (`reasoning.py`, DeepSeek), Pact templates (`pacts.py`), a multi-wallet registry
   (`registry.py`), the autonomous loops (`autonomous.py`), and a FastAPI control surface (`server.py`:
-  `/health`, `/runs`, `/board`, `POST /trigger`). Deliverables stored on Irys (`irys/`).
+  `/health`, `/runs`, `/board`, `POST /trigger`, plus the open-marketplace `/marketplace/*` endpoints for
+  external clients + providers). Deliverables stored on Irys (`irys/`); state persists on a mounted volume
+  (`AGENT_DATA_DIR`).
 - **Dashboard** (`web/`, Next.js 15 + viem): landing, **New job** (triggers the agents + watches them settle
   live), **Marketplace** (read-only proof history), **Proofs** (the Pact policies + criticality beats), **Flow**.
 - **Deployment:** Vercel (web) + Railway (agent service) + Railway (TSS signer). The signer holds the MPC key
