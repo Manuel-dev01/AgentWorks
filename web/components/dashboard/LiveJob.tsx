@@ -13,6 +13,19 @@ import { RunCard } from "./RunCard";
 
 const STEPS = ["Reason & fund", "Open + escrowed", "Provider race", "Deliver to Irys", "Evaluate & settle"];
 
+/** How many of STEPS are complete, derived from the live run artifact (autonomous.py rewrites it at each
+ *  milestone, so /runs reflects progress). null/early = 0 (the Client is still reasoning + funding). */
+function stepsDone(r?: AgentRun | null): number {
+  if (!r) return 0;
+  const t = r.txs || {};
+  if (r.status === "settled" || r.branch || t.complete || t.reject) return 5;
+  if (t.submitWork || r.irys) return 4;
+  if (t.acceptJob || r.winner) return 3;
+  if (t.fund) return 2;
+  if (t.createJob || r.fund_decision) return 1;
+  return 0;
+}
+
 export function LiveJob() {
   const enabled = agentEnabled();
   const [health, setHealth] = useState<AgentHealth | null>(null);
@@ -125,12 +138,18 @@ export function LiveJob() {
         {err && <div className="err">⚠ {err}<br />The verified runs in the Marketplace remain intact.</div>}
       </div>
 
-      {/* live progress while a run is active */}
+      {/* live progress while a run is active — driven by the live run artifact */}
       {(active || posting) && (
         <div className="lj-steps">
-          {STEPS.map((s, i) => (
-            <span key={s} className="lj-step"><span className="n">{i + 1}</span>{s}</span>
-          ))}
+          {STEPS.map((s, i) => {
+            const dc = stepsDone(fresh);
+            const state = i < dc ? "done" : i === dc ? "current" : "pending";
+            return (
+              <span key={s} className={`lj-step ${state}`}>
+                <span className="n">{state === "done" ? "✓" : i + 1}</span>{s}
+              </span>
+            );
+          })}
         </div>
       )}
 
