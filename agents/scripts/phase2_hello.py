@@ -1,4 +1,4 @@
-"""Phase 2 — CAW hello-world (Base Sepolia).
+"""Phase 2 - CAW hello-world (Base Sepolia).
 
 Proves the CAW loop end to end:
   1. Connect to the two onboarded wallets (Client, Provider).
@@ -30,7 +30,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 # Phase 2 hello-world runs on Ethereum Sepolia (SETH): the CAW faucet funds SETH directly
 # (CAW-native => balance is reliably indexed), making the demo deterministic. Base Sepolia
 # (TBASE_SETH) is CONFIRMED supported on CAW (chain + TBASE_USDC token), but CAW did not
-# surface an externally-deposited Base Sepolia native balance — a funding item flagged for Phase 3.
+# surface an externally-deposited Base Sepolia native balance - a funding item flagged for Phase 3.
 HELLO_CHAIN = "SETH"
 HELLO_TOKEN = "SETH"
 HELLO_EXPLORER_TX = "https://sepolia.etherscan.io/tx/{}"

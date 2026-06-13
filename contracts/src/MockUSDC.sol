@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 /// @title MockUSDC
 /// @notice Minimal 6-decimal ERC-20 used for deterministic local tests and as a fallback
 ///         settlement token if the real Base Sepolia USDC faucet proves unreliable
-///         (per CLAUDE.md: determinism outranks "uses real USDC"). Open `mint` — testnet only.
+///         (per CLAUDE.md: determinism outranks "uses real USDC"). Open `mint` - testnet only.
 contract MockUSDC {
     string public constant name = "Mock USD Coin";
     string public constant symbol = "USDC";

@@ -1,18 +1,18 @@
-"""Autonomous agents — continuous loops over the open marketplace (Phase 6.5.3).
+"""Autonomous agents - continuous loops over the open marketplace (Phase 6.5.3).
 
 Two long-running roles, each acting through its own CAW wallet under a scoped Pact, coordinating
 via an off-chain job board (the marketplace listing) + the on-chain v2 escrow (the source of truth):
 
-  Client loop   — for each task it deems worth funding: createJob (OPEN) → approve → fund, and posts
+  Client loop   - for each task it deems worth funding: createJob (OPEN) → approve → fund, and posts
                   the task text to the board. Then watches its jobs; when one is Submitted it fetches
                   the deliverable from Irys, evaluates it, and complete()s (payout) or reject()s (refund).
-  Provider pool — N provider identities. Each scans the board + chain for funded, unclaimed jobs,
+  Provider pool - N provider identities. Each scans the board + chain for funded, unclaimed jobs,
                   genuinely decides whether to accept, and races to acceptJob() on-chain (first wins;
                   losers revert/skip). The winner does the work, stores it on Irys, and submitWork()s.
 
 Genuine LLM reasoning at every decision (criterion 1); the Pact is the hard boundary regardless
 (criterion 2). Every CAW call + decision is logged; a proof artifact is written per settled job.
-Reuses escrow_v2 / pacts / reasoning / registry / irys_store — invents no SDK surface.
+Reuses escrow_v2 / pacts / reasoning / registry / irys_store - invents no SDK surface.
 """
 
 from __future__ import annotations
@@ -291,7 +291,7 @@ async def run_market(tasks: list[dict], *, mode: str = "good", reward_usdc: floa
     run = Run(mode=mode, target=max_jobs)
     pp = config.provider_agent()
 
-    # provider identities (addresses) from the registry — share ONE provider wallet + pact
+    # provider identities (addresses) from the registry - share ONE provider wallet + pact
     pool = registry.providers()
     provider_ids = [(p.name, p.address) for p in pool if p.wallet_id == pp.wallet_id] or [("Provider", pp.address)]
     log.info("[market] providers: %s", provider_ids)

@@ -1,6 +1,6 @@
-# AgentWorks — autonomous agent service (+ optional containerized TSS signer).
+# AgentWorks - autonomous agent service (+ optional containerized TSS signer).
 # Local/dev always-on: `docker compose up agent`  (TSS stays on your machine/VM).
-# Fully containerized signer too: `docker compose --profile tss up`  (stop the local signer first —
+# Fully containerized signer too: `docker compose --profile tss up`  (stop the local signer first -
 # the CAW relay rejects a duplicate node identity). See docs/DEPLOY_AGENTS.md.
 
 services:

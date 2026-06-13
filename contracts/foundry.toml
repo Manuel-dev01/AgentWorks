@@ -17,5 +17,5 @@ sepolia = "${RPC_URL}"
 [etherscan]
 # Etherscan V2 unified API verifies any chain by chainid with a single Etherscan key.
 base_sepolia = { key = "${EXPLORER_API_KEY}", chain = 84532, url = "https://api.etherscan.io/v2/api?chainid=84532" }
-# Ethereum Sepolia (11155111) — the project's CURRENT chain (switched off Base in Phase 2).
+# Ethereum Sepolia (11155111) - the project's CURRENT chain (switched off Base in Phase 2).
 sepolia = { key = "${EXPLORER_API_KEY}", chain = 11155111, url = "https://api.etherscan.io/v2/api?chainid=11155111" }

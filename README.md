@@ -71,7 +71,7 @@ node per relay identity, so don't run both at once. Full deploy guide (all three
 
 ## Stack
 Foundry (escrow v2) · Python agents (CAW SDK `cobo-agentic-wallet` + web3, FastAPI control surface) ·
-**MCP server** (`mcp`/FastMCP — the open agent socket) · DeepSeek reasoning (OpenAI-compatible) ·
+**MCP server** (`mcp`/FastMCP - the open agent socket) · DeepSeek reasoning (OpenAI-compatible) ·
 Irys devnet (deliverable storage) · **Next.js 15** dashboard (viem live reads) ·
 **Ethereum Sepolia** (chainId 11155111).
 

@@ -1,4 +1,4 @@
-# AgentWorks TSS signer (Phase 6.5.4) — runs the Linux CAW TSS node(s) that co-sign for the agent
+# AgentWorks TSS signer (Phase 6.5.4) - runs the Linux CAW TSS node(s) that co-sign for the agent
 # wallets. Holds the MPC key share, so prefer a host YOU control. Key shares are MOUNTED at /keys,
 # NEVER baked into the image. The Linux binary availability was verified in docs/FACTS.md (6.5.0).
 #
@@ -6,13 +6,13 @@
 # Local build:    docker build -f agents/tss/Dockerfile -t agentworks-tss .
 # Railway build:  set the service var RAILWAY_DOCKERFILE_PATH=agents/tss/Dockerfile, then `railway up`.
 # Run:  docker run -v /abs/path/to/keys:/keys agentworks-tss   (each /keys/<name>/ = a profile's tss-node dir)
-# NOTE: only ONE node per identity may be on the CAW relay at a time — stop the local Windows signer first.
+# NOTE: only ONE node per identity may be on the CAW relay at a time - stop the local Windows signer first.
 
 FROM debian:bookworm-slim
 
 ARG TSS_OS=linux
 ARG TSS_ARCH=amd64
-# Download the official Linux CAW TSS node (source: the CAW install.sh — see docs/FACTS.md 6.5.0).
+# Download the official Linux CAW TSS node (source: the CAW install.sh - see docs/FACTS.md 6.5.0).
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl ca-certificates bash \
     && rm -rf /var/lib/apt/lists/* \

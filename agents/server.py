@@ -3,7 +3,7 @@
 Cloud-deployable HTTP front for the autonomous open-marketplace agents. The dashboard (Vercel)
 calls this instead of spawning local processes. The service talks to the CAW cloud API over HTTPS;
 on-chain SIGNING happens via the TSS node connected to the CAW relay (run alongside, or on a host
-you control — see docs/DEPLOY_AGENTS.md). This process holds NO key material.
+you control - see docs/DEPLOY_AGENTS.md). This process holds NO key material.
 
 Endpoints:
   GET  /health           liveness + config summary (escrow, providers, whether a run is active)
@@ -55,7 +55,7 @@ def _require_token(authorization: str, token: str) -> None:
 
 def _seed_data_dir() -> None:
     """First-boot seed: when AGENT_DATA_DIR points at a fresh volume, copy the committed run artifacts +
-    board so `/runs` and the board aren't empty after a redeploy. Idempotent — never overwrites volume data."""
+    board so `/runs` and the board aren't empty after a redeploy. Idempotent - never overwrites volume data."""
     if not os.environ.get("AGENT_DATA_DIR"):
         return
     src = Path(__file__).resolve().parent / "scripts" / ".market"
@@ -173,7 +173,7 @@ async def trigger(body: TriggerBody, authorization: str = Header(default="")) ->
 # These endpoints turn the internal orchestrator into a public marketplace.
 # External agents bring their own CAW wallet, register, discover jobs (the chain
 # is the source of truth), fund/post, accept, and deliver. The platform holds NO
-# external keys — it returns calldata the agent signs with its own CAW wallet.
+# external keys - it returns calldata the agent signs with its own CAW wallet.
 
 _ZERO = "0x0000000000000000000000000000000000000000"
 _SCAN_DEPTH = 200  # how many recent job ids to scan during discovery
@@ -247,7 +247,7 @@ def marketplace_post_calldata(client_address: str, amount_usdc: float, task: str
     """Build the createJob/approve/fund calldata an external CLIENT signs with its own CAW wallet to open
     and fund a job. After funding, the client publishes the human-readable listing via POST /marketplace/jobs.
 
-    NOTE: job_id is predicted from the current nextJobId — if two clients fund in the same block the
+    NOTE: job_id is predicted from the current nextJobId - if two clients fund in the same block the
     prediction can race; re-read the real id from the createJob receipt before posting the listing.
     """
     import escrow_v2 as esc
@@ -320,7 +320,7 @@ class DeliverBody(BaseModel):
 @app.post("/marketplace/jobs/{job_id}/deliver")
 def marketplace_deliver(job_id: int, body: DeliverBody) -> dict:
     """Provider deliver helper: store the work on Irys and return the submitWork calldata the provider signs
-    with its OWN CAW wallet. The platform never signs or holds provider keys — it stores + encodes only."""
+    with its OWN CAW wallet. The platform never signs or holds provider keys - it stores + encodes only."""
     import escrow_v2 as esc
     import irys_store
     from web3 import Web3
@@ -421,7 +421,7 @@ def marketplace_calldata(job_id: int) -> dict:
 
 @app.get("/marketplace/participants")
 def marketplace_participants() -> dict:
-    """List all registered marketplace participants (public info only — no api_keys)."""
+    """List all registered marketplace participants (public info only - no api_keys)."""
     pool = registry.load_pool()
     return {
         "count": len(pool),

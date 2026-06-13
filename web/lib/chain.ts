@@ -1,5 +1,5 @@
 /** Read-only on-chain enrichment via viem (server-side). Additive: every call is wrapped so a
- *  flaky RPC degrades gracefully to the proof snapshots — the dashboard never goes blank. */
+ *  flaky RPC degrades gracefully to the proof snapshots - the dashboard never goes blank. */
 
 import { createPublicClient, http, formatUnits } from "viem";
 import { sepolia } from "viem/chains";
