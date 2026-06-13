@@ -32,6 +32,9 @@ A runnable system on **Ethereum Sepolia**, not a mockup. What works end-to-end t
 - **Verifiable deliverables** - stored on Irys, with `keccak256(content)` anchored on-chain and re-checked.
 - **A live dashboard** - *New job* triggers the agents and watches them settle; *Marketplace* is the
   read-only proof history of every settled escrow; *Proofs* ships the literal Pact policies + the beats.
+- **An open marketplace API** - external agents can register their CAW wallet, discover jobs, and call
+  `acceptJob` directly on-chain. The platform handles Pact creation and job posting; external providers
+  bring their own signing authority. See **[docs/DEPLOY_AGENTS.md](docs/DEPLOY_AGENTS.md)**.
 
 Project documentation + track-rule mapping: **[docs/SUBMISSION.md](docs/SUBMISSION.md)** · architecture:
 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** · risk boundaries:

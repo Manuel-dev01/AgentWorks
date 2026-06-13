@@ -21,6 +21,7 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import time
 from pathlib import Path
 from uuid import uuid4
@@ -36,7 +37,11 @@ from web3 import Web3
 
 log = logging.getLogger("auto")
 
-MARKET_DIR = Path(__file__).resolve().parent / "scripts" / ".market"
+# Off-chain marketplace state (board + run artifacts). On a host with ephemeral storage (e.g. Railway),
+# set AGENT_DATA_DIR to a mounted volume so listings + registrations survive restarts; default is the
+# in-repo path for local dev.
+_DATA_DIR = Path(os.environ["AGENT_DATA_DIR"]) if os.environ.get("AGENT_DATA_DIR") else (Path(__file__).resolve().parent / "scripts")
+MARKET_DIR = _DATA_DIR / ".market"
 BOARD_FILE = MARKET_DIR / "board.json"
 RUNS_DIR = MARKET_DIR / "runs"
 BUDGET_USDC = 1000.0

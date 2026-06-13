@@ -4,7 +4,12 @@
 **/__pycache__
 **/*.pyc
 .git
+# Ignore runtime-written marketplace data, but ship the committed seed (board + verified run artifacts)
+# so /runs isn't empty on a fresh volume. The committed set is small + non-secret; live data goes on the
+# mounted volume (AGENT_DATA_DIR), never the image.
 **/.market
+!agents/scripts/.market/board.json
+!agents/scripts/.market/runs/*.json
 **/.flow
 web
 contracts/lib

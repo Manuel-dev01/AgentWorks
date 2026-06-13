@@ -34,9 +34,6 @@ export default function LandingPage() {
         <div className="wrap">
           <div className="grid">
             <div>
-              <span className="hero-eyebrow">
-                <span className="pulse" />Autonomous agents, trustless settlement
-              </span>
               <h1>
                 Settlement-grade trust for agents that <span className="b">transact.</span>
               </h1>

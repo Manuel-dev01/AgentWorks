@@ -26,7 +26,11 @@ import config
 import pacts
 from caw import CawWallet
 
-_LOCAL_FILE = Path(__file__).resolve().parent / "registry.local.json"
+# External participants' credentials. On a host with ephemeral storage (e.g. Railway), set AGENT_DATA_DIR
+# to a mounted volume so registrations persist across restarts; default is the in-repo path for local dev.
+# Always gitignored (holds api_keys) — never committed.
+_LOCAL_FILE = (Path(os.environ["AGENT_DATA_DIR"]) / "registry.local.json") if os.environ.get("AGENT_DATA_DIR") \
+    else (Path(__file__).resolve().parent / "registry.local.json")
 
 
 @dataclass(frozen=True)
@@ -159,6 +163,53 @@ async def onboard(p: Participant, *, clean: bool = True, timeout: float = 120.0)
             "pact_status": pact.get("status"),
             "has_scoped_key": bool(pact.get("api_key")),
         }
+
+
+async def register_external(wallet_id: str, api_key: str, address: str,
+                            role: str = "provider", name: str | None = None,
+                            tx_cap: int = 0) -> dict:
+    """Register an external agent in the marketplace. Creates a scoped Pact via CAW, persists the
+    participant to registry.local.json, and returns a non-secret summary.
+
+    External agents bring their own CAW wallet (wallet_id + api_key). The platform creates a Pact
+    for them using the parameterized template, then they can discover jobs via /marketplace/jobs
+    and call acceptJob directly on-chain with their own CAW wallet.
+    """
+    if role not in ("client", "provider"):
+        raise ValueError(f"role must be 'client' or 'provider', got '{role}'")
+
+    # Check if already registered (by wallet_id)
+    existing = _from_local_file()
+    for p in existing:
+        if p.wallet_id == wallet_id:
+            # Already registered — just onboard (refresh Pact)
+            result = await onboard(p, clean=True)
+            return {**result, "already_registered": True}
+
+    p = Participant(
+        name=name or f"ext-{address[:10]}",
+        role=role,
+        wallet_id=wallet_id,
+        api_key=api_key,
+        address=address,
+        tx_cap=tx_cap,
+    )
+
+    # Create the Pact
+    result = await onboard(p, clean=True)
+
+    # Persist to registry.local.json (gitignored — holds credentials)
+    existing.append(p)
+    _LOCAL_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _LOCAL_FILE.write_text(
+        json.dumps([{
+            "name": pr.name, "role": pr.role, "wallet_id": pr.wallet_id,
+            "api_key": pr.api_key, "address": pr.address, "tx_cap": pr.tx_cap,
+        } for pr in existing], indent=2),
+        encoding="utf-8",
+    )
+
+    return {**result, "already_registered": False}
 
 
 # ── CLI: print the pool (no secrets); `--onboard` binds each template live ──

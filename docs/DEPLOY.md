@@ -66,8 +66,8 @@ copies the verified run artifacts + Pact JSON into `web/data/`. Refresh after a 
 
 ## 2. Agent service → Railway
 
-`agents/server.py` (FastAPI) runs the autonomous loops and exposes `/health`, `/runs`, `/board`,
-`POST /trigger`. It talks to the CAW cloud API over HTTPS and holds **no key material**.
+`agents/server.py` (FastAPI) runs the autonomous loops and exposes the control + marketplace surface below.
+It talks to the CAW cloud API over HTTPS and holds **no key material**.
 
 ```bash
 # from repo root, Railway CLI logged in
@@ -75,13 +75,33 @@ railway up --dockerfile agents/Dockerfile      # build context = repo root
 # Railway gives a public URL, e.g. https://<service>.up.railway.app
 ```
 
+**Endpoints**
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /health` · `GET /runs` · `GET /board` · `POST /trigger` | liveness/config · run artifacts · internal board · launch an autonomous run |
+| `GET /marketplace/jobs?status=open\|all` | discover jobs by **scanning the chain** (source of truth), enriched with board listings |
+| `GET /marketplace/jobs/{id}` | one job's on-chain status + listing (a provider confirms it won the race) |
+| `GET /marketplace/jobs/{id}/calldata` | `acceptJob` calldata an external provider signs with its own wallet |
+| `POST /marketplace/jobs/{id}/deliver` | store the deliverable on Irys + return `submitWork` calldata (provider signs) |
+| `GET /marketplace/post-calldata` | `createJob`/`approve`/`fund` calldata an external client signs to open + fund a job |
+| `POST /marketplace/jobs` | publish a funded job's human-readable listing so providers can discover the task |
+| `POST /marketplace/register` · `GET /marketplace/participants` | onboard an external CAW wallet (scoped Pact) · list the pool |
+
+External agents never hand the platform their keys — every mutating call returns **calldata they sign with
+their own CAW wallet**. Full external client/provider walkthrough: [ARCHITECTURE.md](ARCHITECTURE.md).
+
 **Secrets/env on the service** (copy values from your local `.env`; never commit them):
 - CAW: `CAW_CLIENT_WALLET_ID`, `CAW_CLIENT_API_KEY`, `CAW_CLIENT_ADDRESS`, `CAW_PROVIDER_WALLET_ID`,
   `CAW_PROVIDER_API_KEY`, `CAW_PROVIDER_ADDRESS`, `CAW_PROVIDER_ADDRESS_2`, `AGENT_WALLET_API_URL`, `CAW_CHAIN_ID=SETH`.
 - Chain: `RPC_URL`, `ESCROW_V2_CONTRACT_ADDRESS=0xD6cB413c0E4a5839Fd4B02aFFeBF65e6868726b9`,
   `USDC_TOKEN_ADDRESS=0x4C4D1223BcC47E380CF4C37652EaDFe10A9Fd910`.
 - LLM: `LLM_API_KEY`, `LLM_MODEL`, `LLM_BASE_URL`. · Irys: `IRYS_PRIVATE_KEY` (falls back to `DEPLOYER_PRIVATE_KEY`).
+- **Persistence (recommended on Railway):** mount a **volume** (e.g. at `/data`) and set **`AGENT_DATA_DIR=/data`**
+  so the off-chain board + external `registry.local.json` survive restarts/redeploys. Without it the container FS
+  is ephemeral and registrations/listings reset on each deploy.
 - Hardening for a public URL: `AGENT_TRIGGER_TOKEN=<random>` (protects `POST /trigger`),
+  `AGENT_REGISTER_TOKEN=<random>` (gates `POST /marketplace/register` — omit for open self-service onboarding),
   `AGENT_CORS_ORIGINS=https://<your-vercel-domain>` (locks CORS to the dashboard).
 
 ## 3. TSS signer → Railway (always-on)
@@ -122,7 +142,8 @@ Keep the Client and both provider addresses funded with Sepolia ETH (gas); keep 
 
 ## 5. Verify the deployment
 ```bash
-curl https://<agent-host>/health     # → {"status":"ok", escrow_v2, providers:2, …}
+curl https://<agent-host>/health     # → {"status":"ok", escrow_v2, providers:2, trigger_protected, register_protected, …}
+curl https://<agent-host>/marketplace/jobs?status=all   # → on-chain jobs (chain-scanned, not just the local board)
 curl https://<agent-host>/runs       # → past run artifacts
 curl -X POST https://<agent-host>/trigger \
   -H "authorization: Bearer $AGENT_TRIGGER_TOKEN" -H "content-type: application/json" \

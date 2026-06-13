@@ -21,7 +21,9 @@ import asyncio
 import json
 import logging
 import os
+import shutil
 import time
+from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -42,6 +44,41 @@ app.add_middleware(
 )
 
 _TOKEN = os.environ.get("AGENT_TRIGGER_TOKEN", "")  # if set, /trigger requires it
+_REGISTER_TOKEN = os.environ.get("AGENT_REGISTER_TOKEN", "")  # if set, /marketplace/register requires it
+
+
+def _require_token(authorization: str, token: str) -> None:
+    """Bearer-token gate. Open when `token` is empty; else require `Authorization: Bearer <token>`."""
+    if token and authorization != f"Bearer {token}":
+        raise HTTPException(status_code=401, detail="missing/invalid bearer token")
+
+
+def _seed_data_dir() -> None:
+    """First-boot seed: when AGENT_DATA_DIR points at a fresh volume, copy the committed run artifacts +
+    board so `/runs` and the board aren't empty after a redeploy. Idempotent — never overwrites volume data."""
+    if not os.environ.get("AGENT_DATA_DIR"):
+        return
+    src = Path(__file__).resolve().parent / "scripts" / ".market"
+    dst = autonomous.MARKET_DIR
+    if src.resolve() == dst.resolve():
+        return
+    try:
+        (dst / "runs").mkdir(parents=True, exist_ok=True)
+        copied = 0
+        for p in (src / "runs").glob("*.json"):
+            target = dst / "runs" / p.name
+            if not target.exists():
+                shutil.copy2(p, target)
+                copied += 1
+        if (src / "board.json").exists() and not (dst / "board.json").exists():
+            shutil.copy2(src / "board.json", dst / "board.json")
+        log.info("[seed] data dir %s seeded (%d run artifacts copied)", dst, copied)
+    except Exception as e:  # never block startup on a seed failure
+        log.warning("[seed] data-dir seed skipped: %s", e)
+
+
+_seed_data_dir()
+
 
 # single-run guard
 _state: dict = {"active": False, "run_id": None, "started_at": None, "mode": None, "last_error": None}
@@ -80,6 +117,7 @@ def health() -> dict:
         "providers": len(registry.providers(pool)),
         "run": {k: _state[k] for k in ("active", "run_id", "mode", "started_at")},
         "trigger_protected": bool(_TOKEN),
+        "register_protected": bool(_REGISTER_TOKEN),
     }
 
 
@@ -118,8 +156,7 @@ async def _run(body: TriggerBody) -> None:
 
 @app.post("/trigger")
 async def trigger(body: TriggerBody, authorization: str = Header(default="")) -> dict:
-    if _TOKEN and authorization != f"Bearer {_TOKEN}":
-        raise HTTPException(status_code=401, detail="missing/invalid AGENT_TRIGGER_TOKEN")
+    _require_token(authorization, _TOKEN)
     if _state["active"]:
         raise HTTPException(status_code=409, detail="a run is already active")
     if body.mode not in ("good", "bad"):
@@ -130,6 +167,267 @@ async def trigger(body: TriggerBody, authorization: str = Header(default="")) ->
     _task = asyncio.create_task(_run(body))
     return {"accepted": True, "mode": body.mode, "reward_usdc": body.reward_usdc,
             "max_jobs": body.max_jobs, "poll": "/runs"}
+
+
+# ── Open Marketplace API ────────────────────────────────────────────────────
+# These endpoints turn the internal orchestrator into a public marketplace.
+# External agents bring their own CAW wallet, register, discover jobs (the chain
+# is the source of truth), fund/post, accept, and deliver. The platform holds NO
+# external keys — it returns calldata the agent signs with its own CAW wallet.
+
+_ZERO = "0x0000000000000000000000000000000000000000"
+_SCAN_DEPTH = 200  # how many recent job ids to scan during discovery
+
+
+def _listing_view(job_id: int, on_chain: dict, listing: dict | None) -> dict:
+    """Merge an on-chain job with its (optional) off-chain board listing into one public view."""
+    listing = listing or {}
+    return {
+        "job_id": job_id,
+        "task": listing.get("task", ""),
+        "criteria": listing.get("criteria", ""),
+        "reward_usdc": listing.get("reward_usdc", on_chain.get("amount", 0) / 1_000_000),
+        "client": listing.get("client") or on_chain.get("client", ""),
+        "deadline": listing.get("deadline") or on_chain.get("deadline", 0),
+        "posted_at": listing.get("posted_at", 0),
+        "on_chain_status": on_chain.get("status", "unknown"),
+        "provider": on_chain.get("provider", _ZERO),
+    }
+
+
+@app.get("/marketplace/jobs")
+def marketplace_jobs(status: str = "open") -> dict:
+    """Discover jobs by scanning the chain (the source of truth), enriched with board listings.
+
+    Query param `status`:
+      - 'open' (default): only Funded + unclaimed jobs (available for acceptance)
+      - 'all': every job on-chain (within the recent scan window)
+    """
+    import escrow_v2 as esc
+    w3 = esc.web3()
+    try:
+        n = esc.next_job_id(w3)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"chain read failed: {e}")
+    lo = max(1, n - _SCAN_DEPTH)
+    jobs = []
+    for job_id in range(n - 1, lo - 1, -1):
+        try:
+            on_chain = esc.get_job(w3, job_id)
+        except Exception:
+            continue
+        if on_chain.get("status") in (None, "None"):
+            continue
+        if status == "open" and not (
+            on_chain.get("status") == "Funded" and int(on_chain.get("provider", _ZERO), 16) == 0
+        ):
+            continue
+        jobs.append(_listing_view(job_id, on_chain, autonomous._listing(job_id)))
+    return {"count": len(jobs), "jobs": jobs}
+
+
+@app.get("/marketplace/jobs/{job_id}")
+def marketplace_job(job_id: int) -> dict:
+    """One job: on-chain status merged with its board listing. Lets a provider confirm it won the race
+    (provider == its address) and lets anyone inspect a job's lifecycle state."""
+    import escrow_v2 as esc
+    w3 = esc.web3()
+    try:
+        on_chain = esc.get_job(w3, job_id)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"job {job_id} not found: {e}")
+    if on_chain.get("status") in (None, "None"):
+        raise HTTPException(status_code=404, detail=f"job {job_id} does not exist")
+    return _listing_view(job_id, on_chain, autonomous._listing(job_id))
+
+
+@app.get("/marketplace/post-calldata")
+def marketplace_post_calldata(client_address: str, amount_usdc: float, task: str = "",
+                              criteria: str = "", evaluator: str = "", deadline_days: int = 7) -> dict:
+    """Build the createJob/approve/fund calldata an external CLIENT signs with its own CAW wallet to open
+    and fund a job. After funding, the client publishes the human-readable listing via POST /marketplace/jobs.
+
+    NOTE: job_id is predicted from the current nextJobId — if two clients fund in the same block the
+    prediction can race; re-read the real id from the createJob receipt before posting the listing.
+    """
+    import escrow_v2 as esc
+    from web3 import Web3
+    w3 = esc.web3()
+    try:
+        job_id = esc.next_job_id(w3)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"chain read failed: {e}")
+    spec = f"{task}\n\nAcceptance criteria: {criteria}".strip() if criteria else task
+    spec_hash_b = Web3.keccak(text=f"{spec}#{job_id}")
+    amt = int(round(amount_usdc * 1_000_000))
+    deadline = int(time.time()) + max(1, deadline_days) * 24 * 3600
+    ev = evaluator or client_address
+    return {
+        "predicted_job_id": job_id,
+        "spec_hash": Web3.to_hex(spec_hash_b),
+        "amount_usdc": amount_usdc,
+        "deadline": deadline,
+        "evaluator": ev,
+        "chain_id": config.CHAIN_ID,
+        "escrow": config.ESCROW_V2_ADDRESS,
+        "usdc": config.USDC_ADDRESS,
+        "steps": [
+            {"step": "createJob", "to": config.ESCROW_V2_ADDRESS,
+             "function": "createJob(address,uint256,bytes32,uint64)",
+             "calldata": esc.create_job(ev, amt, spec_hash_b, deadline)},
+            {"step": "approve", "to": config.USDC_ADDRESS,
+             "function": "approve(address,uint256)",
+             "calldata": esc.approve(config.ESCROW_V2_ADDRESS, amt)},
+            {"step": "fund", "to": config.ESCROW_V2_ADDRESS,
+             "function": "fund(uint256)",
+             "calldata": esc.fund(job_id)},
+        ],
+        "note": "job_id is predicted from nextJobId; verify the real id from the createJob receipt before POST /marketplace/jobs.",
+    }
+
+
+class PostJobBody(BaseModel):
+    job_id: int
+    task: str
+    criteria: str = ""
+    reward_usdc: float | None = None
+
+
+@app.post("/marketplace/jobs")
+def marketplace_post_job(body: PostJobBody) -> dict:
+    """Publish the human-readable listing for an already-funded on-chain job so providers can discover the
+    task text (only specHash lives on-chain). The job must be Funded + unclaimed (verified on-chain)."""
+    import escrow_v2 as esc
+    w3 = esc.web3()
+    try:
+        job = esc.get_job(w3, body.job_id)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"job {body.job_id} not found: {e}")
+    if job["status"] != "Funded":
+        raise HTTPException(status_code=400, detail=f"job {body.job_id} is not Funded (status: {job['status']})")
+    if int(job["provider"], 16) != 0:
+        raise HTTPException(status_code=400, detail=f"job {body.job_id} already has a provider")
+    reward = body.reward_usdc if body.reward_usdc is not None else job["amount"] / 1_000_000
+    autonomous._post_listing(body.job_id, task=body.task, criteria=body.criteria, reward_usdc=reward,
+                             spec_hash=job["spec_hash"], client=job["client"], deadline=job["deadline"])
+    return {"posted": True, **_listing_view(body.job_id, job, autonomous._listing(body.job_id))}
+
+
+class DeliverBody(BaseModel):
+    deliverable: str
+
+
+@app.post("/marketplace/jobs/{job_id}/deliver")
+def marketplace_deliver(job_id: int, body: DeliverBody) -> dict:
+    """Provider deliver helper: store the work on Irys and return the submitWork calldata the provider signs
+    with its OWN CAW wallet. The platform never signs or holds provider keys — it stores + encodes only."""
+    import escrow_v2 as esc
+    import irys_store
+    from web3 import Web3
+    w3 = esc.web3()
+    try:
+        job = esc.get_job(w3, job_id)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"job {job_id} not found: {e}")
+    if job["status"] != "Accepted":
+        raise HTTPException(status_code=400, detail=f"job {job_id} is not Accepted (status: {job['status']})")
+    if not body.deliverable.strip():
+        raise HTTPException(status_code=400, detail="deliverable is empty")
+    dhash = Web3.keccak(text=body.deliverable)
+    try:
+        irys = irys_store.upload(body.deliverable,
+            {"app": "AgentWorks", "job-id": str(job_id), "content-keccak": Web3.to_hex(dhash)})
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Irys upload failed: {type(e).__name__}: {e}")
+    return {
+        "job_id": job_id,
+        "irys_id": irys.get("id"),
+        "irys_url": irys.get("url"),
+        "deliverable_hash": Web3.to_hex(dhash),
+        "contract_address": config.ESCROW_V2_ADDRESS,
+        "chain_id": config.CHAIN_ID,
+        "function": "submitWork(uint256,bytes32,string)",
+        "calldata": esc.submit_work(job_id, dhash, irys.get("id")),
+    }
+
+
+class RegisterBody(BaseModel):
+    wallet_id: str
+    api_key: str
+    address: str
+    role: str = "provider"
+    name: str | None = None
+    tx_cap: int = 0
+
+
+@app.post("/marketplace/register")
+async def marketplace_register(body: RegisterBody, authorization: str = Header(default="")) -> dict:
+    """Register an external agent in the marketplace.
+
+    The platform creates a scoped Pact for the agent using the parameterized template.
+    The agent can then discover jobs via GET /marketplace/jobs and call acceptJob directly
+    on-chain with their own CAW wallet.
+
+    Required: wallet_id, api_key, address (from the agent's CAW wallet).
+    The api_key is used to create the Pact and is persisted in registry.local.json (gitignored).
+    Set AGENT_REGISTER_TOKEN to gate onboarding (curated pool); leave it unset for open self-service.
+    """
+    _require_token(authorization, _REGISTER_TOKEN)
+    try:
+        result = await registry.register_external(
+            wallet_id=body.wallet_id,
+            api_key=body.api_key,
+            address=body.address,
+            role=body.role,
+            name=body.name,
+            tx_cap=body.tx_cap,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Registration failed: {type(e).__name__}: {e}")
+
+
+@app.get("/marketplace/jobs/{job_id}/calldata")
+def marketplace_calldata(job_id: int) -> dict:
+    """Get the ABI-encoded calldata for acceptJob(jobId).
+
+    External providers use this to call acceptJob directly on the escrow contract
+    via their own CAW wallet. The contract address and chain ID are included so the
+    agent can construct the full contract_call.
+    """
+    import escrow_v2 as esc
+    w3 = esc.web3()
+    try:
+        job = esc.get_job(w3, job_id)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found: {e}")
+    if job["status"] != "Funded":
+        raise HTTPException(status_code=400, detail=f"Job {job_id} is not available for acceptance (status: {job['status']})")
+    if int(job["provider"], 16) != 0:
+        raise HTTPException(status_code=400, detail=f"Job {job_id} already has a provider")
+    calldata = esc.accept_job(job_id)
+    return {
+        "job_id": job_id,
+        "contract_address": config.ESCROW_V2_ADDRESS,
+        "chain_id": config.CHAIN_ID,
+        "function": "acceptJob(uint256)",
+        "calldata": calldata,
+        "job_status": job["status"],
+        "reward_usdc": job["amount"] / 1_000_000,
+    }
+
+
+@app.get("/marketplace/participants")
+def marketplace_participants() -> dict:
+    """List all registered marketplace participants (public info only — no api_keys)."""
+    pool = registry.load_pool()
+    return {
+        "count": len(pool),
+        "providers": len(registry.providers(pool)),
+        "participants": [p.public() for p in pool],
+    }
 
 
 if __name__ == "__main__":

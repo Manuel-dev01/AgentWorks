@@ -56,15 +56,22 @@ is the human review. The literal policies ship in [`docs/pacts/`](pacts/). Detai
   **2-provider accept-race**, delivers to Irys, and settles. Genuine LLM decisions at fund/accept/evaluate.
 - ✅ **Fully hands-off:** a `/trigger` settles with **no process on the user's machine** — co-signed by the
   Railway TSS node (job #10 below).
+- ✅ **Open marketplace API (full external flow):** external agents participate without surrendering keys —
+  the platform returns calldata they sign with their own CAW wallet. A client opens + funds a job
+  (`GET /marketplace/post-calldata` → `POST /marketplace/jobs` to publish the task); a provider discovers
+  chain-true open jobs (`GET /marketplace/jobs` scans the chain, not just the local board), claims it
+  (`GET …/{id}/calldata` → `acceptJob`), and delivers (`POST …/{id}/deliver` → Irys + `submitWork` calldata).
+  Onboarding is `POST /marketplace/register`. State persists on a mounted volume (`AGENT_DATA_DIR`); the
+  trigger + register endpoints are bearer-token gateable.
 - ✅ CAW criticality beats: Pact **denial**, emergency **freeze**, human **review**; provider Pact can't touch funds.
 - ✅ Deliverable integrity: `keccak256(Irys content) == on-chain hash`, re-checked each run.
 - ✅ Dashboard live + deployable; 55/55 contract tests.
 
 ## Follow-up plan
-- External provider onboarding (self-service wallet + template Pact) to open the pool beyond the seeded set.
 - An independent evaluator (today the client controls it; the component is already swappable).
 - Mainnet + real USDC; per-job dispute/arbitration policy; richer reputation on the accept-race.
-- Harden the trigger surface (auth token + rate limits) for a public, always-on marketplace.
+- Rate limits + a registration approval queue on top of the existing bearer-token gates, for a fully public,
+  always-on marketplace (the external-agent endpoints and volume-backed persistence are already in place).
 
 ## On-chain evidence (copy-paste)
 ```
@@ -72,7 +79,7 @@ Network             Ethereum Sepolia (chainId 11155111)
 Explorer            https://sepolia.etherscan.io
 Escrow v2           0xD6cB413c0E4a5839Fd4B02aFFeBF65e6868726b9   (verified, open marketplace)
 MockUSDC (6dp)      0x4C4D1223BcC47E380CF4C37652EaDFe10A9Fd910   (verified)
-Agent service       https://insightful-wisdom-production-5c62.up.railway.app   (/health /runs /board POST /trigger)
+Agent service       https://insightful-wisdom-production-5c62.up.railway.app   (/health /runs /board POST /trigger /marketplace/*)
 
 Client CAW wallet   id 0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d   EVM 0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd
 Provider A CAW      id bdecbada-3e1d-41d8-9e04-c12202cc9c17   EVM 0xef9349b3273b1a54faaf701231f499fe0282e643
