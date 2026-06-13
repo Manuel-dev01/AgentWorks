@@ -138,13 +138,13 @@ MCP — job #14, driven entirely through the MCP server's tools (client + provid
 |---|---|---|
 | GitHub repo | ✅ | this repository |
 | README + documentation | ✅ | [README.md](../README.md), [ARCHITECTURE.md](ARCHITECTURE.md), [RISK_BOUNDARIES.md](RISK_BOUNDARIES.md), [DEPLOY.md](DEPLOY.md), this file |
-| Demo video (3–5 min) | ⬜ *to record* | **paste link here** |
-| Project demo link | ⬜ *to deploy* | dashboard → Vercel ([DEPLOY.md](DEPLOY.md)); agent service `https://insightful-wisdom-production-5c62.up.railway.app` — **paste Vercel link here** |
+| Demo video (3–5 min) | ✅ | https://www.youtube.com/watch?v=-oFrab494Fg |
+| Project demo link | ✅ | dashboard → https://agent-works-web.vercel.app/ ; agent service `https://insightful-wisdom-production-5c62.up.railway.app` |
 | Key code / config notes for CAW | ✅ | README "How Cobo Agentic Wallet is used"; [`agents/caw/client.py`](../agents/caw/client.py), [`agents/pacts.py`](../agents/pacts.py), [`docs/pacts/`](pacts/) |
 | Testnet address | ✅ | Escrow v2 `0xD6cB…3726b9`, MockUSDC `0x4C4D…d910` |
 | Transaction hash | ✅ | the payout + refund tx sets above |
 | Agent wallet address | ✅ | Client `0x6dfb…1ddd`, Provider A `0xef93…e643`, Provider B `0x7ea0…c69e` |
-| Flow / operation records | ✅ on-chain above; ⬜ *screenshots to add from `/dashboard` + `/dashboard/new`* |
+| Flow / operation records | ✅ | on-chain evidence above |
 
 ## What to claim (and not)
 CAW is the **authority/permission layer** (scoped Pacts, enforced server-side, unbypassable). It does **not**

@@ -207,7 +207,8 @@
 .lp .footbase{ display:flex; justify-content:space-between; gap:20px; margin-top:24px; font-family:var(--mono); font-size:10.5px; color:var(--ink-3); letter-spacing:0.04em; flex-wrap:wrap; }
 
 @media (max-width: 920px){
-  .lp .hero .grid, .lp .life-grid, .lp .cobo .inner, .lp footer .wrap{ grid-template-columns:1fr; }
+  .lp .hero .grid, .lp .life-grid, .lp .cobo .inner, .lp footer .wrap, .lp .pos-grid{ grid-template-columns:1fr; }
+  .lp .pos-grid{ gap:24px; }
   .lp .duo{ grid-template-columns:1fr; } .lp .duo .between{ flex-direction:row; padding:8px 0; }
   .lp .duo .between .vline{ height:2px; width:auto; flex:1; background:repeating-linear-gradient(90deg,var(--settle-line) 0 6px,transparent 6px 12px); }
   .lp .duo .between .lbl{ writing-mode:horizontal-tb; }
