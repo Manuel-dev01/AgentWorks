@@ -10,11 +10,14 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { CFG } from "../../../lib/config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const BASE = process.env.NEXT_PUBLIC_AGENT_API || process.env.AGENT_API || "";
+// Single source of truth for the agent-service URL (CFG.agentApi carries the default Railway URL, so this
+// works even when NEXT_PUBLIC_AGENT_API isn't set in the environment).
+const BASE = CFG.agentApi;
 const TOKEN = process.env.AGENT_TRIGGER_TOKEN || "";
 
 export async function POST(req: NextRequest) {
