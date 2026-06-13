@@ -47,7 +47,7 @@ def main() -> int:
             state = flow.run_step(step, run_id=arg)
         print(json.dumps(state, default=str))
         return 0
-    except Exception as e:  # noqa: BLE001 — surface the failure as JSON for the UI
+    except Exception as e:  # noqa: BLE001 - surface the failure as JSON for the UI
         print(json.dumps({"error": str(e), "step": step, "run_id": arg}))
         return 1
 

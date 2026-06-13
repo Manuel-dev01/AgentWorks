@@ -64,7 +64,7 @@ def approve(spender: str, amount: int) -> str:
 
 
 def create_job(evaluator: str, amount: int, spec_hash: bytes, deadline: int) -> str:
-    """v2: OPEN job — no provider named at creation."""
+    """v2: OPEN job - no provider named at creation."""
     return _calldata(
         "createJob(address,uint256,bytes32,uint64)",
         ["address", "uint256", "bytes32", "uint64"],

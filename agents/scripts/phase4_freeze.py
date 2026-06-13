@@ -1,8 +1,8 @@
-"""Phase 4 FREEZE demo — emergency stop via pact revocation (no native freeze API).
+"""Phase 4 FREEZE demo - emergency stop via pact revocation (no native freeze API).
 
   1. Active Client pact -> one ALLOWED contract_call settles on-chain (tx hash).
   2. revoke_pact(pact_id)  ← the freeze.
-  3. The next identical contract_call is DENIED — the agent's authority is gone.
+  3. The next identical contract_call is DENIED - the agent's authority is gone.
 """
 
 from __future__ import annotations

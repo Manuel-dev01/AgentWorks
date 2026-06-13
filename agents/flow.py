@@ -10,7 +10,7 @@ invocable steps that share a small JSON state file, so the web UI can drive each
     settle -> Evaluator LLM verdict -> complete | reject                  (Client, 1 tx)
 
 Each step reads + rewrites agents/scripts/.flow/<run_id>.json. CAW auth is stateless per process
-(the pact stays active server-side between calls), so each step can run in its own process — which is
+(the pact stays active server-side between calls), so each step can run in its own process - which is
 exactly how the web /api/flow route invokes flow_step.py. Reuses the existing modules; invents no SDK.
 """
 

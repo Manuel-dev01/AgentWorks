@@ -1,4 +1,4 @@
-"""Scoped CAW Pact specs — the literal risk-boundary policy (judging criterion 5).
+"""Scoped CAW Pact specs - the literal risk-boundary policy (judging criterion 5).
 
 These are the authority boundaries each agent operates within. CAW enforces them server-side;
 nothing the agent (or a prompt-injection) does can exceed them. Rendered JSON is written to
@@ -54,7 +54,7 @@ def provider_pact(escrow: str | None = None, tx_cap: int = 20) -> dict:
     """Provider may ONLY contract_call the escrow contract, capped at `tx_cap` tx/24h.
 
     Parameterized template (Phase 6.5): pass `escrow=config.ESCROW_V2_ADDRESS` for the marketplace.
-    Note the provider's allowlist excludes USDC — a provider can `acceptJob`/`submitWork` but can
+    Note the provider's allowlist excludes USDC - a provider can `acceptJob`/`submitWork` but can
     NEVER move the escrowed funds. That asymmetry is the security-isolation evidence (criterion 5).
     """
     escrow = escrow or config.ESCROW_ADDRESS
@@ -117,7 +117,7 @@ def dump_all() -> Path:
         "provider_pact.json": provider_pact(),
         "client_budget_transfer_pact.json": client_budget_transfer_pact(),
         "review_pact.json": review_pact(),
-        # Phase 6.5 marketplace templates — bound to the v2 open-marketplace escrow.
+        # Phase 6.5 marketplace templates - bound to the v2 open-marketplace escrow.
         "client_escrow_pact_v2.json": client_escrow_pact(escrow=config.ESCROW_V2_ADDRESS),
         "provider_pact_v2.json": provider_pact(escrow=config.ESCROW_V2_ADDRESS),
     }

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Emit base64 key-share blobs for the containerized TSS signer (Phase 6.5.4 Option B).
 #
-# Each blob is a gzip'd tar of the ESSENTIAL key material per profile (db/ + .password + configs/) —
+# Each blob is a gzip'd tar of the ESSENTIAL key material per profile (db/ + .password + configs/) -
 # NOT the 48 MB full dir. The TSS container's entrypoint reconstructs these into /keys/<name>/ on first
 # boot (see agents/tss/entrypoint.sh). Set them as Railway/Fly SECRETS, e.g.:
 #   railway variables set "$(bash agents/tss/make_keyshare_env.sh ./keys | sed -n 1p)"

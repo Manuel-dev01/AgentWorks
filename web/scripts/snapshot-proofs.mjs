@@ -1,5 +1,5 @@
 // Snapshot the VERIFIED proof artifacts + literal Pact JSON into web/data/ so the dashboard works
-// inside a Vercel serverless bundle (Next only traces files under the project root — sibling dirs
+// inside a Vercel serverless bundle (Next only traces files under the project root - sibling dirs
 // like ../agents are NOT bundled). Runs as predev/prebuild; idempotent. Local dev also falls back to
 // reading the sibling dirs directly (see lib/proofs.ts), so a missing snapshot never breaks dev.
 
@@ -42,7 +42,7 @@ async function snapshotAgentRuns() {
     const t = setTimeout(() => ctl.abort(), 12000);
     const res = await fetch(`${base}/runs`, { signal: ctl.signal });
     clearTimeout(t);
-    if (!res.ok) { console.log(`[snapshot] agent /runs ${res.status} — skipping cloud runs`); return; }
+    if (!res.ok) { console.log(`[snapshot] agent /runs ${res.status} - skipping cloud runs`); return; }
     const runs = await res.json();
     let n = 0;
     for (const r of Array.isArray(runs) ? runs : []) {
@@ -53,7 +53,7 @@ async function snapshotAgentRuns() {
     }
     console.log(`[snapshot] pulled ${n} cloud run(s) from ${base}`);
   } catch (e) {
-    console.log(`[snapshot] agent service unreachable (${e?.name || "error"}) — using committed runs only`);
+    console.log(`[snapshot] agent service unreachable (${e?.name || "error"}) - using committed runs only`);
   }
 }
 

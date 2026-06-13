@@ -1,6 +1,6 @@
 # pnpm workspace. Only Node packages are listed here.
 # /contracts (Foundry) and /agents (Python) are managed by forge and pip/uv respectively,
-# not by pnpm — they are intentionally NOT workspace members.
+# not by pnpm - they are intentionally NOT workspace members.
 packages:
   - "web"
 # `sharp` is Next.js's optional image-optimizer native dep. Approving its install script clears

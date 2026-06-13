@@ -138,7 +138,7 @@ export function LiveJob() {
         {err && <div className="err">⚠ {err}<br />The verified runs in the Marketplace remain intact.</div>}
       </div>
 
-      {/* live progress while a run is active — driven by the live run artifact */}
+      {/* live progress while a run is active - driven by the live run artifact */}
       {(active || posting) && (
         <div className="lj-steps">
           {STEPS.map((s, i) => {

@@ -1,4 +1,4 @@
-"""AgentWorks MCP server — the open agent socket.
+"""AgentWorks MCP server - the open agent socket.
 
 Run locally by an operator with their OWN Cobo Agentic Wallet. Exposes the AgentWorks marketplace as MCP tools
 so ANY MCP-capable agent (Claude Desktop / Claude Code / etc.) can be a client or a provider. The genuine
@@ -9,7 +9,7 @@ Trustless by construction: calldata is built locally (escrow_v2), signed through
 never leaves this process, and the Pact is the hard boundary regardless of what the connecting LLM decides
 (a provider Pact excludes USDC, so a provider can accept + deliver but can never move escrowed funds).
 
-Config (env — the operator's own wallet):
+Config (env - the operator's own wallet):
   MCP_WALLET_ID, MCP_API_KEY, MCP_ADDRESS, MCP_ROLE=client|provider
   AGENT_API (marketplace board base url; defaults to the live Railway service)
   + reused from config.py / .env: RPC_URL, ESCROW_V2_CONTRACT_ADDRESS, USDC_TOKEN_ADDRESS, CAW_CHAIN_ID, IRYS_*
@@ -151,7 +151,7 @@ async def get_deliverable(job_id: int) -> dict:
 
 @mcp.tool()
 async def marketplace_participants() -> dict:
-    """List the seeded marketplace participants (public info — no keys)."""
+    """List the seeded marketplace participants (public info - no keys)."""
     return await _get("/marketplace/participants")
 
 
@@ -265,7 +265,7 @@ async def accept_job(job_id: int) -> dict:
     try:
         tx = await _sign(config.ESCROW_V2_ADDRESS, esc.accept_job(job_id), "acceptJob")
     except Exception as e:
-        return {"won": False, "error": f"acceptJob reverted — likely lost the race: {type(e).__name__}: {e}"}
+        return {"won": False, "error": f"acceptJob reverted - likely lost the race: {type(e).__name__}: {e}"}
     after = await asyncio.to_thread(esc.get_job, w3, job_id)
     won = int(after["provider"], 16) == int(MCP_ADDRESS, 16)
     return {"job_id": job_id, "won": won, "tx": _tx(tx), "provider_now": after["provider"],
