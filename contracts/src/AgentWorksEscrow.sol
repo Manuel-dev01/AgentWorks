@@ -83,7 +83,7 @@ contract AgentWorksEscrow {
     }
 
     /// @notice Client creates a job, naming the provider, evaluator, price, spec hash and deadline.
-    /// @dev    Does NOT move funds — call {fund} after approving USDC to this contract.
+    /// @dev    Does NOT move funds - call {fund} after approving USDC to this contract.
     function createJob(
         address provider,
         address evaluator,

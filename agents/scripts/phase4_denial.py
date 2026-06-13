@@ -1,8 +1,8 @@
-"""Phase 4 DENIAL demo — CAW blocks out-of-policy actions server-side (criteria 2 & 5).
+"""Phase 4 DENIAL demo - CAW blocks out-of-policy actions server-side (criteria 2 & 5).
 
 Two denial flavors, each captured with its structured PolicyDeniedError + the audit-log entry:
-  (a) BUDGET CAP   — Client transfer pact caps native gas at 0.001; a 0.01 transfer is DENIED.
-  (b) ALLOWLIST    — Client escrow pact allows only [escrow, USDC]; a call to another contract is DENIED.
+  (a) BUDGET CAP   - Client transfer pact caps native gas at 0.001; a 0.01 transfer is DENIED.
+  (b) ALLOWLIST    - Client escrow pact allows only [escrow, USDC]; a call to another contract is DENIED.
 
 Narrative: even if the agent is told to overspend / call an arbitrary contract, the Pact stops it.
 """
@@ -64,7 +64,7 @@ async def main() -> None:
     async with CawWallet(api_url=config.CAW_API_URL, api_key=cc.api_key, wallet_uuid=cc.wallet_id, name="Client") as w:
         await revoke_all(w)
 
-        # (a) BUDGET CAP — transfer pact caps native gas at 0.001; attempt 0.01.
+        # (a) BUDGET CAP - transfer pact caps native gas at 0.001; attempt 0.01.
         print("[a] budget cap: pact allows <=0.001 native; agent attempts 0.01 -> expect DENIED")
         budget = await w.wait_pact_active((await w.submit_pact(
             intent="Client gas budget: <=0.001 SETH per transfer",
@@ -83,7 +83,7 @@ async def main() -> None:
         await sb.close()
         await w.revoke_pact(budget.get("id"))
 
-        # (b) ALLOWLIST — escrow pact allows only [escrow, USDC]; call a non-whitelisted contract.
+        # (b) ALLOWLIST - escrow pact allows only [escrow, USDC]; call a non-whitelisted contract.
         print("[b] allowlist: pact allows only [escrow,USDC]; agent calls 0x..dEaD -> expect DENIED")
         esc_pact = await w.wait_pact_active((await w.submit_pact(
             intent="Client may only call escrow + USDC", spec=pacts.client_escrow_pact(), name="phase4-allowlist")).get("pact_id"))

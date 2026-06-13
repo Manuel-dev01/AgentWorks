@@ -77,7 +77,7 @@ contract AgentWorksEscrowV2Test is Test {
 
         AgentWorksEscrowV2.Job memory job = escrow.getJob(jobId);
         assertEq(job.client, client);
-        assertEq(job.provider, address(0)); // open — no provider yet
+        assertEq(job.provider, address(0)); // open - no provider yet
         assertEq(job.evaluator, evaluator);
         assertEq(job.amount, AMOUNT);
         assertEq(job.specHash, SPEC);

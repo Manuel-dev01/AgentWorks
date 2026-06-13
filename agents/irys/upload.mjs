@@ -1,4 +1,4 @@
-// Irys devnet uploader — reads deliverable from stdin, prints {id,url,...} as JSON.
+// Irys devnet uploader - reads deliverable from stdin, prints {id,url,...} as JSON.
 // Env: IRYS_PRIVATE_KEY (or DEPLOYER_PRIVATE_KEY), RPC_URL. Tags: argv[2] = JSON [{name,value}].
 import Uploader from "@irys/upload";
 import Ethereum from "@irys/upload-ethereum";

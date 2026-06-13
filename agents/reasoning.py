@@ -5,7 +5,7 @@ The agents call these to actually DECIDE at the economic decision points (criter
   - provider_do_task:    actually perform the task (produce the deliverable).
   - evaluate:            the real accept/reject judgment on the deliverable.
 
-CAW Pacts remain the hard boundary regardless of what the LLM decides — that's the safety story.
+CAW Pacts remain the hard boundary regardless of what the LLM decides - that's the safety story.
 Every call is logged (decision + rationale) so the demo's audit trail is legible.
 """
 
@@ -27,7 +27,7 @@ def _llm() -> OpenAI:
     global _client
     if _client is None:
         if not config.LLM_API_KEY:
-            raise RuntimeError("LLM_API_KEY is empty — paste your DeepSeek key into .env")
+            raise RuntimeError("LLM_API_KEY is empty - paste your DeepSeek key into .env")
         _client = OpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
     return _client
 

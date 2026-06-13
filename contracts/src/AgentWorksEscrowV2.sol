@@ -11,15 +11,15 @@ interface IERC20 {
 /// @title AgentWorksEscrowV2
 /// @notice Open-marketplace settlement layer between distrustful agents. A Client posts and funds
 ///         a job WITHOUT naming a provider; ANY agent may then claim the funded job via
-///         {acceptJob} (first claimer wins — the on-chain race is the source of truth). The
+///         {acceptJob} (first claimer wins - the on-chain race is the source of truth). The
 ///         claimer submits a deliverable content-hash; the Evaluator accepts (pay Provider) or
 ///         rejects (refund Client). An unresolved funded job is reclaimable by the Client after
-///         the deadline — including jobs nobody ever accepted.
+///         the deadline - including jobs nobody ever accepted.
 /// @dev    Supersedes the v1 closed escrow (which named the provider at createJob). Lifecycle:
 ///         createJob -> fund -> acceptJob -> submitWork -> complete | reject | claimRefund.
 ///         Funds safety uses checks-effects-interactions: status is updated before any token
 ///         transfer, so a failed/reentrant transfer reverts the whole call. `acceptJob` is our
-///         own primitive — NOT a Cobo Agentic Wallet method.
+///         own primitive - NOT a Cobo Agentic Wallet method.
 contract AgentWorksEscrowV2 {
     enum Status {
         None,       // 0: unset / job does not exist
@@ -87,8 +87,8 @@ contract AgentWorksEscrowV2 {
         token = IERC20(token_);
     }
 
-    /// @notice Client posts an OPEN job (no provider named) — price, evaluator, spec hash, deadline.
-    /// @dev    Does NOT move funds — call {fund} after approving USDC to this contract.
+    /// @notice Client posts an OPEN job (no provider named) - price, evaluator, spec hash, deadline.
+    /// @dev    Does NOT move funds - call {fund} after approving USDC to this contract.
     function createJob(
         address evaluator,
         uint256 amount,

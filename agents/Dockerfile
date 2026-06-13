@@ -1,4 +1,4 @@
-# AgentWorks autonomous agent service (Phase 6.5.4) — the cloud-deployable HTTP front for the
+# AgentWorks autonomous agent service (Phase 6.5.4) - the cloud-deployable HTTP front for the
 # autonomous open-marketplace agents. Holds NO key material; talks to the CAW cloud API over HTTPS.
 # On-chain signing happens via the TSS node on the CAW relay (see Dockerfile.tss / docs/DEPLOY_AGENTS.md).
 #
@@ -25,7 +25,7 @@ COPY agents/irys/package.json agents/irys/package-lock.json /app/agents/irys/
 RUN cd /app/agents/irys && (npm ci --omit=dev || npm install --omit=dev)
 
 # Application code (includes the vendored v2 ABI at agents/abi/AgentWorksEscrowV2.json,
-# which escrow_v2.py prefers — contracts/out is gitignored and not shipped).
+# which escrow_v2.py prefers - contracts/out is gitignored and not shipped).
 COPY agents/ /app/agents/
 
 WORKDIR /app/agents

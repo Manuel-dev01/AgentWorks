@@ -17,7 +17,7 @@ contracts/cache
 contracts/broadcast
 contracts/out
 # (the v2 ABI is vendored at agents/abi/AgentWorksEscrowV2.json, so contracts/out isn't needed)
-# Secrets — never in an image. Provide config via --env-file / platform env at run time.
+# Secrets - never in an image. Provide config via --env-file / platform env at run time.
 .env
 .env.*
 !.env.example
