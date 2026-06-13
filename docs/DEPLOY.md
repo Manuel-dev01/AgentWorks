@@ -1,7 +1,7 @@
 # Deploying AgentWorks
 
 AgentWorks runs as **three deployments**. The dashboard holds no keys; the agent service holds no keys;
-only the TSS signer holds the MPC key share — that separation is Cobo's security model.
+only the TSS signer holds the MPC key share - that separation is Cobo's security model.
 
 ```
         reads (viem)                       POST /trigger, /runs, /health
@@ -23,7 +23,7 @@ only the TSS signer holds the MPC key share — that separation is Cobo's securi
 
 | Piece | What | Where |
 |---|---|---|
-| **Dashboard** (`/web`, Next.js 15) | demo surface — live reads + triggers the agents | **Vercel** |
+| **Dashboard** (`/web`, Next.js 15) | demo surface - live reads + triggers the agents | **Vercel** |
 | **Agent service** (`agents/server.py`) | autonomous orchestration + LLM reasoning; **no keys** | **Railway** |
 | **TSS signer** (`cobo-tss-node`) | CAW MPC node that co-signs; **holds the key share** | **Railway** (`agentworks-tss`) |
 
@@ -54,16 +54,16 @@ deploys as a normal static/SSR Next.js app.
 - **Public env** (`NEXT_PUBLIC_*`; sensible defaults baked in, so the app works even if unset):
   `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_ESCROW_V2_ADDRESS`, `NEXT_PUBLIC_USDC_ADDRESS`, `NEXT_PUBLIC_CLIENT_CAW`,
   `NEXT_PUBLIC_PROVIDER_CAW`, `NEXT_PUBLIC_PROVIDER_CAW_B`, `NEXT_PUBLIC_EXPLORER_BASE`,
-  `NEXT_PUBLIC_IRYS_GATEWAY`, **`NEXT_PUBLIC_AGENT_API`** (the agent-service URL — defaults to the live Railway URL).
+  `NEXT_PUBLIC_IRYS_GATEWAY`, **`NEXT_PUBLIC_AGENT_API`** (the agent-service URL - defaults to the live Railway URL).
 - **The trigger is OPEN by default** so judges (and anyone) can run the autonomous loop straight from the
   dashboard "New job" button or by `curl`-ing `/trigger`. No token needed to demo.
-- **Optional production hardening — `AGENT_TRIGGER_TOKEN` (server-only, NOT `NEXT_PUBLIC`):** to stop random
+- **Optional production hardening - `AGENT_TRIGGER_TOKEN` (server-only, NOT `NEXT_PUBLIC`):** to stop random
   callers spending the platform wallet, set the SAME token on **both** the agent service (Railway) and Vercel.
   The dashboard's "New job" button posts to the same-origin route `web/app/api/trigger/route.ts`, which runs
-  on the server, attaches `Authorization: Bearer <AGENT_TRIGGER_TOKEN>`, and forwards to the agent service —
+  on the server, attaches `Authorization: Bearer <AGENT_TRIGGER_TOKEN>`, and forwards to the agent service -
   so the token **never reaches the browser** and the button keeps working for everyone. This wiring ships in
   the codebase already; enabling it is purely setting the env var in both places (no code change). Do **not**
-  set any `CAW_*` / `LLM_API_KEY` / `DEPLOYER_PRIVATE_KEY` on Vercel — those are agent-side secrets the
+  set any `CAW_*` / `LLM_API_KEY` / `DEPLOYER_PRIVATE_KEY` on Vercel - those are agent-side secrets the
   dashboard never uses.
 
 **`web/data/` (why it's committed):** Next only bundles files under the project root, so a serverless function
@@ -96,7 +96,7 @@ railway up --dockerfile agents/Dockerfile      # build context = repo root
 | `POST /marketplace/jobs` | publish a funded job's human-readable listing so providers can discover the task |
 | `POST /marketplace/register` · `GET /marketplace/participants` | onboard an external CAW wallet (scoped Pact) · list the pool |
 
-External agents never hand the platform their keys — every mutating call returns **calldata they sign with
+External agents never hand the platform their keys - every mutating call returns **calldata they sign with
 their own CAW wallet**. Full external client/provider walkthrough: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 **Secrets/env on the service** (copy values from your local `.env`; never commit them):
@@ -109,13 +109,13 @@ their own CAW wallet**. Full external client/provider walkthrough: [ARCHITECTURE
   so the off-chain board + external `registry.local.json` survive restarts/redeploys. Without it the container FS
   is ephemeral and registrations/listings reset on each deploy.
 - Hardening for a public URL: `AGENT_TRIGGER_TOKEN=<random>` (protects `POST /trigger`),
-  `AGENT_REGISTER_TOKEN=<random>` (gates `POST /marketplace/register` — omit for open self-service onboarding),
+  `AGENT_REGISTER_TOKEN=<random>` (gates `POST /marketplace/register` - omit for open self-service onboarding),
   `AGENT_CORS_ORIGINS=https://<your-vercel-domain>` (locks CORS to the dashboard).
 
 ## 3. TSS signer → Railway (always-on)
 
 The signer is the only piece that holds your key share. It runs as its own Railway service
-(`agentworks-tss`, image `agents/tss/Dockerfile.tss`) so the whole system is hands-off — nothing on your
+(`agentworks-tss`, image `agents/tss/Dockerfile.tss`) so the whole system is hands-off - nothing on your
 machine. **One node per wallet identity may be on the CAW relay at a time**, so stop any local
 `cobo-tss-node` before the Railway signer runs (and vice-versa).
 
@@ -129,8 +129,8 @@ machine. **One node per wallet identity may be on the CAW relay at a time**, so 
    Populate a fresh Railway volume via `railway ssh` + base64-over-stdin
    (`bash agents/tss/make_keyshare_env.sh ./keys` emits the blobs; `echo '<blob>' | base64 -d | tar -xz -C /keys/client`).
    **Key-share portability is verified:** the Linux node loads the Windows-generated shares and connects with
-   the same node ids — no re-onboard, no re-fund.
-2. **Env:** `TSS_DEBUG_SLEEP=0` (run the signers), plus the retry tuning the entrypoint reads —
+   the same node ids - no re-onboard, no re-fund.
+2. **Env:** `TSS_DEBUG_SLEEP=0` (run the signers), plus the retry tuning the entrypoint reads -
    `TSS_MAX_RETRIES=5`, `TSS_INITIAL_BACKOFF=60`, `TSS_MAX_BACKOFF=300`, `TSS_HEALTHY_SECS=300`.
 3. The entrypoint (`agents/tss/entrypoint.sh`) starts **one signer per profile in parallel**, each with its own
    retry + exponential-backoff loop, and keeps the container alive so logs stay inspectable. Healthy state:
@@ -158,12 +158,12 @@ curl -X POST https://<agent-host>/trigger \
   -d '{"mode":"good","reward_usdc":5,"max_jobs":1}'
 # poll /runs, then open the resulting tx hashes on https://sepolia.etherscan.io
 ```
-The system is fully hands-off once a `POST /trigger` settles a job with **no local signer running** — the
+The system is fully hands-off once a `POST /trigger` settles a job with **no local signer running** - the
 agent service signs through the Railway TSS node. (Verified: job #10 → Completed, co-signed by the Railway
 container; see the README evidence table.)
 
 ## Connecting an external agent (MCP)
-External agents don't deploy anything here — they **run the MCP server locally** with their own CAW wallet to
+External agents don't deploy anything here - they **run the MCP server locally** with their own CAW wallet to
 plug into the marketplace as a client or provider. It signs through the operator's own wallet (keys never reach
 this platform) and reads only the public board. This is the trustless open-participation path; the hosted pieces
 above are the platform side. Full connect guide + tool reference: **[MCP.md](MCP.md)**.

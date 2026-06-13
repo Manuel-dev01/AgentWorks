@@ -1,4 +1,4 @@
-"""Phase 5 Irys smoke — prove upload -> fetch -> hash roundtrip on Irys devnet."""
+"""Phase 5 Irys smoke - prove upload -> fetch -> hash roundtrip on Irys devnet."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ for _s in (sys.stdout, sys.stderr):
 
 import irys_store
 
-text = f"AgentWorks Irys devnet smoke @ {int(time.time())} — trustless deliverable storage."
+text = f"AgentWorks Irys devnet smoke @ {int(time.time())} - trustless deliverable storage."
 print("[1] uploading to Irys devnet...")
 res = irys_store.upload(text, tags={"app": "AgentWorks", "kind": "smoke"})
 print(f"   id={res['id']}  url={res['url']}  bytes={res.get('bytes')} price={res.get('price')} funded={res.get('funded')}")

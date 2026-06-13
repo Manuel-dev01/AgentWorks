@@ -1,4 +1,4 @@
-"""Phase 3 — two agents drive the escrow lifecycle headless via CAW contract_call.
+"""Phase 3 - two agents drive the escrow lifecycle headless via CAW contract_call.
 
   Client  (CAW wallet, v1 also evaluator): createJob -> approve -> fund -> complete|reject
   Provider(CAW wallet):                    submitWork
@@ -116,7 +116,7 @@ async def main(outcome: str) -> None:
             print(f"[2] Client.approve(escrow, {usdc(AMOUNT)})")
             proof["txs"]["approve"] = await call(client, USDC, esc.approve(ESCROW, AMOUNT), "approve")
 
-            print(f"[3] Client.fund(jobId={job_id}) — escrow pulls USDC")
+            print(f"[3] Client.fund(jobId={job_id}) - escrow pulls USDC")
             proof["txs"]["fund"] = await call(client, ESCROW, esc.fund(job_id), "fund")
             assert esc.get_job(w3, job_id)["status"] == "Funded"
             print(f"    escrow now holds {usdc(esc.usdc_balance(w3, ESCROW))}")

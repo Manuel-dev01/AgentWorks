@@ -1,4 +1,4 @@
-/** Browser client for the deployed autonomous agent service (FastAPI, Railway — see agents/server.py).
+/** Browser client for the deployed autonomous agent service (FastAPI, Railway - see agents/server.py).
  *  The dashboard is a LIVE WINDOW onto these agents: "Post job" fires POST /trigger and the board polls
  *  /runs + /health to watch them reason, race to accept, deliver, and settle. The service runs the
  *  autonomous orchestration + LLM reasoning in the cloud; on-chain signing happens via the CAW relay-

@@ -8,7 +8,7 @@ Sources, in order:
   1. the canonical Client (CAW_CLIENT_*) and Provider (CAW_PROVIDER_*) from config,
   2. auto-discovered extra providers CAW_PROVIDER2_*, CAW_PROVIDER3_*, … (WALLET_ID/API_KEY/ADDRESS),
   3. optional external participants from `agents/registry.local.json` (the documented self-service
-     path — users bring their own CAW wallet; that file holds keys so it is gitignored, never committed).
+     path - users bring their own CAW wallet; that file holds keys so it is gitignored, never committed).
 
 This invents NO new SDK surface: a participant is just an (api_key, wallet_uuid) pair driven through
 the existing CawWallet, and onboarding = submit_pact(template) + wait_pact_active (agents/caw/client.py).
@@ -28,7 +28,7 @@ from caw import CawWallet
 
 # External participants' credentials. On a host with ephemeral storage (e.g. Railway), set AGENT_DATA_DIR
 # to a mounted volume so registrations persist across restarts; default is the in-repo path for local dev.
-# Always gitignored (holds api_keys) — never committed.
+# Always gitignored (holds api_keys) - never committed.
 _LOCAL_FILE = (Path(os.environ["AGENT_DATA_DIR"]) / "registry.local.json") if os.environ.get("AGENT_DATA_DIR") \
     else (Path(__file__).resolve().parent / "registry.local.json")
 
@@ -51,7 +51,7 @@ class Participant:
         return pacts.client_escrow_pact(escrow=config.ESCROW_V2_ADDRESS, tx_cap=cap)
 
     def public(self) -> dict:
-        """Non-secret view (never includes api_key) — safe to log / return over HTTP."""
+        """Non-secret view (never includes api_key) - safe to log / return over HTTP."""
         return {"name": self.name, "role": self.role, "wallet_id": self.wallet_id,
                 "address": self.address}
 
@@ -95,7 +95,7 @@ def load_pool() -> list[Participant]:
         pool.append(provider)
         # Extra ADDRESSES on the SAME provider wallet (CAW_PROVIDER_ADDRESS_2, _3, …). A second
         # address is a distinct on-chain msg.sender signed by the same Provider TSS node and bound
-        # by the same provider Pact — a genuine second provider for the accept-race without a whole
+        # by the same provider Pact - a genuine second provider for the accept-race without a whole
         # new wallet/daemon. (Public address only; reuses the provider's wallet_id + api_key.)
         n = 2
         while True:
@@ -182,7 +182,7 @@ async def register_external(wallet_id: str, api_key: str, address: str,
     existing = _from_local_file()
     for p in existing:
         if p.wallet_id == wallet_id:
-            # Already registered — just onboard (refresh Pact)
+            # Already registered - just onboard (refresh Pact)
             result = await onboard(p, clean=True)
             return {**result, "already_registered": True}
 
@@ -198,7 +198,7 @@ async def register_external(wallet_id: str, api_key: str, address: str,
     # Create the Pact
     result = await onboard(p, clean=True)
 
-    # Persist to registry.local.json (gitignored — holds credentials)
+    # Persist to registry.local.json (gitignored - holds credentials)
     existing.append(p)
     _LOCAL_FILE.parent.mkdir(parents=True, exist_ok=True)
     _LOCAL_FILE.write_text(

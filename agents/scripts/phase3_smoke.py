@@ -1,8 +1,8 @@
-"""Phase 3 smoke test — de-risk before building the full lifecycle.
+"""Phase 3 smoke test - de-risk before building the full lifecycle.
 
 Proves the two unknowns on Ethereum Sepolia:
   1. CAW can read token state (SETH native gas balance + USDC balance read).
-  2. CAW can execute a real `contract_call` on Eth Sepolia — we call
+  2. CAW can execute a real `contract_call` on Eth Sepolia - we call
      SETH_USDC.approve(escrow, 1) from the Client, then read the on-chain allowance back.
 
 approve() needs no USDC balance (only gas), so this isolates the contract_call path.
@@ -73,7 +73,7 @@ async def main() -> None:
 
     print(f"\n=== Phase 3 smoke (Eth Sepolia) ===\nrpc_connected={w3.is_connected()} client={client_addr}")
 
-    # On-chain reads (RPC) — ground truth
+    # On-chain reads (RPC) - ground truth
     usdc = w3.eth.contract(address=USDC, abi=ERC20_ABI)
     proof["rpc_usdc_balance"] = usdc.functions.balanceOf(client_addr).call()
     allow_before = usdc.functions.allowance(client_addr, ESCROW).call()
