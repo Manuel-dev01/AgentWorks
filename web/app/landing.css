@@ -61,6 +61,9 @@
 .lp .proofrow{ display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:11px;
   color:var(--settle-deep); border-top:1px solid var(--line); padding-top:14px; }
 
+/* positioning section */
+.lp .pos-grid{ display:grid; grid-template-columns: 0.85fr 1.15fr; gap:48px; align-items:center; }
+
 /* section shell */
 .lp section{ padding: 90px 0; position:relative; }
 .lp .band{ border-top:1px solid var(--line); }
