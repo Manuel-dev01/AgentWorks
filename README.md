@@ -38,10 +38,17 @@ A runnable system on **Ethereum Sepolia**, not a mockup. What works end-to-end t
   local board), claims one, and delivers - all through documented endpoints. Registrations + listings persist
   on a mounted volume; the trigger is open by default and bearer-token-gateable for production. Full
   client/provider walkthrough in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** and **[docs/DEPLOY.md](docs/DEPLOY.md)**.
+- **MCP-native - plug any agent in** - AgentWorks ships an **MCP server** (`agents/mcp_server.py`) so any
+  MCP-capable agent (Claude Desktop / Claude Code, or your own) becomes a client or provider, reasoning on its
+  own and acting through **its own** CAW wallet. The operator runs it locally with their own wallet: keys never
+  leave their machine, the Pact is **self-created** (no custodial step), and that Pact still bounds whatever
+  model plugs in (a provider Pact can't touch USDC). The genuine "agent" is the connecting LLM; we ship the
+  socket. See **[docs/MCP.md](docs/MCP.md)**.
 
 Project documentation + track-rule mapping: **[docs/SUBMISSION.md](docs/SUBMISSION.md)** · architecture:
 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** · risk boundaries:
-**[docs/RISK_BOUNDARIES.md](docs/RISK_BOUNDARIES.md)** · deploy: **[docs/DEPLOY.md](docs/DEPLOY.md)**.
+**[docs/RISK_BOUNDARIES.md](docs/RISK_BOUNDARIES.md)** · deploy: **[docs/DEPLOY.md](docs/DEPLOY.md)** ·
+MCP agent socket: **[docs/MCP.md](docs/MCP.md)**.
 
 ## Deployment - three pieces
 
@@ -64,8 +71,9 @@ node per relay identity, so don't run both at once. Full deploy guide (all three
 
 ## Stack
 Foundry (escrow v2) · Python agents (CAW SDK `cobo-agentic-wallet` + web3, FastAPI control surface) ·
-DeepSeek reasoning (OpenAI-compatible) · Irys devnet (deliverable storage) · **Next.js 15** dashboard
-(viem live reads) · **Ethereum Sepolia** (chainId 11155111).
+**MCP server** (`mcp`/FastMCP — the open agent socket) · DeepSeek reasoning (OpenAI-compatible) ·
+Irys devnet (deliverable storage) · **Next.js 15** dashboard (viem live reads) ·
+**Ethereum Sepolia** (chainId 11155111).
 
 ## On-chain & agent identities (Ethereum Sepolia, chainId 11155111)
 **Contracts (verified on Etherscan):**
@@ -90,22 +98,25 @@ real 2-provider accept-race (Provider A won; Provider B's `acceptJob` reverted),
 | complete (payout) | Client CAW | [`0x1201f793…`](https://sepolia.etherscan.io/tx/0x1201f793f3a004d6990f79b226ffaef7a435bc87aa62d3395c750b8d83f02718) |
 
 The **refund** branch (job #6 → Rejected, evaluator rejected a sabotaged deliverable) reject tx
-[`0x95808768…`](https://sepolia.etherscan.io/tx/0x9580876824432e985c8c1e8522803912e4090fcac70ae6a4918a68b5f564849a), and the
-fully hands-off run #10 (co-signed by the Railway TSS, zero local processes), are in
-**[docs/SUBMISSION.md](docs/SUBMISSION.md)**; the denial / freeze / review beats live in the dashboard **Proofs**
-tab and **[docs/RISK_BOUNDARIES.md](docs/RISK_BOUNDARIES.md)**.
+[`0x95808768…`](https://sepolia.etherscan.io/tx/0x9580876824432e985c8c1e8522803912e4090fcac70ae6a4918a68b5f564849a), the
+fully hands-off run #10 (co-signed by the Railway TSS, zero local processes), and the **MCP-driven run #14**
+(a client agent and a provider agent transacting end-to-end through the [MCP server](docs/MCP.md), each via its
+own self-onboarded wallet → Completed, `content_verified=true`) are in **[docs/SUBMISSION.md](docs/SUBMISSION.md)**
+/ **[docs/MCP.md](docs/MCP.md)**; the denial / freeze / review beats live in the dashboard **Proofs** tab and
+**[docs/RISK_BOUNDARIES.md](docs/RISK_BOUNDARIES.md)**.
 
 ## Repo layout
 - `/contracts` - Foundry escrow **v2** (`AgentWorksEscrowV2.sol`, open `createJob` + `acceptJob`), 55-test suite, deploy/verify
 - `/agents` - CAW integration (`caw/`), v2 escrow calldata/reads (`escrow_v2.py`), LLM reasoning
   (`reasoning.py`), Pact templates (`pacts.py`), multi-wallet registry (`registry.py`), autonomous loops
-  (`autonomous.py`), FastAPI control surface (`server.py`), Irys storage (`irys/`), container (`Dockerfile`, `tss/`)
+  (`autonomous.py`), FastAPI control surface (`server.py`), **MCP server** (`mcp_server.py`, the open agent
+  socket), Irys storage (`irys/`), container (`Dockerfile`, `tss/`)
 - `/web` - Next.js 15 dashboard: landing (`/`), brand (`/brand`), and the dashboard - **New job**
   (`/dashboard/new`, triggers the deployed agents + watches them settle), **Marketplace**
   (`/dashboard`, read-only proof history), **Proofs** (`/dashboard/proofs`), flow map (`/dashboard/flow`).
   `lib/agent.ts` calls the deployed service; verified runs seed the board (`web/data/`); viem for live reads.
 - `/docs` - `SUBMISSION.md` (project documentation), `ARCHITECTURE.md`, `RISK_BOUNDARIES.md`, `DEPLOY.md`,
-  `pacts/*.json` (the shipped Pact policies)
+  `MCP.md` (the MCP agent socket + connect guide), `pacts/*.json` (the shipped Pact policies)
 
 ## What CAW actually does here (claims discipline)
 CAW enforces each agent's authority boundary (Pact: contract allowlist + caps), server-side and
@@ -113,6 +124,11 @@ unbypassable; "freeze" = `revoke_pact` (no native freeze API). CAW does **not** 
 the accept-race, or hold the escrow - our contract + orchestration do. We mirror the ERC-8183 **draft**
 lifecycle naming; we do not depend on any external/Arc deployment. The agent service runs the orchestration
 + reasoning; the operator-controlled TSS node holds the key share and co-signs.
+**On wallet independence (precise):** in the hosted autonomous demo the two racing providers are two *addresses
+on one provider CAW wallet* (one Pact, one TSS node) - a genuine on-chain race without standing up a second
+daemon. Fully independent per-agent wallets come from external operators running the **MCP server** (`docs/MCP.md`),
+each with their own CAW wallet + Pact; that is where "each agent through its own wallet, no intermediary holds the
+rope" is literally true.
 
 ## How Cobo Agentic Wallet is used (key code)
 - **`agents/caw/client.py`** - the single CAW SDK wrapper. Every fund op is a `contract_call(src_addr,

@@ -32,6 +32,13 @@ allow-lists); you BLOCK by populating `deny_if` (thresholds / usage limits) or w
 `review_if` routes to human approval. Enforcement is **server-side** — the agent holds only a pact-scoped
 API key whose authority *is* the policy.
 
+**This boundary extends to plugged-in agents.** An external agent that joins via the MCP server
+([`docs/MCP.md`](MCP.md)) **self-creates the same template** on its OWN wallet (`onboard()` →
+`pacts.provider_pact` / `client_escrow_pact` bound to escrow v2). So whatever LLM connects, the provider Pact
+still excludes USDC and the client Pact still caps + allowlists — the operator never surrenders its key and the
+policy still bounds it. The Pact is the boundary, not the agent's code or good behavior. (Verified live: MCP run
+#14 settled within these self-bound Pacts.)
+
 ## 2. Demonstrated blocked transactions (the denial beat)
 
 Reproducible via `agents/scripts/phase4_denial.py`; rendered in the dashboard **Proofs** tab. Both are real

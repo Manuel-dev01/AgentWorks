@@ -8,3 +8,5 @@ requests>=2.32         # transitive / HTTP
 fastapi>=0.115
 uvicorn[standard]>=0.30
 pydantic>=2.7
+# MCP server (agents/mcp_server.py) — the open agent socket; any MCP client plugs in
+mcp>=1.2

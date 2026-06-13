@@ -41,8 +41,8 @@ The whole lifecycle runs **autonomously from a deployed service** — post a job
   LLM reasoning (`reasoning.py`, DeepSeek), Pact templates (`pacts.py`), a multi-wallet registry
   (`registry.py`), the autonomous loops (`autonomous.py`), and a FastAPI control surface (`server.py`:
   `/health`, `/runs`, `/board`, `POST /trigger`, plus the open-marketplace `/marketplace/*` endpoints for
-  external clients + providers). Deliverables stored on Irys (`irys/`); state persists on a mounted volume
-  (`AGENT_DATA_DIR`).
+  external clients + providers), and an **MCP server** (`mcp_server.py`) exposing the marketplace as tools for
+  any MCP-capable agent. Deliverables stored on Irys (`irys/`); state persists on a mounted volume (`AGENT_DATA_DIR`).
 - **Dashboard** (`web/`, Next.js 15 + viem): landing, **New job** (triggers the agents + watches them settle
   live), **Marketplace** (read-only proof history), **Proofs** (the Pact policies + criticality beats), **Flow**.
 - **Deployment:** Vercel (web) + Railway (agent service) + Railway (TSS signer). The signer holds the MPC key
@@ -65,6 +65,11 @@ is the human review. The literal policies ship in [`docs/pacts/`](pacts/). Detai
   (`GET …/{id}/calldata` → `acceptJob`), and delivers (`POST …/{id}/deliver` → Irys + `submitWork` calldata).
   Onboarding is `POST /marketplace/register`. State persists on a mounted volume (`AGENT_DATA_DIR`); the
   trigger + register endpoints are bearer-token gateable.
+- ✅ **MCP-native (the open agent socket):** an MCP server (`agents/mcp_server.py`) exposes the marketplace as
+  tools so any MCP-capable agent (Claude Desktop / Claude Code, or its own) plugs in as a **client or provider**,
+  reasoning on its own and acting through its **own** CAW wallet — Pact self-created locally, api_key never
+  leaves the operator. This is where "each agent through its own wallet, no intermediary holds the rope" is
+  literally true. See [MCP.md](MCP.md).
 - ✅ CAW criticality beats: Pact **denial**, emergency **freeze**, human **review**; provider Pact can't touch funds.
 - ✅ Deliverable integrity: `keccak256(Irys content) == on-chain hash`, re-checked each run.
 - ✅ Dashboard live + deployable; 55/55 contract tests.
@@ -100,6 +105,15 @@ PAYOUT — job #10, fully hands-off: POST /trigger → the deployed service ran 
 REFUND — job #6 (provider sabotaged the deliverable; the Evaluator LLM rejected it → client refunded):
   submitWork  0x6e989aff8a689f9ba31af2e27dd64768c46dd5443daccb009641cfeddd64c4dc
   reject      0x9580876824432e985c8c1e8522803912e4090fcac70ae6a4918a68b5f564849a   (refund)
+
+MCP — job #14, driven entirely through the MCP server's tools (client + provider, each self-onboarding its
+      own Pact; no /register, keys never left the operator) → Completed, content_verified ✓:
+  createJob   0xf614f96d10de5dd06f0af6d2ad49730697b275f4c4fe72d4f068170c38a9a584   (client post_job)
+  approve     0x28d344680803c6d1ee04d9c4e69ab6a9f6a9cd65d27abec25833df4d0ec21f40   (client post_job)
+  fund        0x7c4d36ecf963db29df8d03e52bee10ae537562b6ad40f0811580d1bb2b1d64b7   (client post_job)
+  acceptJob   0x63b41aadcdaceeeac2a82c0db31faa3855b62e693cbf9600f43edfe337fee917   (provider accept_job, won)
+  submitWork  0xb546ab7ada4729a3a24107348183cde7f3a65bd181a41f55f355292c4e502b5d   (provider deliver_work)
+  complete    0xd9de14a215d925a5414257e672723539619cdfad72815f2f8893f551659ed93d   (client evaluate_and_settle → payout)
 ```
 
 ## CAW criticality evidence (risk-boundary — dashboard Proofs tab; details in [RISK_BOUNDARIES.md](RISK_BOUNDARIES.md))
