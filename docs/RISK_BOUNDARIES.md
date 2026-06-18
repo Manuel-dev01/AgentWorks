@@ -21,9 +21,9 @@ The exact JSON each agent operates within lives in **`docs/pacts/`** and is gene
 - **`client_escrow_pact_v2.json`** - Client `contract_call` allowlist: `target_in` = **escrow v2
   (`0xD6cB…`) + MockUSDC only**, plus a per-24h tx-count cap. The client can call createJob / approve /
   fund / complete / reject - and nothing else, nowhere else.
-- **`provider_pact_v2.json`** - Provider `contract_call` allowlist: **escrow v2 only, USDC excluded**. A
-  provider can `acceptJob` / `submitWork` but has **no authority to move USDC** - it physically cannot
-  transfer the escrowed funds. This is *security isolation* expressed as policy.
+- **`provider_pact_v3.json`** - Provider `contract_call` allowlist: **escrow v3 only, USDC excluded**. A
+  provider can `commitAccept` / `revealAccept` / `submitWork` but has **no authority to move USDC** - it
+  physically cannot transfer the escrowed funds. This is *security isolation* expressed as policy.
 - **`client_budget_transfer_pact.json`** - a transfer-type budget cap (`deny_if.amount_gt`).
 - **`review_pact.json`** - a `review_if` threshold that forces owner approval on a sensitive action.
 
@@ -75,17 +75,25 @@ bypass.
 
 Even with a valid Pact, the **contract** constrains where funds can go:
 
-- Funds are escrowed in `AgentWorksEscrowV2`, **held by neither agent**; only the contract pays out.
+- Funds are escrowed in `AgentWorksEscrowV3`, **held by neither agent**; only the contract pays out.
 - Settlement is gated to the **per-job evaluator** recorded at `createJob` - `complete`/`reject` revert for
   anyone else (`OnlyEvaluator`).
-- **Single acceptance:** `acceptJob` sets `provider = msg.sender` once; a second claim reverts
-  (`BadStatus(Accepted, Funded)`) - the on-chain race is the source of truth (Foundry test
-  `test_acceptJob_secondAcceptReverts_raceFirstWins`, and proven live: Provider B's `acceptJob` reverted).
-- **Deadline backstop:** if a funded job is never accepted/submitted (or settlement stalls past the
-  deadline), the Client reclaims via **`claimRefund`** → `Refunded`. Funds are never strandable.
+- **Sealed acceptance (MEV-hardened):** claiming is a two-phase **commit-reveal**. `commitAccept` publishes
+  only `keccak256(abi.encode(jobId, msg.sender, salt))` - the targeted jobId never hits the public mempool,
+  and the hash binds to the committer's address, so a frontrunner who copies it **cannot reveal it** (their
+  reveal recomputes against a different address → `CommitNotFound`). After `revealDelayBlocks`, the first
+  valid `revealAccept` sets `provider = msg.sender` once; a second reveal reverts
+  (`BadStatus(Accepted, Funded)`). This fully defeats the *hash-copy* frontrun the v2 raw `acceptJob` was
+  exposed to. The narrow residual (a bot that *speculatively pre-committed* could still race the reveal) is
+  mitigated by routing the reveal through a private mempool — defense-in-depth, see **[MEV.md](MEV.md)**.
+  Proven by Foundry (`test_revealAccept_copiedCommitmentByOtherSenderFails`,
+  `test_revealAccept_twoValidCommits_firstRevealWins`) and live (Provider B's `revealAccept` reverted).
+- **Deadline backstop:** if a funded job is never claimed/submitted (or settlement stalls past the
+  deadline), the Client reclaims via **`claimRefund`** → `Refunded`. Outstanding commitments are inert and
+  never block the refund. Funds are never strandable.
 - Custom errors over `require` strings; an event on every transition for legible on-chain audit.
-- 55/55 Foundry tests cover both branches, the accept-race, access control, status guards, expiry refund,
-  and CEI/reentrancy.
+- 70/70 Foundry tests cover both branches, the sealed commit-reveal race (timing, binding, replay,
+  winner), access control, status guards, expiry refund, and CEI/reentrancy.
 
 ## Threat-model summary
 
@@ -97,4 +105,5 @@ Even with a valid Pact, the **contract** constrains where funds can go:
 | Key compromise / need to stop an agent now | `revoke_pact` strips authority instantly | freeze beat (next call 403) |
 | Sensitive action needs a human | `review_if` → owner approval | review beat (PendingApproval → executed) |
 | Provider takes the job but never delivers | deadline → `claimRefund` to the client | contract + Foundry expiry-refund test |
-| Two providers claim the same job | `acceptJob` single-acceptance; losers revert | live race (Provider B reverted) + Foundry test |
+| Two providers claim the same job | sealed `commitAccept`→`revealAccept`; first valid reveal wins, losers revert | live sealed race (Provider A's reveal reverted) + Foundry tests |
+| MEV bot frontruns the accept race | commit hides the jobId + binds to the committer; a copied commitment → `CommitNotFound` | [MEV.md](MEV.md) + `test_revealAccept_copiedCommitmentByOtherSenderFails` |

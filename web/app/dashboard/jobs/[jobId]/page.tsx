@@ -13,7 +13,9 @@ const STEP_DEFS: { key: string; ti: string }[] = [
   { key: "createJob", ti: "Job created (open, no provider)" },
   { key: "approve", ti: "USDC approved" },
   { key: "fund", ti: "USDC escrowed" },
-  { key: "acceptJob", ti: "Provider won the race → claimed" },
+  { key: "commitAccept", ti: "Sealed bid committed (jobId hidden)" },
+  { key: "revealAccept", ti: "Provider won the sealed race → claimed" },
+  { key: "acceptJob", ti: "Provider won the race → claimed" }, // legacy v2 artifacts
   { key: "submitWork", ti: "Work submitted + Irys id anchored" },
   { key: "complete", ti: "Accepted → Provider paid" },
   { key: "reject", ti: "Rejected → Client refunded" },

@@ -52,7 +52,7 @@ deploys as a normal static/SSR Next.js app.
 - **Framework:** Next.js · **Install:** `pnpm install` · **Build:** default (`pnpm run build` → snapshot +
   `next build`) · **Output:** `.next`.
 - **Public env** (`NEXT_PUBLIC_*`; sensible defaults baked in, so the app works even if unset):
-  `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_ESCROW_V2_ADDRESS`, `NEXT_PUBLIC_USDC_ADDRESS`, `NEXT_PUBLIC_CLIENT_CAW`,
+  `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_ESCROW_V3_ADDRESS` (live, commit-reveal), `NEXT_PUBLIC_USDC_ADDRESS`, `NEXT_PUBLIC_CLIENT_CAW`,
   `NEXT_PUBLIC_PROVIDER_CAW`, `NEXT_PUBLIC_PROVIDER_CAW_B`, `NEXT_PUBLIC_EXPLORER_BASE`,
   `NEXT_PUBLIC_IRYS_GATEWAY`, **`NEXT_PUBLIC_AGENT_API`** (the agent-service URL - defaults to the live Railway URL).
 - **The trigger is OPEN by default** so judges (and anyone) can run the autonomous loop straight from the
@@ -90,7 +90,7 @@ railway up --dockerfile agents/Dockerfile      # build context = repo root
 | `GET /health` · `GET /runs` · `GET /board` · `POST /trigger` | liveness/config · run artifacts · internal board · launch an autonomous run |
 | `GET /marketplace/jobs?status=open\|all` | discover jobs by **scanning the chain** (source of truth), enriched with board listings |
 | `GET /marketplace/jobs/{id}` | one job's on-chain status + listing (a provider confirms it won the race) |
-| `GET /marketplace/jobs/{id}/calldata` | `acceptJob` calldata an external provider signs with its own wallet |
+| `GET /marketplace/jobs/{id}/calldata?provider_address=0x…` | sealed `commitAccept` + `revealAccept` calldata (+ a generated salt to keep) an external provider signs with its own wallet |
 | `POST /marketplace/jobs/{id}/deliver` | store the deliverable on Irys + return `submitWork` calldata (provider signs) |
 | `GET /marketplace/post-calldata` | `createJob`/`approve`/`fund` calldata an external client signs to open + fund a job |
 | `POST /marketplace/jobs` | publish a funded job's human-readable listing so providers can discover the task |
@@ -102,8 +102,11 @@ their own CAW wallet**. Full external client/provider walkthrough: [ARCHITECTURE
 **Secrets/env on the service** (copy values from your local `.env`; never commit them):
 - CAW: `CAW_CLIENT_WALLET_ID`, `CAW_CLIENT_API_KEY`, `CAW_CLIENT_ADDRESS`, `CAW_PROVIDER_WALLET_ID`,
   `CAW_PROVIDER_API_KEY`, `CAW_PROVIDER_ADDRESS`, `CAW_PROVIDER_ADDRESS_2`, `AGENT_WALLET_API_URL`, `CAW_CHAIN_ID=SETH`.
-- Chain: `RPC_URL`, `ESCROW_V2_CONTRACT_ADDRESS=0xD6cB413c0E4a5839Fd4B02aFFeBF65e6868726b9`,
+- Chain: `RPC_URL`, `ESCROW_V3_CONTRACT_ADDRESS=0xFAab4d6ff5CBEcD72a4e1B9315662e7846166D69` (live, commit-reveal),
+  `REVEAL_DELAY_BLOCKS=1`, `REVEAL_WINDOW_BLOCKS=256` (must match the deployed v3 ctor args),
   `USDC_TOKEN_ADDRESS=0x4C4D1223BcC47E380CF4C37652EaDFe10A9Fd910`.
+- MEV (optional): `PRIVATE_RPC_URL` (private/Flashbots-style endpoint, used for reads + the prepared reveal hook),
+  `MEV_PROTECT=true` to request private routing of the reveal tx. See [MEV.md](MEV.md) for the honest status.
 - LLM: `LLM_API_KEY`, `LLM_MODEL`, `LLM_BASE_URL`. · Irys: `IRYS_PRIVATE_KEY` (falls back to `DEPLOYER_PRIVATE_KEY`).
 - **Persistence (recommended on Railway):** mount a **volume** (e.g. at `/data`) and set **`AGENT_DATA_DIR=/data`**
   so the off-chain board + external `registry.local.json` survive restarts/redeploys. Without it the container FS
@@ -150,7 +153,7 @@ Keep the Client and both provider addresses funded with Sepolia ETH (gas); keep 
 
 ## 5. Verify the deployment
 ```bash
-curl https://<agent-host>/health     # → {"status":"ok", escrow_v2, providers:2, trigger_protected, register_protected, …}
+curl https://<agent-host>/health     # → {"status":"ok", escrow_v3, providers:2, trigger_protected, register_protected, …}
 curl https://<agent-host>/marketplace/jobs?status=all   # → on-chain jobs (chain-scanned, not just the local board)
 curl https://<agent-host>/runs       # → past run artifacts
 curl -X POST https://<agent-host>/trigger \

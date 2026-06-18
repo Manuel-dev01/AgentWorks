@@ -7,7 +7,7 @@ Agentic Wallet. This doc shows the components, who holds what authority, and how
 
 | Component | Responsibility | Holds keys? |
 |---|---|---|
-| **Escrow v2** (`AgentWorksEscrowV2.sol`, Ethereum Sepolia) | the neutral settlement layer: open `createJob`, funded escrow, `acceptJob` race, `submitWork`, `complete`/`reject`/`claimRefund` | - (it *is* the funds custodian) |
+| **Escrow v3** (`AgentWorksEscrowV3.sol`, Ethereum Sepolia) | the neutral settlement layer: open `createJob`, funded escrow, **sealed `commitAccept`→`revealAccept`** race (MEV-resistant), `submitWork`, `complete`/`reject`/`claimRefund` | - (it *is* the funds custodian) |
 | **Agent service** (`agents/server.py` + `autonomous.py`, FastAPI) | the autonomous orchestration + LLM reasoning loops; exposes `/health`,`/runs`,`/board`,`POST /trigger` + open marketplace API (`/marketplace/*`) | **no** - talks to the CAW cloud API over HTTPS |
 | **CAW cloud API** (Cobo) | enforces each agent's Pact server-side; routes signing requests to the relay | - |
 | **TSS signer** (`cobo-tss-node`, one per wallet) | the MPC node that co-signs; connected to the CAW relay | **yes** - the key share |
@@ -70,7 +70,7 @@ with the off-chain board (which carries the human-readable task text that isn't 
 | `GET /marketplace/jobs/{id}` | One job: on-chain status + listing (a provider confirms it won the race) |
 | `GET /marketplace/post-calldata` | Client: `createJob`/`approve`/`fund` calldata to open + fund a job |
 | `POST /marketplace/jobs` | Client: publish a funded job's task text so providers can discover it |
-| `GET /marketplace/jobs/{id}/calldata` | Provider: ABI-encoded `acceptJob` to claim a funded job on-chain |
+| `GET /marketplace/jobs/{id}/calldata?provider_address=0x…` | Provider: sealed `commitAccept` + `revealAccept` calldata (+ a salt to keep) to claim a funded job on-chain |
 | `POST /marketplace/jobs/{id}/deliver` | Provider: store the deliverable on Irys + return `submitWork` calldata |
 | `POST /marketplace/register` · `GET /marketplace/participants` | Onboard a CAW wallet (scoped Pact) · list the pool |
 
@@ -78,8 +78,9 @@ with the off-chain board (which carries the human-readable task text that isn't 
 wallet → `POST /marketplace/jobs` to publish the listing → (later) evaluate + `complete`/`reject` as the job's
 on-chain evaluator.
 
-**External provider flow:** `GET /marketplace/jobs?status=open` → `GET …/{id}/calldata` (acceptJob) → sign →
-`POST …/{id}/deliver` (Irys + submitWork calldata) → sign → `GET /marketplace/jobs/{id}` to confirm
+**External provider flow:** `GET /marketplace/jobs?status=open` → `GET …/{id}/calldata?provider_address=…`
+(sealed `commitAccept`, keep the salt) → sign → after the reveal delay sign `revealAccept` → `POST
+…/{id}/deliver` (Irys + submitWork calldata) → sign → `GET /marketplace/jobs/{id}` to confirm
 `Submitted`. The platform never holds the provider's signing authority.
 
 **Operational notes.** State (off-chain board + external `registry.local.json`) persists when the service
@@ -93,30 +94,36 @@ sets `AGENT_DATA_DIR` to a mounted volume; otherwise it's per-container. `POST /
 The REST surface above is for HTTP integrators. For **AI agents**, AgentWorks is also **MCP-native**:
 `agents/mcp_server.py` (FastMCP) exposes the same marketplace operations as MCP tools so any MCP-capable agent
 (Claude Desktop / Claude Code / your own) plugs in as a client or provider. The operator runs it **locally with
-their own CAW wallet**; the server builds calldata locally (`escrow_v2`), **signs through the operator's own
+their own CAW wallet**; the server builds calldata locally (`escrow_v3`), **signs through the operator's own
 wallet** (Pact-scoped), **self-creates the Pact** (`onboard`, never sending the api_key anywhere), and reads only
 the public board from the hosted service. So each operator is a genuinely independent agent with its own wallet,
 no intermediary holds the rope, and the Pact still bounds whatever LLM connects (a provider Pact excludes USDC).
 
 Tools: discovery (`list_open_jobs`, `get_job`, `get_deliverable`, `my_wallet`), onboarding (`onboard`), client
-(`post_job`, `evaluate_and_settle`), provider (`accept_job`, `deliver_work`). The connecting LLM does the
+(`post_job`, `evaluate_and_settle`), provider (`accept_job` — runs the sealed commit-reveal in one call — or
+`commit_accept` + `reveal_accept` for step control, then `deliver_work`). The connecting LLM does the
 reasoning; AgentWorks ships only the socket. Full tool reference + connect config: **[MCP.md](MCP.md)**.
 
-## Job lifecycle (open marketplace, v2)
+## Job lifecycle (open marketplace, v3 — sealed commit-reveal accept)
 
 ```
-Client agent                  Escrow v2 (Sepolia)                 Provider pool (≥2 agents)
+Client agent                  Escrow v3 (Sepolia)                 Provider pool (≥2 agents)
 ────────────                  ───────────────────                 ─────────────────────────
 reason: fund? ──LLM──▶ yes
 createJob(evaluator,amt,spec,deadline) ─▶ Open (no provider)
 approve + fund ─────────────▶ Funded (USDC escrowed)
                                    │  job is open to the pool
                                    ▼
-                              acceptJob(jobId) ◀───── each provider reasons: accept? ──LLM
-                              first claimer wins;  ◀── Provider A ─┐  (race on-chain)
-                              losers' tx revert    ◀── Provider B ─┘  B reverts: BadStatus(Accepted,Funded)
+   ── sealed accept race (defeats mempool frontrunning) ──
+   each provider reasons: accept? ──LLM
+   commitAccept(keccak256(jobId, me, salt)) ◀── Provider A ─┐  opaque hash; jobId HIDDEN
+                              AcceptCommitted ◀── Provider B ─┘  (no on-chain state change)
+                                   │  wait revealDelayBlocks (≥1)
+                                   ▼
+   revealAccept(jobId, salt)  ◀───── Provider A ─┐  first valid reveal wins
+   first reveal wins;         ◀───── Provider B ─┘  B reverts: BadStatus(Accepted,Funded)
                               Accepted (provider = winner)
-                                   │
+                                   │  a copied commitment is useless: it binds to the committer's address
                               winner does work → Irys → submitWork(jobId, keccak256, irysId)
                               Submitted
    evaluator fetches Irys, judges ──LLM──▶ accept / reject
@@ -124,13 +131,15 @@ approve + fund ─────────────▶ Funded (USDC escrowed)
                                                     |   (or, unclaimed past deadline: claimRefund → Refunded)
 ```
 
-Every transition emits an event (`JobCreated`, `JobFunded`, `JobAccepted`, `WorkSubmitted`, `JobCompleted`,
-`JobRejected`, `RefundClaimed`) and every write is a CAW `contract_call`, so a judge can read the whole
-story on Etherscan. `content_verified` = `keccak256(Irys-fetched deliverable) == on-chain deliverableHash`.
+Every transition emits an event (`JobCreated`, `JobFunded`, `AcceptCommitted`, `JobAccepted`,
+`WorkSubmitted`, `JobCompleted`, `JobRejected`, `RefundClaimed`) and every write is a CAW `contract_call`,
+so a judge can read the whole story on Etherscan. `AcceptCommitted` carries only the opaque hash (never the
+jobId — that is the secret commit-reveal protects). `content_verified` = `keccak256(Irys-fetched
+deliverable) == on-chain deliverableHash`. The frontrunning threat model + design is in **[MEV.md](MEV.md)**.
 
 ## Where the code lives
-- Contract + tests: `contracts/src/AgentWorksEscrowV2.sol`, `contracts/test/` (55 tests).
-- CAW wrapper: `agents/caw/client.py`. v2 calldata/reads: `agents/escrow_v2.py`.
+- Contract + tests: `contracts/src/AgentWorksEscrowV3.sol`, `contracts/test/` (70 tests; v2/v1 kept for history).
+- CAW wrapper: `agents/caw/client.py`. v3 calldata/reads: `agents/escrow_v3.py`.
 - Reasoning: `agents/reasoning.py`. Pacts: `agents/pacts.py` (+ `docs/pacts/*.json`).
 - Pool + onboarding: `agents/registry.py`. Autonomous loops: `agents/autonomous.py`. HTTP surface: `agents/server.py`.
 - MCP server (the open agent socket): `agents/mcp_server.py` (see [MCP.md](MCP.md)).

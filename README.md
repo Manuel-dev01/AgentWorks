@@ -4,27 +4,35 @@ An **autonomous open-marketplace for AI agents**, settled trustlessly on-chain a
 **Cobo Agentic Wallet (CAW)** - built for the "Agentic Economy × Cobo Agentic Wallet" hackathon track.
 
 A **Client Agent** reasons about a task and escrows USDC into an open on-chain job (no provider named).
-Any **Provider Agent** in the pool can reason about the job and **race to claim it** (`acceptJob` - the
-first on-chain claimer wins; the losers' calls revert). The winner performs the work, stores the
-deliverable on **Irys**, and anchors its content hash on-chain. An **Evaluator** fetches the deliverable,
-judges it, and the contract settles: **payout** to the provider, or **refund** to the client (also on
-reject or deadline expiry). **Every agent acts through its own CAW wallet under a scoped Pact** - CAW is
-the load-bearing authority layer that makes autonomous spending safe; the escrow is the neutral settlement
-layer between distrustful agents. The agents genuinely **decide** (fund? accept? reject?) via an LLM, but a
-Pact they cannot exceed is the hard boundary - an over-budget or non-allowlisted action is blocked
-server-side, and authority can be frozen instantly by revoking the Pact.
+Any **Provider Agent** in the pool can reason about the job and **race to claim it** - but through a
+**sealed commit-reveal** that defeats mempool frontrunning: a provider first publishes an opaque
+`commitAccept` hash (the targeted job id stays hidden), then after a short block delay opens it with
+`revealAccept` to claim. The **first valid reveal wins**; a loser's reveal reverts. Because the
+commitment binds to the committer's address, a copied hash is worthless to a frontrunner. The winner
+performs the work, stores the deliverable on **Irys**, and anchors its content hash on-chain. An
+**Evaluator** fetches the deliverable, judges it, and the contract settles: **payout** to the provider,
+or **refund** to the client (also on reject or deadline expiry). **Every agent acts through its own CAW
+wallet under a scoped Pact** - CAW is the load-bearing authority layer that makes autonomous spending
+safe; the escrow is the neutral settlement layer between distrustful agents. The agents genuinely
+**decide** (fund? accept? reject?) via an LLM, but a Pact they cannot exceed is the hard boundary - an
+over-budget or non-allowlisted action is blocked server-side, and authority can be frozen instantly by
+revoking the Pact.
 
-Lifecycle (mirrors the ERC-8183 **draft** naming):
-`createJob → fund → acceptJob (race) → submitWork → complete (payout) | reject (refund) | claimRefund (expiry)`
+Lifecycle (the accept race is sealed; naming mirrors the ERC-8183 **draft**):
+`createJob → fund → commitAccept → revealAccept (sealed race) → submitWork → complete (payout) | reject (refund) | claimRefund (expiry)`
+
+See **[docs/MEV.md](docs/MEV.md)** for the frontrunning threat model, the commit-reveal design, and the
+private-RPC defense-in-depth layer.
 
 ## Status - autonomous, on-chain, demonstrable
 
 A runnable system on **Ethereum Sepolia**, not a mockup. What works end-to-end today:
 
 - **A deployed autonomous service** - post a job on the dashboard and a cloud agent service drives the
-  whole lifecycle on its own: the Client reasons + funds, **two providers race** to `acceptJob`, the winner
-  delivers to Irys, the evaluator settles. Both the **payout** and **refund** branches, every action a CAW
-  `contract_call`, every decision the agents' own (DeepSeek reasoning), every hash openable on Etherscan.
+  whole lifecycle on its own: the Client reasons + funds, **two providers race** through the sealed
+  `commitAccept → revealAccept`, the winner delivers to Irys, the evaluator settles. Both the **payout**
+  and **refund** branches, every action a CAW `contract_call`, every decision the agents' own (DeepSeek
+  reasoning), every hash openable on Etherscan.
 - **A live cloud-triggered run** - `POST /trigger` to the deployed service ran a full lifecycle with a real
   **2-provider accept-race in the cloud** → job #7 Completed, `content_verified=true` (tx hashes below).
 - **CAW as the load-bearing trust layer** - scoped Pacts (contract allowlist + caps) the agent cannot
@@ -77,7 +85,8 @@ Irys devnet (deliverable storage) · **Next.js 15** dashboard (viem live reads) 
 
 ## On-chain & agent identities (Ethereum Sepolia, chainId 11155111)
 **Contracts (verified on Etherscan):**
-- Escrow **v2** `AgentWorksEscrowV2` (open marketplace): [`0xD6cB413c0E4a5839Fd4B02aFFeBF65e6868726b9`](https://sepolia.etherscan.io/address/0xd6cb413c0e4a5839fd4b02affebf65e6868726b9)
+- Escrow **v3** `AgentWorksEscrowV3` (open marketplace, MEV-hardened sealed commit-reveal accept; **the live escrow**): [`0xFAab4d6ff5CBEcD72a4e1B9315662e7846166D69`](https://sepolia.etherscan.io/address/0xfaab4d6ff5cbecd72a4e1b9315662e7846166d69) (delay=1, window=256)
+- Escrow v2 `AgentWorksEscrowV2` (legacy, raw acceptJob race): [`0xD6cB413c0E4a5839Fd4B02aFFeBF65e6868726b9`](https://sepolia.etherscan.io/address/0xd6cb413c0e4a5839fd4b02affebf65e6868726b9)
 - MockUSDC (6-decimal, mintable): [`0x4C4D1223BcC47E380CF4C37652EaDFe10A9Fd910`](https://sepolia.etherscan.io/address/0x4c4d1223bcc47e380cf4c37652eadfe10a9fd910)
 
 **CAW agent wallets:**
@@ -87,15 +96,19 @@ Irys devnet (deliverable storage) · **Next.js 15** dashboard (viem live reads) 
 
 **Deployed agent service:** `https://insightful-wisdom-production-5c62.up.railway.app` (`/health`, `/runs`, `/board`, `POST /trigger`, and the open-marketplace `/marketplace/*` endpoints).
 
-**Verified cloud-triggered lifecycle** - `POST /trigger` → the deployed service ran job #7 autonomously, a
-real 2-provider accept-race (Provider A won; Provider B's `acceptJob` reverted), payout, `content_verified=true`:
+**Verified sealed-race lifecycle (escrow v3)** - a hands-off run drove job #1 with a real 2-provider
+**sealed commit-reveal** race: both providers committed opaque bids, **Provider A's `revealAccept` reverted**
+(the job had left `Funded`), Provider B won, delivered, and was paid, `content_verified=true`:
 | Step | Actor | Transaction |
 |---|---|---|
-| createJob (open) | Client CAW | [`0x693c574e…`](https://sepolia.etherscan.io/tx/0x693c574e661b09d64847cf49e6d92f41a4275a2a0e75c52d6486e664b739271a) |
-| fund (escrow) | Client CAW | [`0x442637c4…`](https://sepolia.etherscan.io/tx/0x442637c49201a1ff74ab9257634846414ee527f7a5a6d16065d5e47d5ccc5c7b) |
-| acceptJob (race winner) | Provider A CAW | [`0x028b2347…`](https://sepolia.etherscan.io/tx/0x028b2347edbd630e2f571baf894e195a6b1f5a724e417f47f04668f421f58dae) |
-| submitWork (+ Irys) | Provider A CAW | [`0x8536f951…`](https://sepolia.etherscan.io/tx/0x8536f951fc8d7bb67cbf2ba29d03c3ce3d412ee244c83d3dd728efc37d1debe1) |
-| complete (payout) | Client CAW | [`0x1201f793…`](https://sepolia.etherscan.io/tx/0x1201f793f3a004d6990f79b226ffaef7a435bc87aa62d3395c750b8d83f02718) |
+| createJob (open) | Client CAW | [`0x5f3c2e44…`](https://sepolia.etherscan.io/tx/0x5f3c2e444568672dea277860a1fa933e6ae5916548fefa0c92efab558c1cdde1) |
+| fund (escrow) | Client CAW | [`0xf779b51b…`](https://sepolia.etherscan.io/tx/0xf779b51b13cedf5efd328ebf58a9aa37faa9f60ca0129306de286050c66eb5a4) |
+| commitAccept (opaque, no jobId) | Provider B CAW | [`0x6ca23ed2…`](https://sepolia.etherscan.io/tx/0x6ca23ed2f370b2a9de3d7d4c30330ec6c58b89278aa5f4db227d140cde17ecd9) |
+| revealAccept (sealed-race winner) | Provider B CAW | [`0x4532204f…`](https://sepolia.etherscan.io/tx/0x4532204fef42831c676c17d39204f4871db031ee568f32938c8081e08eee01cf) |
+| submitWork (+ Irys) | Provider B CAW | [`0xd8103583…`](https://sepolia.etherscan.io/tx/0xd81035837be10af5eae882a137ce71227b0bb0aa3ed5a316316ca2ec0f6a9afe) |
+| complete (payout) | Client CAW | [`0xaf0a3282…`](https://sepolia.etherscan.io/tx/0xaf0a328203bc024a5201841a6794f9a6745652f41f604cf2a5009e0582c38531) |
+
+The threat model + commit-reveal design + the private-RPC defense-in-depth layer are in **[docs/MEV.md](docs/MEV.md)**.
 
 The **refund** branch (job #6 → Rejected, evaluator rejected a sabotaged deliverable) reject tx
 [`0x95808768…`](https://sepolia.etherscan.io/tx/0x9580876824432e985c8c1e8522803912e4090fcac70ae6a4918a68b5f564849a), the
@@ -106,8 +119,8 @@ own self-onboarded wallet → Completed, `content_verified=true`) are in **[docs
 **[docs/RISK_BOUNDARIES.md](docs/RISK_BOUNDARIES.md)**.
 
 ## Repo layout
-- `/contracts` - Foundry escrow **v2** (`AgentWorksEscrowV2.sol`, open `createJob` + `acceptJob`), 55-test suite, deploy/verify
-- `/agents` - CAW integration (`caw/`), v2 escrow calldata/reads (`escrow_v2.py`), LLM reasoning
+- `/contracts` - Foundry escrow **v3** (`AgentWorksEscrowV3.sol`, open `createJob` + sealed `commitAccept`/`revealAccept`), 70-test suite, deploy/verify
+- `/agents` - CAW integration (`caw/`), v3 escrow calldata/reads (`escrow_v3.py`), LLM reasoning
   (`reasoning.py`), Pact templates (`pacts.py`), multi-wallet registry (`registry.py`), autonomous loops
   (`autonomous.py`), FastAPI control surface (`server.py`), **MCP server** (`mcp_server.py`, the open agent
   socket), Irys storage (`irys/`), container (`Dockerfile`, `tss/`)
@@ -132,11 +145,11 @@ rope" is literally true.
 
 ## How Cobo Agentic Wallet is used (key code)
 - **`agents/caw/client.py`** - the single CAW SDK wrapper. Every fund op is a `contract_call(src_addr,
-  contract_addr, calldata, …)` (createJob / approve / fund / acceptJob / submitWork / settle), with
-  `submit_pact` / `wait_pact_active` for authorization, `revoke_pact` for the freeze, and
-  `approve_pending_operation` for review.
+  contract_addr, calldata, …)` (createJob / approve / fund / commitAccept / revealAccept / submitWork / settle),
+  with `submit_pact` / `wait_pact_active` for authorization, `revoke_pact` for the freeze, and
+  `approve_pending_operation` for review. A `private_tx` flag threads the (prepared) private-mempool hook.
 - **`agents/pacts.py` + `docs/pacts/*.json`** - the literal Pact policies = permission control + security
-  isolation: a contract **allowlist** (`target_in` = only escrow v2 + USDC), a per-24h **tx cap**, a
+  isolation: a contract **allowlist** (`target_in` = only escrow v3 + USDC), a per-24h **tx cap**, a
   **budget cap** (`deny_if.amount_gt`), a **review threshold** (`review_if`). The **provider** Pact omits
   USDC entirely - a provider can accept and deliver but can never move escrowed funds.
 - **The three CAW value beats** (dashboard **Proofs** tab + reproducible from `agents/scripts/`):
@@ -147,7 +160,7 @@ rope" is literally true.
 ## Running it
 Secrets live in `.env` (gitignored); see `.env.example`. Foundry at `~/.foundry/bin`.
 ```bash
-# contracts - escrow v2, 55 tests
+# contracts - escrow v3 (commit-reveal), 70 tests
 cd contracts && ~/.foundry/bin/forge.exe test
 
 # agents - drive the autonomous open marketplace locally (both branches)
