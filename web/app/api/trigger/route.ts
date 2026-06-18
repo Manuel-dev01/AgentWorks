@@ -1,12 +1,12 @@
 /** Server-side proxy for POST /trigger.
  *
  *  The agent service's /trigger spends the platform's CAW wallet, so it's protected by a bearer token
- *  (AGENT_TRIGGER_TOKEN). That token must NEVER reach the browser — so the dashboard posts here (same
+ *  (AGENT_TRIGGER_TOKEN). That token must NEVER reach the browser - so the dashboard posts here (same
  *  origin) and this route, running on the server, attaches the token and forwards to the agent service.
  *
  *  Env (server-only, NOT NEXT_PUBLIC):
- *    AGENT_TRIGGER_TOKEN  — the bearer token the agent service requires on /trigger.
- *    NEXT_PUBLIC_AGENT_API (or AGENT_API) — the agent-service base URL.
+ *    AGENT_TRIGGER_TOKEN  - the bearer token the agent service requires on /trigger.
+ *    NEXT_PUBLIC_AGENT_API (or AGENT_API) - the agent-service base URL.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    /* empty body is fine — the agent service applies its own defaults */
+    /* empty body is fine - the agent service applies its own defaults */
   }
   try {
     const ctl = new AbortController();

@@ -1,4 +1,4 @@
-"""Phase 4 criticality smoke — verify CAW actually ENFORCES pacts (deny + freeze) before
+"""Phase 4 criticality smoke - verify CAW actually ENFORCES pacts (deny + freeze) before
 building the demo beats. No LLM needed.
 
   A. clean slate: revoke all active pacts

@@ -102,7 +102,7 @@ export default function LandingPage() {
       {/* ===== POSITIONING ===== */}
       <section className="band" style={{ padding: "70px 0" }}>
         <div className="wrap">
-          <div style={{ display: "grid", gridTemplateColumns: "0.85fr 1.15fr", gap: 48, alignItems: "center" }}>
+          <div className="pos-grid">
             <h2 style={{ fontSize: "clamp(26px,3vw,36px)", letterSpacing: "-0.03em" }}>
               Agents can already act. They can't yet <span style={{ color: "var(--settle)" }}>trust each other with money.</span>
             </h2>

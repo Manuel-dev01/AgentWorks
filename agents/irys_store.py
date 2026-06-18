@@ -1,4 +1,4 @@
-"""Irys deliverable storage — Python wrapper around the Node uploader + HTTP retrieval.
+"""Irys deliverable storage - Python wrapper around the Node uploader + HTTP retrieval.
 
 upload(text, tags) -> {id, url, ...} via the @irys/upload devnet Node helper (agents/irys/upload.mjs).
 fetch(irys_id)     -> bytes via GET gateway.irys.xyz/<id> (with retry for gateway propagation).
@@ -46,7 +46,7 @@ def upload(text: str, tags: dict[str, str] | None = None) -> dict:
 
 
 def fetch(irys_id: str, *, tries: int = 6, delay: float = 3.0) -> bytes:
-    # The Irys gateway 403s the default Python-urllib User-Agent — send a normal UA.
+    # The Irys gateway 403s the default Python-urllib User-Agent - send a normal UA.
     url = GATEWAY.format(irys_id)
     last = None
     for _ in range(tries):
@@ -55,7 +55,7 @@ def fetch(irys_id: str, *, tries: int = 6, delay: float = 3.0) -> bytes:
             with urllib.request.urlopen(req, timeout=20) as r:
                 if r.status == 200:
                     return r.read()
-        except Exception as e:  # noqa: BLE001 — brief unavailability right after upload
+        except Exception as e:  # noqa: BLE001 - brief unavailability right after upload
             last = e
         time.sleep(delay)
     raise RuntimeError(f"could not fetch {url} after {tries} tries ({last})")

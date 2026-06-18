@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Start CAW TSS signer daemon(s) per mounted wallet profile, with retry + backoff.
 #
-# Key shares are MOUNTED at $PROFILES_DIR/<name>/ — each dir holds a profile's tss-node contents
+# Key shares are MOUNTED at $PROFILES_DIR/<name>/ - each dir holds a profile's tss-node contents
 # (the encrypted secrets db, the .password key-file, and configs/). NEVER bake key shares into the image.
 # Only ONE node per identity may be connected to the CAW relay at a time: stop any other signer
 # (e.g. a local Windows cobo-tss-node) for these wallets before starting this container.
@@ -61,7 +61,7 @@ prep_profile() {
   if ( touch "${prof}db/.wtest" 2>/dev/null && rm -f "${prof}db/.wtest" 2>/dev/null ); then
     echo "[tss][$name] db dir is writable"
   else
-    echo "[tss][$name] WARN: ${prof}db is NOT writable — db init will fail"
+    echo "[tss][$name] WARN: ${prof}db is NOT writable - db init will fail"
   fi
 }
 
@@ -79,7 +79,7 @@ run_signer_with_retry() {
     local start_ts
     start_ts=$(date +%s)
 
-    # Run in foreground — all output goes to stdout (captured by Railway logs).
+    # Run in foreground - all output goes to stdout (captured by Railway logs).
     # Subshell contains the `cd` so it doesn't persist across retries or profile iterations.
     ( cd "$prof" && exec "$BIN" start --caw --prod --key-file .password )
     local exit_code=$?
@@ -95,7 +95,7 @@ run_signer_with_retry() {
 
     # If it ran long enough, consider it healthy and reset retries
     if [ "$elapsed" -ge "$HEALTHY_THRESHOLD" ]; then
-      echo "[tss][$name] ran for ${elapsed}s (>= ${HEALTHY_THRESHOLD}s) — was healthy, resetting retry counter"
+      echo "[tss][$name] ran for ${elapsed}s (>= ${HEALTHY_THRESHOLD}s) - was healthy, resetting retry counter"
       retries=0
       backoff=$INITIAL_BACKOFF
     else
@@ -142,7 +142,7 @@ fi
 # Wait for key shares if the volume is empty (Railway empty-volume bootstrapping).
 profiles=$(collect_profiles)
 if [ -z "$profiles" ]; then
-  echo "[tss] no key shares under ${PROFILES_DIR} yet — polling every 10s."
+  echo "[tss] no key shares under ${PROFILES_DIR} yet - polling every 10s."
   echo "[tss] populate via: railway ssh  then:  echo '<blob>' | base64 -d | tar -xz -C ${PROFILES_DIR}/client"
   while [ -z "$profiles" ]; do
     sleep 10
@@ -158,7 +158,7 @@ echo "$profiles" | while read -r prof; do
   prep_profile "$prof" "$(basename "$prof")"
 done
 
-# Run signers IN PARALLEL — each profile has a different identity (client vs provider),
+# Run signers IN PARALLEL - each profile has a different identity (client vs provider),
 # so they won't conflict on the relay. Each gets its own retry loop as a background process.
 pids=()
 while read -r prof; do

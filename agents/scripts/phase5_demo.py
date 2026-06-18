@@ -1,4 +1,4 @@
-"""Phase 5 — reasoned lifecycle with REAL Irys storage + on-chain content-hash verification.
+"""Phase 5 - reasoned lifecycle with REAL Irys storage + on-chain content-hash verification.
 
 Closes the loop:
   Provider LLM writes the deliverable -> stores it on Irys (devnet) -> submits
@@ -77,7 +77,7 @@ async def main(mode: str) -> None:
     proof["reasoning"]["client_fund"] = fund_decision
     print(f"[reason] Client.fund? {fund_decision}")
     if not fund_decision.get("fund"):
-        proof["stopped"] = "client_declined"; print("Client declined — stop."); return
+        proof["stopped"] = "client_declined"; print("Client declined - stop."); return
 
     bal0 = {"client": esc.usdc_balance(w3, cc.address), "provider": esc.usdc_balance(w3, pp.address)}
     proof["balances_pre"] = bal0

@@ -4,9 +4,9 @@ web3>=7.0,<8
 python-dotenv>=1.0
 openai>=2.0            # DeepSeek via the OpenAI-compatible API (reasoning)
 requests>=2.32         # transitive / HTTP
-# Control surface (Phase 6.5.4 — agents/server.py)
+# Control surface (Phase 6.5.4 - agents/server.py)
 fastapi>=0.115
 uvicorn[standard]>=0.30
 pydantic>=2.7
-# MCP server (agents/mcp_server.py) — the open agent socket; any MCP client plugs in
+# MCP server (agents/mcp_server.py) - the open agent socket; any MCP client plugs in
 mcp>=1.2

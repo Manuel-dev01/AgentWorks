@@ -45,7 +45,7 @@ export interface Balances {
   provider: number | null;
 }
 
-/** A row on the Marketplace board — live on-chain state joined with artifact/flow detail. */
+/** A row on the Marketplace board - live on-chain state joined with artifact/flow detail. */
 export interface BoardJob {
   jobId: number;
   title: string;

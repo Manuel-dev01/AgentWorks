@@ -1,4 +1,4 @@
-"""Phase 4 (optional, LAST) — review_if human-in-the-loop beat.
+"""Phase 4 (optional, LAST) - review_if human-in-the-loop beat.
 
 A pact with `review_if` (soft block): native transfers above 0.0005 require owner approval.
 We attempt a 0.001 transfer and expect status=PendingApproval + a pending_operation_id, then

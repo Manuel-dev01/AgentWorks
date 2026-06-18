@@ -1,4 +1,4 @@
-"""Phase 4 — reasoned escrow lifecycle: two LLM agents genuinely DECIDE, CAW pacts bound them.
+"""Phase 4 - reasoned escrow lifecycle: two LLM agents genuinely DECIDE, CAW pacts bound them.
 
   Client agent  -> reasons whether to fund the task (client_decide_fund)
   Provider agent-> actually performs the task (provider_do_task)
@@ -78,7 +78,7 @@ async def main(mode: str) -> None:
     proof["reasoning"]["client_fund"] = fund_decision
     print(f"[reason] Client.fund? {fund_decision}")
     if not fund_decision.get("fund"):
-        print("Client declined to fund — stopping."); proof["stopped"] = "client_declined"
+        print("Client declined to fund - stopping."); proof["stopped"] = "client_declined"
         return
 
     bal0 = {"client": esc.usdc_balance(w3, cc.address), "provider": esc.usdc_balance(w3, pp.address)}
@@ -113,7 +113,7 @@ async def main(mode: str) -> None:
             esc.submit_work(job_id, deliverable_hash), "submitWork")
         assert esc.get_job(w3, job_id)["status"] == "Submitted"
 
-        # 3. Evaluator JUDGES — its decision selects the branch
+        # 3. Evaluator JUDGES - its decision selects the branch
         verdict = reasoning.evaluate(TASK, deliverable)
         proof["reasoning"]["evaluate"] = verdict
         print(f"[reason] Evaluator verdict: {verdict}")
