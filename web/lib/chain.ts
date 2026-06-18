@@ -4,7 +4,7 @@
 import { createPublicClient, http, formatUnits } from "viem";
 import { sepolia } from "viem/chains";
 import { CFG } from "./config";
-import { escrowAbi, erc20Abi, STATUS_LABELS, STATUS_LABELS_V2 } from "./abi";
+import { escrowAbi, erc20Abi, STATUS_LABELS, STATUS_LABELS_V2, ESCROW_V2_FROM_BLOCK } from "./abi";
 
 const client = createPublicClient({
   chain: sepolia,
@@ -111,6 +111,37 @@ export interface LiveJobV2 {
   irysId: string;
   client: string;
   provider: string;
+}
+
+export interface SettlementV2 {
+  outcome: "payout" | "refund";
+  txHash: `0x${string}`;
+}
+
+/** Recover a job's settlement (which tx settled it + the outcome) from chain events, for jobs that have no
+ *  run artifact. Best-effort: returns null if unreachable, unsupported, or unsettled. */
+export async function settlementV2(jobId: number): Promise<SettlementV2 | null> {
+  const scan = (eventName: "JobCompleted" | "JobRejected" | "RefundClaimed") =>
+    safe(
+      client.getContractEvents({
+        address: CFG.escrowV2,
+        abi: escrowAbi,
+        eventName,
+        args: { jobId: BigInt(jobId) },
+        fromBlock: ESCROW_V2_FROM_BLOCK,
+        toBlock: "latest",
+      }),
+    );
+  const [completed, rejected, refunded] = await Promise.all([scan("JobCompleted"), scan("JobRejected"), scan("RefundClaimed")]);
+  const hit = completed?.[0]
+    ? { outcome: "payout" as const, log: completed[0] }
+    : rejected?.[0]
+      ? { outcome: "refund" as const, log: rejected[0] }
+      : refunded?.[0]
+        ? { outcome: "refund" as const, log: refunded[0] }
+        : null;
+  if (!hit?.log?.transactionHash) return null;
+  return { outcome: hit.outcome, txHash: hit.log.transactionHash };
 }
 
 /** Live getJob() on the v2 open-marketplace escrow, or null if unreachable / not found. */

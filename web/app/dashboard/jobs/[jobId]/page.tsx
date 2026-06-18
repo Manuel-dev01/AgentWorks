@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { findMarketRun } from "../../../../lib/proofs";
-import { liveJobV2 } from "../../../../lib/chain";
+import { liveJobV2, settlementV2 } from "../../../../lib/chain";
 import { CFG, txUrl, irysUrl, addrUrl, shortHex } from "../../../../lib/config";
 import { Badge } from "../../../../components/Badge";
 import { runBadge } from "../../../../components/dashboard/RunCard";
@@ -43,7 +43,13 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
   const accepts = Object.entries(run?.accept_decisions ?? {});
   const raced = accepts.length > 1;
   const steps = STEP_DEFS.filter((s) => run?.txs?.[s.key]);
-  const settleTx = run?.txs?.complete || run?.txs?.reject || "";
+  // For jobs with no artifact (e.g. MCP-settled), recover the settling tx + outcome from chain events.
+  const chainSettle = !run?.txs?.complete && !run?.txs?.reject ? await settlementV2(jobId) : null;
+  const settleTx = run?.txs?.complete || run?.txs?.reject || chainSettle?.txHash || "";
+  // Outcome: prefer the artifact's branch, else derive from the on-chain status (Completed→payout, Rejected/Refunded→refund).
+  const settled = statusLabel === "Completed" ? "payout" : statusLabel === "Rejected" || statusLabel === "Refunded" ? "refund" : null;
+  const outcome = run?.branch ?? chainSettle?.outcome ?? settled;
+  const outcomeLabel = outcome === "payout" ? "Provider paid" : outcome === "refund" ? "Client refunded" : "-";
   const irys = run?.irys ?? (live?.irysId ? { id: live.irysId, url: irysUrl(live.irysId) } : null);
 
   return (
@@ -117,7 +123,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
         )}
 
         <div className="receipt" style={{ marginTop: 18 }}>
-          <div className="rcell"><div className="rk">Outcome</div><div className="rv">{run?.branch === "payout" ? "Provider paid" : run?.branch === "refund" ? "Client refunded" : "-"}</div></div>
+          <div className="rcell"><div className="rk">Outcome</div><div className="rv">{outcomeLabel}</div></div>
           <div className="rcell"><div className="rk">Amount</div><div className="rv">{amount.toFixed(2)} USDC</div></div>
           <div className="rcell"><div className="rk">settle() tx</div><div className="rv">{settleTx ? <a href={txUrl(settleTx)} target="_blank" rel="noreferrer">{shortHex(settleTx, 10)}</a> : "-"}</div></div>
           <div className="rcell"><div className="rk">Final status</div><div className="rv">{statusLabel}</div></div>
