@@ -51,10 +51,20 @@ export const escrowAbi = [
       { name: "amount", type: "uint256", indexed: false },
     ],
   },
+  // v3 sealed-accept commit phase: opaque hash only (no jobId) — lets the dashboard show "sealed bids".
+  {
+    type: "event", name: "AcceptCommitted",
+    inputs: [
+      { name: "commitment", type: "bytes32", indexed: true },
+      { name: "commitBlock", type: "uint64", indexed: false },
+    ],
+  },
 ] as const;
 
 /** Block the v2 open-marketplace escrow was deployed at — lower bound for settlement-event log scans. */
 export const ESCROW_V2_FROM_BLOCK = 11035232n;
+/** Block the v3 (commit-reveal) escrow was deployed at — lower bound for v3 event log scans. */
+export const ESCROW_V3_FROM_BLOCK = 11087195n;
 
 export const erc20Abi = [
   { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ name: "a", type: "address" }], outputs: [{ type: "uint256" }] },

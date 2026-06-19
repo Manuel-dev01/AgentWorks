@@ -41,10 +41,24 @@ USDC_TOKEN_ID = os.environ.get("CAW_USDC_TOKEN_ID", "SETH_USDC")
 
 # On-chain (Ethereum Sepolia)
 RPC_URL = os.environ.get("RPC_URL", "https://sepolia.drpc.org")
+# Optional private/MEV-protected RPC. When set it is preferred for reads (harmless) and is the
+# endpoint a private-broadcast path would use once the CAW relay exposes private order flow. See
+# docs/MEV.md. Defensive default: unset → fall back to RPC_URL.
+PRIVATE_RPC_URL = os.environ.get("PRIVATE_RPC_URL", "")
+# Opt-in flag: when true, state-changing accept txs (the reveal) signal a request for private-mempool
+# routing through the single CAW chokepoint (caw/client.py). A documented no-op until Cobo supports it.
+MEV_PROTECT = os.environ.get("MEV_PROTECT", "false").strip().lower() in ("1", "true", "yes", "on")
 ESCROW_ADDRESS = os.environ.get("ESCROW_CONTRACT_ADDRESS", "")  # v1 (closed 1:1) - legacy
-# v2 open-marketplace escrow (Phase 6.5). Defaults to the deployed+verified address so the v2
-# agents/dashboard work out of the box; override in .env to point at a different deployment.
+# v2 open-marketplace escrow (Phase 6.5). Raw acceptJob race - superseded by v3 commit-reveal but
+# kept for history; defaults to the deployed+verified address.
 ESCROW_V2_ADDRESS = os.environ.get("ESCROW_V2_CONTRACT_ADDRESS", "0xD6cB413c0E4a5839Fd4B02aFFeBF65e6868726b9")
+# v3 open-marketplace escrow with sealed commit-reveal accept (MEV/frontrunning hardening).
+# Live + verified on Sepolia (deploy block 11087195). Override in .env to point at another deployment.
+ESCROW_V3_ADDRESS = os.environ.get("ESCROW_V3_CONTRACT_ADDRESS", "0xFAab4d6ff5CBEcD72a4e1B9315662e7846166D69")
+# Reveal timing must mirror the deployed v3 constructor args (delay=1, window=256 on Sepolia) so the
+# agents wait the right number of blocks between commitAccept and revealAccept.
+REVEAL_DELAY_BLOCKS = int(os.environ.get("REVEAL_DELAY_BLOCKS", "1"))
+REVEAL_WINDOW_BLOCKS = int(os.environ.get("REVEAL_WINDOW_BLOCKS", "256"))
 USDC_ADDRESS = os.environ.get("USDC_TOKEN_ADDRESS", "")
 EXPLORER_TX = "https://sepolia.etherscan.io/tx/{}"
 EXPLORER_ADDR = "https://sepolia.etherscan.io/address/{}"

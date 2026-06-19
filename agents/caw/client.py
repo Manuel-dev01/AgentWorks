@@ -152,9 +152,19 @@ class CawWallet:
     async def contract_call(
         self, *, src_addr: str, contract_addr: str, calldata: str, chain_id: str,
         request_id: str, value: str = "0", description: str | None = None,
+        private_tx: bool = False,
     ) -> Any:
+        # Private-mempool routing hook (defense-in-depth for the commit-reveal accept; see docs/MEV.md).
+        # CAW signs + broadcasts every tx via its TSS relay; the verified v0.1.40 SDK surface exposes
+        # NO private-order-flow / Flashbots field. We therefore log the intent here - the single,
+        # isolated chokepoint - so the day Cobo adds a `private`/`mev_protect` kwarg, this is the only
+        # line that changes. We do NOT bypass CAW with local signing (that would break "cloud holds no
+        # keys / one TSS node"). Honest stance: this is prepared, not yet active end-to-end.
+        if private_tx:
+            log.info("[%s] private-mempool routing requested for %s (relay support pending)",
+                     self.name, request_id)
         return await self._call(
-            f"contract_call({contract_addr} data={calldata[:18]}…)",
+            f"contract_call({contract_addr} data={calldata[:18]}… private={private_tx})",
             self._client.contract_call(
                 self.wallet_uuid, src_addr=src_addr, chain_id=chain_id, contract_addr=contract_addr,
                 calldata=calldata, value=value, request_id=request_id, description=description,

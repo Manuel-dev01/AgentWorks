@@ -111,7 +111,7 @@ def health() -> dict:
     return {
         "status": "ok",
         "chain_id": config.CHAIN_ID,
-        "escrow_v2": config.ESCROW_V2_ADDRESS,
+        "escrow_v3": config.ESCROW_V3_ADDRESS,
         "usdc": config.USDC_ADDRESS,
         "participants": [p.public() for p in pool],
         "providers": len(registry.providers(pool)),
@@ -203,7 +203,7 @@ def marketplace_jobs(status: str = "open") -> dict:
       - 'open' (default): only Funded + unclaimed jobs (available for acceptance)
       - 'all': every job on-chain (within the recent scan window)
     """
-    import escrow_v2 as esc
+    import escrow_v3 as esc
     w3 = esc.web3()
     try:
         n = esc.next_job_id(w3)
@@ -230,7 +230,7 @@ def marketplace_jobs(status: str = "open") -> dict:
 def marketplace_job(job_id: int) -> dict:
     """One job: on-chain status merged with its board listing. Lets a provider confirm it won the race
     (provider == its address) and lets anyone inspect a job's lifecycle state."""
-    import escrow_v2 as esc
+    import escrow_v3 as esc
     w3 = esc.web3()
     try:
         on_chain = esc.get_job(w3, job_id)
@@ -250,7 +250,7 @@ def marketplace_post_calldata(client_address: str, amount_usdc: float, task: str
     NOTE: job_id is predicted from the current nextJobId - if two clients fund in the same block the
     prediction can race; re-read the real id from the createJob receipt before posting the listing.
     """
-    import escrow_v2 as esc
+    import escrow_v3 as esc
     from web3 import Web3
     w3 = esc.web3()
     try:
@@ -269,16 +269,16 @@ def marketplace_post_calldata(client_address: str, amount_usdc: float, task: str
         "deadline": deadline,
         "evaluator": ev,
         "chain_id": config.CHAIN_ID,
-        "escrow": config.ESCROW_V2_ADDRESS,
+        "escrow": config.ESCROW_V3_ADDRESS,
         "usdc": config.USDC_ADDRESS,
         "steps": [
-            {"step": "createJob", "to": config.ESCROW_V2_ADDRESS,
+            {"step": "createJob", "to": config.ESCROW_V3_ADDRESS,
              "function": "createJob(address,uint256,bytes32,uint64)",
              "calldata": esc.create_job(ev, amt, spec_hash_b, deadline)},
             {"step": "approve", "to": config.USDC_ADDRESS,
              "function": "approve(address,uint256)",
-             "calldata": esc.approve(config.ESCROW_V2_ADDRESS, amt)},
-            {"step": "fund", "to": config.ESCROW_V2_ADDRESS,
+             "calldata": esc.approve(config.ESCROW_V3_ADDRESS, amt)},
+            {"step": "fund", "to": config.ESCROW_V3_ADDRESS,
              "function": "fund(uint256)",
              "calldata": esc.fund(job_id)},
         ],
@@ -297,7 +297,7 @@ class PostJobBody(BaseModel):
 def marketplace_post_job(body: PostJobBody) -> dict:
     """Publish the human-readable listing for an already-funded on-chain job so providers can discover the
     task text (only specHash lives on-chain). The job must be Funded + unclaimed (verified on-chain)."""
-    import escrow_v2 as esc
+    import escrow_v3 as esc
     w3 = esc.web3()
     try:
         job = esc.get_job(w3, body.job_id)
@@ -321,7 +321,7 @@ class DeliverBody(BaseModel):
 def marketplace_deliver(job_id: int, body: DeliverBody) -> dict:
     """Provider deliver helper: store the work on Irys and return the submitWork calldata the provider signs
     with its OWN CAW wallet. The platform never signs or holds provider keys - it stores + encodes only."""
-    import escrow_v2 as esc
+    import escrow_v3 as esc
     import irys_store
     from web3 import Web3
     w3 = esc.web3()
@@ -344,7 +344,7 @@ def marketplace_deliver(job_id: int, body: DeliverBody) -> dict:
         "irys_id": irys.get("id"),
         "irys_url": irys.get("url"),
         "deliverable_hash": Web3.to_hex(dhash),
-        "contract_address": config.ESCROW_V2_ADDRESS,
+        "contract_address": config.ESCROW_V3_ADDRESS,
         "chain_id": config.CHAIN_ID,
         "function": "submitWork(uint256,bytes32,string)",
         "calldata": esc.submit_work(job_id, dhash, irys.get("id")),
@@ -390,14 +390,21 @@ async def marketplace_register(body: RegisterBody, authorization: str = Header(d
 
 
 @app.get("/marketplace/jobs/{job_id}/calldata")
-def marketplace_calldata(job_id: int) -> dict:
-    """Get the ABI-encoded calldata for acceptJob(jobId).
+def marketplace_calldata(job_id: int, provider_address: str = "", salt: str = "") -> dict:
+    """Get the SEALED commit-reveal accept calldata (v3) for a funded job.
 
-    External providers use this to call acceptJob directly on the escrow contract
-    via their own CAW wallet. The contract address and chain ID are included so the
-    agent can construct the full contract_call.
+    Accepting is two phases (defeats public-mempool frontrunning of the accept race):
+      1. commitAccept(commitment) - commitment = keccak256(abi.encode(jobId, provider, salt)); the
+         jobId stays hidden, and the hash binds to `provider` so a copied commitment is useless.
+      2. revealAccept(jobId, salt) - after revealDelayBlocks, claims the job; first valid reveal wins.
+
+    Pass `provider_address` (the wallet that will accept) so the commitment binds to it, and an
+    optional 32-byte hex `salt` (else one is generated and RETURNED - the provider MUST keep it to
+    reveal). External providers sign both calldatas with their OWN CAW wallet. Route the reveal
+    through a private mempool for defense-in-depth (see docs/MEV.md).
     """
-    import escrow_v2 as esc
+    import escrow_v3 as esc
+    from web3 import Web3
     w3 = esc.web3()
     try:
         job = esc.get_job(w3, job_id)
@@ -407,15 +414,34 @@ def marketplace_calldata(job_id: int) -> dict:
         raise HTTPException(status_code=400, detail=f"Job {job_id} is not available for acceptance (status: {job['status']})")
     if int(job["provider"], 16) != 0:
         raise HTTPException(status_code=400, detail=f"Job {job_id} already has a provider")
-    calldata = esc.accept_job(job_id)
+    if not provider_address:
+        raise HTTPException(status_code=400, detail="provider_address is required (the commitment binds to it)")
+    salt_bytes = bytes.fromhex(salt[2:] if salt.startswith("0x") else salt) if salt else esc.random_salt()
+    if len(salt_bytes) != 32:
+        raise HTTPException(status_code=400, detail="salt must be 32 bytes (hex)")
+    commitment = esc.commitment(job_id, provider_address, salt_bytes)
     return {
         "job_id": job_id,
-        "contract_address": config.ESCROW_V2_ADDRESS,
+        "contract_address": config.ESCROW_V3_ADDRESS,
         "chain_id": config.CHAIN_ID,
-        "function": "acceptJob(uint256)",
-        "calldata": calldata,
         "job_status": job["status"],
         "reward_usdc": job["amount"] / 1_000_000,
+        "provider_address": provider_address,
+        "salt": Web3.to_hex(salt_bytes),
+        "commitment": Web3.to_hex(commitment),
+        "reveal_delay_blocks": config.REVEAL_DELAY_BLOCKS,
+        "steps": [
+            {"step": "commitAccept", "to": config.ESCROW_V3_ADDRESS,
+             "function": "commitAccept(bytes32)",
+             "calldata": esc.commit_accept(commitment),
+             "note": "phase 1: publish the sealed bid (opaque; reveals no jobId)"},
+            {"step": "revealAccept", "to": config.ESCROW_V3_ADDRESS,
+             "function": "revealAccept(uint256,bytes32)",
+             "calldata": esc.reveal_accept(job_id, salt_bytes),
+             "note": "phase 2: after %d block(s), claim the job; keep the salt secret until now" % config.REVEAL_DELAY_BLOCKS},
+        ],
+        "note": "KEEP the salt - revealAccept needs it. The commitment binds to provider_address; a "
+                "copied commitment cannot be revealed by anyone else.",
     }
 
 

@@ -4,15 +4,20 @@ Run locally by an operator with their OWN Cobo Agentic Wallet. Exposes the Agent
 so ANY MCP-capable agent (Claude Desktop / Claude Code / etc.) can be a client or a provider. The genuine
 "agent" is the connecting LLM; this server just ships the socket.
 
-Trustless by construction: calldata is built locally (escrow_v2), signed through the operator's OWN CAW wallet
+Trustless by construction: calldata is built locally (escrow_v3), signed through the operator's OWN CAW wallet
 (Pact-scoped), and only the shared off-chain board is read from the deployed service. The operator's api_key
 never leaves this process, and the Pact is the hard boundary regardless of what the connecting LLM decides
 (a provider Pact excludes USDC, so a provider can accept + deliver but can never move escrowed funds).
 
+Accepting a job is the SEALED commit-reveal race (v3): a provider commits an opaque hash (the targeted
+jobId stays hidden from the public mempool), waits the reveal delay, then reveals to claim - defeating the
+frontrun the raw v2 acceptJob was vulnerable to. accept_job() runs both phases; commit_accept()/
+reveal_accept() expose them individually for demos. See docs/MEV.md.
+
 Config (env - the operator's own wallet):
   MCP_WALLET_ID, MCP_API_KEY, MCP_ADDRESS, MCP_ROLE=client|provider
   AGENT_API (marketplace board base url; defaults to the live Railway service)
-  + reused from config.py / .env: RPC_URL, ESCROW_V2_CONTRACT_ADDRESS, USDC_TOKEN_ADDRESS, CAW_CHAIN_ID, IRYS_*
+  + reused from config.py / .env: RPC_URL, ESCROW_V3_CONTRACT_ADDRESS, USDC_TOKEN_ADDRESS, CAW_CHAIN_ID, IRYS_*
 
 Run:  python agents/mcp_server.py            # stdio (for Claude Desktop / Code)
 Signing tools need the operator's TSS node connected to the CAW relay; read tools do not.
@@ -35,7 +40,7 @@ from web3 import Web3
 from mcp.server.fastmcp import FastMCP
 
 import config
-import escrow_v2 as esc
+import escrow_v3 as esc
 import irys_store
 import pacts
 from caw import CawWallet
@@ -53,6 +58,9 @@ mcp = FastMCP("agentworks")
 # Cached operator wallet bound to an active Pact (lazy; created on first signing tool or onboard()).
 _scoped: CawWallet | None = None
 _pact: dict | None = None
+# Sealed accept bids in flight: job_id -> salt, so commit_accept() and a later reveal_accept() (or the
+# accept_job() orchestrator) share the secret. Held only in this process.
+_salts: dict[int, bytes] = {}
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -95,8 +103,8 @@ async def _ensure_onboarded() -> CawWallet:
         raise RuntimeError("MCP_ROLE must be 'client' or 'provider'")
     root = CawWallet(api_url=config.CAW_API_URL, api_key=MCP_API_KEY, wallet_uuid=MCP_WALLET_ID, name=f"mcp-{MCP_ROLE}")
     await _revoke_active(root)
-    spec = (pacts.provider_pact(escrow=config.ESCROW_V2_ADDRESS) if MCP_ROLE == "provider"
-            else pacts.client_escrow_pact(escrow=config.ESCROW_V2_ADDRESS, usdc=config.USDC_ADDRESS))
+    spec = (pacts.provider_pact(escrow=config.ESCROW_V3_ADDRESS) if MCP_ROLE == "provider"
+            else pacts.client_escrow_pact(escrow=config.ESCROW_V3_ADDRESS, usdc=config.USDC_ADDRESS))
     sub = await root.submit_pact(intent=f"AgentWorks MCP {MCP_ROLE}", spec=spec,
                                  name=f"mcp-{MCP_ROLE}-{MCP_WALLET_ID[:8]}")
     _pact = await root.wait_pact_active(sub.get("pact_id"))
@@ -104,12 +112,13 @@ async def _ensure_onboarded() -> CawWallet:
     return _scoped
 
 
-async def _sign(target: str, calldata: str, label: str) -> str:
+async def _sign(target: str, calldata: str, label: str, *, private_tx: bool = False) -> str:
     """contract_call through the operator's Pact-scoped wallet → wait for finality → return the tx hash."""
     w = await _ensure_onboarded()
     rid = f"mcp-{uuid4().hex[:10]}"
     resp = await w.contract_call(src_addr=MCP_ADDRESS, contract_addr=target, calldata=calldata,
-                                 chain_id=config.CHAIN_ID, request_id=rid, description=label)
+                                 chain_id=config.CHAIN_ID, request_id=rid, description=label,
+                                 private_tx=private_tx)
     rec = await w.wait_tx_final(rid, timeout=420.0)
     return (rec or {}).get("transaction_hash") or (resp or {}).get("transaction_hash") or ""
 
@@ -162,7 +171,7 @@ async def my_wallet() -> dict:
         return {"configured": False, "note": "set MCP_WALLET_ID / MCP_API_KEY / MCP_ADDRESS to your CAW wallet"}
     out: dict = {"configured": True, "role": MCP_ROLE, "address": MCP_ADDRESS, "wallet_id": MCP_WALLET_ID,
                  "onboarded": _scoped is not None, "pact_id": (_pact or {}).get("id") if _pact else None,
-                 "escrow_v2": config.ESCROW_V2_ADDRESS, "chain": "Ethereum Sepolia"}
+                 "escrow_v3": config.ESCROW_V3_ADDRESS, "chain": "Ethereum Sepolia"}
     try:
         w3 = esc.web3()
         out["eth"] = w3.eth.get_balance(Web3.to_checksum_address(MCP_ADDRESS)) / 1e18
@@ -178,8 +187,8 @@ async def workflow_guide() -> dict:
     return {
         "your_role": MCP_ROLE,
         "provider": ["onboard()", "list_open_jobs()", "(decide which job is worth the reward)",
-                     "accept_job(job_id)  # on-chain race; check 'won'", "(do the work)",
-                     "deliver_work(job_id, deliverable)"],
+                     "accept_job(job_id)  # sealed commit-reveal race (both phases); check 'won'",
+                     "(do the work)", "deliver_work(job_id, deliverable)"],
         "client": ["onboard()", "post_job(task, criteria, reward_usdc)",
                    "(wait; poll get_job(job_id) until status == 'Submitted')",
                    "get_deliverable(job_id)  # judge it against the spec",
@@ -216,9 +225,9 @@ async def post_job(task: str, criteria: str = "", reward_usdc: float = 5.0, dead
     spec_hash = Web3.keccak(text=f"{spec}#{job_id}")
     amt = int(round(reward_usdc * 1_000_000))
     deadline = int(time.time()) + max(1, deadline_days) * 24 * 3600
-    tx_create = await _sign(config.ESCROW_V2_ADDRESS, esc.create_job(MCP_ADDRESS, amt, spec_hash, deadline), "createJob")
-    tx_approve = await _sign(config.USDC_ADDRESS, esc.approve(config.ESCROW_V2_ADDRESS, amt), "approve")
-    tx_fund = await _sign(config.ESCROW_V2_ADDRESS, esc.fund(job_id), "fund")
+    tx_create = await _sign(config.ESCROW_V3_ADDRESS, esc.create_job(MCP_ADDRESS, amt, spec_hash, deadline), "createJob")
+    tx_approve = await _sign(config.USDC_ADDRESS, esc.approve(config.ESCROW_V3_ADDRESS, amt), "approve")
+    tx_fund = await _sign(config.ESCROW_V3_ADDRESS, esc.fund(job_id), "fund")
     listing: Any = None
     try:
         def _pub():
@@ -243,10 +252,10 @@ async def evaluate_and_settle(job_id: int, accept: bool) -> dict:
     if job["status"] != "Submitted":
         return {"error": f"job {job_id} is not Submitted (status: {job['status']})"}
     if accept:
-        tx = await _sign(config.ESCROW_V2_ADDRESS, esc.complete(job_id), "complete")
+        tx = await _sign(config.ESCROW_V3_ADDRESS, esc.complete(job_id), "complete")
         branch = "payout"
     else:
-        tx = await _sign(config.ESCROW_V2_ADDRESS, esc.reject(job_id), "reject")
+        tx = await _sign(config.ESCROW_V3_ADDRESS, esc.reject(job_id), "reject")
         branch = "refund"
     final = await asyncio.to_thread(esc.get_job, w3, job_id)
     return {"job_id": job_id, "branch": branch, "tx": _tx(tx), "final_status": final["status"]}
@@ -254,20 +263,91 @@ async def evaluate_and_settle(job_id: int, accept: bool) -> dict:
 
 # ── provider tools (sign via the operator's wallet) ──────────────────────────
 
+async def _wait_reveal_ready(w3: Web3, commit_tx: str) -> None:
+    """Block until the committed tx is old enough to reveal (commitBlock + revealDelayBlocks)."""
+    try:
+        rcpt = await asyncio.to_thread(w3.eth.get_transaction_receipt, commit_tx)
+        commit_block = int(rcpt["blockNumber"])
+    except Exception:
+        commit_block = await asyncio.to_thread(lambda: w3.eth.block_number)
+    ready = commit_block + config.REVEAL_DELAY_BLOCKS
+    for _ in range(120):
+        head = await asyncio.to_thread(lambda: w3.eth.block_number)
+        if head >= ready:
+            return
+        await asyncio.sleep(4.0)
+
+
 @mcp.tool()
 async def accept_job(job_id: int) -> dict:
-    """[provider] Claim a funded job on-chain (acceptJob). First claimer wins the race; a late claim reverts.
-    Re-reads the job afterward to report whether you won."""
+    """[provider] Claim a funded job via the SEALED commit-reveal race (runs BOTH phases): commit an
+    opaque hash (the jobId stays hidden from the public mempool), wait the short reveal delay, then
+    reveal to claim. The first valid reveal wins; a loser's reveal reverts. Re-reads the job to report
+    whether you won. (For step-by-step control, use commit_accept() then reveal_accept().)"""
     w3 = esc.web3()
     job = await asyncio.to_thread(esc.get_job, w3, job_id)
     if job["status"] != "Funded":
         return {"error": f"job {job_id} is not available (status: {job['status']})"}
+    salt = esc.random_salt()
+    _salts[job_id] = salt
     try:
-        tx = await _sign(config.ESCROW_V2_ADDRESS, esc.accept_job(job_id), "acceptJob")
+        commit_tx = await _sign(config.ESCROW_V3_ADDRESS,
+                                esc.commit_accept(esc.commitment(job_id, MCP_ADDRESS, salt)), "commitAccept")
     except Exception as e:
-        return {"won": False, "error": f"acceptJob reverted - likely lost the race: {type(e).__name__}: {e}"}
+        return {"won": False, "error": f"commitAccept failed: {type(e).__name__}: {e}"}
+    await _wait_reveal_ready(w3, commit_tx)
+    try:
+        reveal_tx = await _sign(config.ESCROW_V3_ADDRESS, esc.reveal_accept(job_id, salt), "revealAccept",
+                                private_tx=config.MEV_PROTECT)
+    except Exception as e:
+        return {"won": False, "commit_tx": _tx(commit_tx),
+                "error": f"revealAccept reverted - likely lost the sealed race: {type(e).__name__}: {e}"}
     after = await asyncio.to_thread(esc.get_job, w3, job_id)
     won = int(after["provider"], 16) == int(MCP_ADDRESS, 16)
+    _salts.pop(job_id, None)
+    return {"job_id": job_id, "won": won, "txs": {"commitAccept": _tx(commit_tx), "revealAccept": _tx(reveal_tx)},
+            "provider_now": after["provider"],
+            "next": "deliver_work(%d, <your work>)" % job_id if won else "another provider won; pick another job"}
+
+
+@mcp.tool()
+async def commit_accept(job_id: int) -> dict:
+    """[provider] Step 1 of the sealed race: publish an opaque commitment (keccak256(jobId, you, salt)).
+    Reveals NOTHING about which job you target. The salt is held in this process for reveal_accept().
+    After the reveal delay (~1 block on Sepolia), call reveal_accept(job_id)."""
+    w3 = esc.web3()
+    job = await asyncio.to_thread(esc.get_job, w3, job_id)
+    if job["status"] != "Funded":
+        return {"error": f"job {job_id} is not available (status: {job['status']})"}
+    salt = esc.random_salt()
+    _salts[job_id] = salt
+    try:
+        tx = await _sign(config.ESCROW_V3_ADDRESS,
+                         esc.commit_accept(esc.commitment(job_id, MCP_ADDRESS, salt)), "commitAccept")
+    except Exception as e:
+        _salts.pop(job_id, None)
+        return {"error": f"commitAccept failed: {type(e).__name__}: {e}"}
+    return {"job_id": job_id, "committed": True, "tx": _tx(tx),
+            "next": "after ~%d block(s), reveal_accept(%d)" % (config.REVEAL_DELAY_BLOCKS, job_id)}
+
+
+@mcp.tool()
+async def reveal_accept(job_id: int) -> dict:
+    """[provider] Step 2 of the sealed race: open your commitment and claim the job. Must follow a
+    commit_accept(job_id) in this session (the salt is held here). First valid reveal wins; a late
+    reveal reverts. Routed through the private-mempool hook when MEV_PROTECT is enabled."""
+    salt = _salts.get(job_id)
+    if salt is None:
+        return {"error": f"no committed bid for job {job_id} in this session; call commit_accept({job_id}) first"}
+    w3 = esc.web3()
+    try:
+        tx = await _sign(config.ESCROW_V3_ADDRESS, esc.reveal_accept(job_id, salt), "revealAccept",
+                         private_tx=config.MEV_PROTECT)
+    except Exception as e:
+        return {"won": False, "error": f"revealAccept reverted - likely lost the sealed race: {type(e).__name__}: {e}"}
+    after = await asyncio.to_thread(esc.get_job, w3, job_id)
+    won = int(after["provider"], 16) == int(MCP_ADDRESS, 16)
+    _salts.pop(job_id, None)
     return {"job_id": job_id, "won": won, "tx": _tx(tx), "provider_now": after["provider"],
             "next": "deliver_work(%d, <your work>)" % job_id if won else "another provider won; pick another job"}
 
@@ -289,7 +369,7 @@ async def deliver_work(job_id: int, deliverable: str) -> dict:
             {"app": "AgentWorks", "job-id": str(job_id), "content-keccak": Web3.to_hex(dhash)})
     except Exception as e:
         return {"error": f"Irys upload failed: {type(e).__name__}: {e}"}
-    tx = await _sign(config.ESCROW_V2_ADDRESS, esc.submit_work(job_id, dhash, irys.get("id")), "submitWork")
+    tx = await _sign(config.ESCROW_V3_ADDRESS, esc.submit_work(job_id, dhash, irys.get("id")), "submitWork")
     return {"job_id": job_id, "irys_id": irys.get("id"), "irys_url": irys.get("url"),
             "deliverable_hash": Web3.to_hex(dhash), "tx": _tx(tx),
             "next": "the job's evaluator now settles via evaluate_and_settle(%d, accept=...)" % job_id}

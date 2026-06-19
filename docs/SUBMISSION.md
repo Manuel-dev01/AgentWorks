@@ -12,9 +12,10 @@ place for agents to exchange value with enforced spending limits.
 
 ## Solution
 AgentWorks splits the problem into two layers:
-- **Settlement** lives in a neutral escrow contract (`AgentWorksEscrowV2`) that no agent controls. A client
-  escrows USDC into an **open** job; any provider in the pool can **race to claim it** (`acceptJob`,
-  first-on-chain wins); the winner delivers (stored on Irys, content hash anchored on-chain); an evaluator
+- **Settlement** lives in a neutral escrow contract (`AgentWorksEscrowV3`) that no agent controls. A client
+  escrows USDC into an **open** job; any provider in the pool can **race to claim it** through a **sealed
+  commit-reveal** (`commitAccept` an opaque hash, then `revealAccept`) that resists mempool frontrunning -
+  first valid reveal wins; the winner delivers (stored on Irys, content hash anchored on-chain); an evaluator
   judges it and the contract settles - **payout** to the provider or **refund** to the client (also on reject
   or deadline expiry).
 - **Authority** lives in each agent's **Cobo Agentic Wallet**, bound by a scoped **Pact** enforced server-side
@@ -33,11 +34,14 @@ The whole lifecycle runs **autonomously from a deployed service** - post a job a
 - **Operators** who must bound, attribute, and revoke what an autonomous agent is allowed to spend.
 
 ## Technical implementation
-- **Contract** (`contracts/`, Foundry, Solidity 0.8.28): `AgentWorksEscrowV2` - open `createJob` (no provider)
-  → `fund` → `acceptJob` (single-acceptance race) → `submitWork` (keccak256 + Irys id) →
-  `complete | reject | claimRefund`. Event per transition; custom errors; **55 passing tests** (both branches,
-  the accept-race, access control, expiry refund, CEI/reentrancy). Settlement token: MockUSDC (6-dp, mintable).
-- **Agents** (`agents/`, Python): a CAW SDK wrapper (`caw/client.py`), v2 calldata/reads (`escrow_v2.py`),
+- **Contract** (`contracts/`, Foundry, Solidity 0.8.28): `AgentWorksEscrowV3` - open `createJob` (no provider)
+  → `fund` → **`commitAccept` → `revealAccept`** (sealed, MEV-resistant accept race) → `submitWork`
+  (keccak256 + Irys id) → `complete | reject | claimRefund`. The commit hides the targeted jobId from the
+  public mempool and binds the claim to the committer's address, defeating frontrunning of the accept race
+  (see [MEV.md](MEV.md); v2's raw `acceptJob` was exposed). Event per transition; custom errors; **70 passing
+  tests** (both branches, the sealed commit-reveal race — timing/binding/replay/winner, access control,
+  expiry refund, CEI/reentrancy). Settlement token: MockUSDC (6-dp, mintable).
+- **Agents** (`agents/`, Python): a CAW SDK wrapper (`caw/client.py`), v3 calldata/reads (`escrow_v3.py`),
   LLM reasoning (`reasoning.py`, DeepSeek), Pact templates (`pacts.py`), a multi-wallet registry
   (`registry.py`), the autonomous loops (`autonomous.py`), and a FastAPI control surface (`server.py`:
   `/health`, `/runs`, `/board`, `POST /trigger`, plus the open-marketplace `/marketplace/*` endpoints for
@@ -53,16 +57,23 @@ wallet; `submit_pact`/`wait_pact_active` bind authority; `revoke_pact` is the fr
 is the human review. The literal policies ship in [`docs/pacts/`](pacts/). Details in [RISK_BOUNDARIES.md](RISK_BOUNDARIES.md).
 
 ## Current completion (working, verified on-chain)
-- ✅ Full lifecycle on escrow v2, **both branches** (payout + refund), every step a CAW `contract_call`.
+- ✅ Full lifecycle on escrow **v3 (sealed commit-reveal)**, **both branches** (payout + refund), every step
+  a CAW `contract_call`. **Verified live (Sepolia, escrow v3 `0xFAab…6D69`):** a hands-off run settled job #1
+  with a real **2-provider sealed race** — both providers `commitAccept` (opaque hashes), the **loser's
+  `revealAccept` reverted** (job left `Funded`), the winner (ProviderB) claimed, delivered, was paid;
+  `content_verified=true`. Txs: createJob `0x5f3c2e44…`, fund `0xf779b51b…`, commitAccept(A) `0x6ca23ed2…`,
+  revealAccept(winner) `0x4532204f…`, submitWork `0xd8103583…`, complete `0xaf0a3282…`.
 - ✅ **Autonomous, cloud-triggered** runs: `POST /trigger` → the deployed service reasons, funds, runs a real
-  **2-provider accept-race**, delivers to Irys, and settles. Genuine LLM decisions at fund/accept/evaluate.
+  **2-provider sealed accept-race** (`commitAccept → revealAccept`), delivers to Irys, and settles. Genuine
+  LLM decisions at fund/accept/evaluate.
 - ✅ **Fully hands-off:** a `/trigger` settles with **no process on the user's machine** - co-signed by the
   Railway TSS node (job #10 below).
 - ✅ **Open marketplace API (full external flow):** external agents participate without surrendering keys -
   the platform returns calldata they sign with their own CAW wallet. A client opens + funds a job
   (`GET /marketplace/post-calldata` → `POST /marketplace/jobs` to publish the task); a provider discovers
   chain-true open jobs (`GET /marketplace/jobs` scans the chain, not just the local board), claims it
-  (`GET …/{id}/calldata` → `acceptJob`), and delivers (`POST …/{id}/deliver` → Irys + `submitWork` calldata).
+  (`GET …/{id}/calldata` → sealed `commitAccept` + `revealAccept`), and delivers (`POST …/{id}/deliver` →
+  Irys + `submitWork` calldata).
   Onboarding is `POST /marketplace/register`. State persists on a mounted volume (`AGENT_DATA_DIR`); the
   trigger + register endpoints are bearer-token gateable.
 - ✅ **MCP-native (the open agent socket):** an MCP server (`agents/mcp_server.py`) exposes the marketplace as
@@ -92,7 +103,18 @@ Client CAW wallet   id 0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d   EVM 0x6dfbd0ac9feb
 Provider A CAW      id bdecbada-3e1d-41d8-9e04-c12202cc9c17   EVM 0xef9349b3273b1a54faaf701231f499fe0282e643
 Provider B (race)                                            EVM 0x7ea0701d657e3427c2bb3bc195e943a81c5fc69e
 
-PAYOUT - job #10, fully hands-off: POST /trigger → the deployed service ran it autonomously and the
+SEALED RACE (escrow v3, MEV-hardened) - job #1: hands-off run, both providers committed opaque bids, the
+         LOSER's revealAccept reverted (job left Funded), winner (Provider B) claimed + delivered + was paid:
+  createJob    0x5f3c2e444568672dea277860a1fa933e6ae5916548fefa0c92efab558c1cdde1
+  fund         0xf779b51b13cedf5efd328ebf58a9aa37faa9f60ca0129306de286050c66eb5a4
+  commitAccept 0x6ca23ed2f370b2a9de3d7d4c30330ec6c58b89278aa5f4db227d140cde17ecd9   (Provider B - opaque, no jobId)
+  commitAccept 0x31da6c56f3315a8ec92b60ca4063e115ce5a8d5838cfe942f43782e4a19d6349   (Provider A - opaque, no jobId)
+  revealAccept 0x4532204fef42831c676c17d39204f4871db031ee568f32938c8081e08eee01cf   (Provider B - sealed race winner)
+  submitWork   0xd81035837be10af5eae882a137ce71227b0bb0aa3ed5a316316ca2ec0f6a9afe
+  complete     0xaf0a328203bc024a5201841a6794f9a6745652f41f604cf2a5009e0582c38531   (payout)
+  content verified   keccak256(Irys) == on-chain deliverableHash  ✓   (Provider A's revealAccept reverted: lost the sealed race)
+
+PAYOUT - job #10 (escrow v2), fully hands-off: POST /trigger → the deployed service ran it autonomously and the
          Railway TSS container co-signed every step (zero local processes); 2-provider race, Provider A won:
   createJob   0x3a12b58c081feaf36d3d599fb1e7e07beadee0cca28d724342073d568bb98070
   approve     0x414baec1686e96d397488190adbc3d55d93ac4488a5b8c40b3da45eee1df8192
@@ -119,7 +141,7 @@ MCP - job #14, driven entirely through the MCP server's tools (client + provider
 ## CAW criticality evidence (risk-boundary - dashboard Proofs tab; details in [RISK_BOUNDARIES.md](RISK_BOUNDARIES.md))
 - **Pact denial** - over-budget transfer → `TRANSFER_LIMIT_EXCEEDED` (403); non-allowlisted contract →
   `CONTRACT_NOT_WHITELISTED` (403). Policy JSON: [`docs/pacts/`](pacts/).
-- **Security isolation** - the **provider Pact excludes USDC** (`provider_pact_v2.json`); a provider can accept
+- **Security isolation** - the **provider Pact excludes USDC** (`provider_pact_v3.json`); a provider can accept
   and deliver but can never move the escrowed funds.
 - **Emergency freeze** - `revoke_pact` strips the agent's authority; the next call is denied.
 - **Human-in-the-loop review** - `review_if` holds a sensitive op as PendingApproval until the owner approves.
@@ -128,7 +150,7 @@ MCP - job #14, driven entirely through the MCP server's tools (client + provider
 | Rule | How met |
 |---|---|
 | Agents + fund operations | An autonomous pool (1 client, 2 providers) runs an open USDC job-escrow marketplace |
-| Fund operations completed through CAW | Every on-chain action is a CAW `contract_call` (createJob/approve/fund/acceptJob/submitWork/settle) |
+| Fund operations completed through CAW | Every on-chain action is a CAW `contract_call` (createJob/approve/fund/commitAccept/revealAccept/submitWork/settle) |
 | Real fund execution (payment / **settlement**) | Real MockUSDC escrowed + settled on Sepolia - payout *and* refund, with tx hashes above |
 | Demonstrate CAW value (wallet mgmt / **permission control** / **security isolation** / autonomous payment) | Scoped Pacts the agent can't exceed; a provider Pact that can't move funds; denial + freeze + review; agents paying through their own wallets |
 | Runnable / demonstrable prototype | A deployed autonomous service + a live dashboard + real on-chain txs |

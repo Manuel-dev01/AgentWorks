@@ -7,8 +7,11 @@ export const CFG = {
   chainId: 11155111,
   rpc: env("NEXT_PUBLIC_RPC_URL", "https://sepolia.drpc.org"),
   escrow: env("NEXT_PUBLIC_ESCROW_ADDRESS", "0x812BcEEc2De8C8aC71C7af7A8E2d4467E65Fdf18") as `0x${string}`,
-  // v2 open-marketplace escrow (Phase 6.5): createJob without provider + acceptJob(jobId).
+  // v2 open-marketplace escrow (Phase 6.5, legacy): createJob without provider + raw acceptJob(jobId).
   escrowV2: env("NEXT_PUBLIC_ESCROW_V2_ADDRESS", "0xD6cB413c0E4a5839Fd4B02aFFeBF65e6868726b9") as `0x${string}`,
+  // v3 open-marketplace escrow (MEV-hardened): sealed commit-reveal accept (commitAccept → revealAccept).
+  // This is the LIVE marketplace the dashboard reads. Job tuple/Status are identical to v2.
+  escrowV3: env("NEXT_PUBLIC_ESCROW_V3_ADDRESS", "0xFAab4d6ff5CBEcD72a4e1B9315662e7846166D69") as `0x${string}`,
   // Deployed autonomous agent service (Railway). The dashboard is a live window onto these agents:
   // "Post job" fires POST /trigger and the board watches them reason + settle. Empty → live-trigger UI hidden.
   agentApi: env("NEXT_PUBLIC_AGENT_API", "https://insightful-wisdom-production-5c62.up.railway.app").replace(/\/$/, ""),

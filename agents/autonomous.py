@@ -1,18 +1,21 @@
 """Autonomous agents - continuous loops over the open marketplace (Phase 6.5.3).
 
 Two long-running roles, each acting through its own CAW wallet under a scoped Pact, coordinating
-via an off-chain job board (the marketplace listing) + the on-chain v2 escrow (the source of truth):
+via an off-chain job board (the marketplace listing) + the on-chain v3 escrow (the source of truth):
 
   Client loop   - for each task it deems worth funding: createJob (OPEN) → approve → fund, and posts
                   the task text to the board. Then watches its jobs; when one is Submitted it fetches
                   the deliverable from Irys, evaluates it, and complete()s (payout) or reject()s (refund).
   Provider pool - N provider identities. Each scans the board + chain for funded, unclaimed jobs,
-                  genuinely decides whether to accept, and races to acceptJob() on-chain (first wins;
-                  losers revert/skip). The winner does the work, stores it on Irys, and submitWork()s.
+                  genuinely decides whether to accept, and runs the SEALED commit-reveal race:
+                  commitAccept() publishes only an opaque hash (the targeted jobId stays hidden from
+                  the public mempool), then after the reveal delay revealAccept() claims the job -
+                  the first valid reveal wins, a loser's reveal reverts. The winner does the work,
+                  stores it on Irys, and submitWork()s.
 
 Genuine LLM reasoning at every decision (criterion 1); the Pact is the hard boundary regardless
 (criterion 2). Every CAW call + decision is logged; a proof artifact is written per settled job.
-Reuses escrow_v2 / pacts / reasoning / registry / irys_store - invents no SDK surface.
+Reuses escrow_v3 / pacts / reasoning / registry / irys_store - invents no SDK surface.
 """
 
 from __future__ import annotations
@@ -27,7 +30,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import config
-import escrow_v2 as esc
+import escrow_v3 as esc
 import irys_store
 import pacts
 import reasoning
@@ -121,14 +124,39 @@ async def _revoke_active(w: CawWallet) -> None:
                 pass
 
 
-async def _call(agent: CawWallet, src: str, target: str, calldata: str, label: str) -> str:
+async def _call(agent: CawWallet, src: str, target: str, calldata: str, label: str,
+                *, private_tx: bool = False) -> str:
     rid = f"auto-{uuid4().hex[:10]}"
     resp = await agent.contract_call(src_addr=src, contract_addr=target, calldata=calldata,
-                                     chain_id=config.CHAIN_ID, request_id=rid, description=label)
+                                     chain_id=config.CHAIN_ID, request_id=rid, description=label,
+                                     private_tx=private_tx)
     # Generous timeout: CAW's TSS relay can drop + re-register over a ~3-min window, during which a
     # signature stalls at status 400 "signing" before completing. 420s outlasts that reconnect window.
     rec = await agent.wait_tx_final(rid, timeout=420.0)
     return (rec or {}).get("transaction_hash") or (resp or {}).get("transaction_hash") or ""
+
+
+async def _commit_block(w3: Web3, tx_hash: str) -> int:
+    """Block number a commit tx landed in, so we can wait out the reveal delay. Falls back to the
+    current head if the receipt isn't fetchable (the reveal delay is then satisfied by CAW latency)."""
+    if not tx_hash:
+        return await asyncio.to_thread(lambda: w3.eth.block_number)
+    try:
+        rcpt = await asyncio.to_thread(w3.eth.get_transaction_receipt, tx_hash)
+        return int(rcpt["blockNumber"])
+    except Exception:
+        return await asyncio.to_thread(lambda: w3.eth.block_number)
+
+
+async def _wait_reveal_ready(w3: Web3, commit_block: int) -> None:
+    """Block until block.number >= commit_block + REVEAL_DELAY_BLOCKS. CAW's multi-minute relay
+    almost always clears this already, but we wait defensively so a reveal never lands too early."""
+    ready = commit_block + config.REVEAL_DELAY_BLOCKS
+    for _ in range(120):  # ~ up to a few minutes of 12s blocks
+        head = await asyncio.to_thread(lambda: w3.eth.block_number)
+        if head >= ready:
+            return
+        await asyncio.sleep(POLL)
 
 
 # ── client loop ─────────────────────────────────────────────────────────────
@@ -140,7 +168,7 @@ async def client_loop(run: Run, tasks: list[dict], reward_usdc: float) -> None:
                          wallet_uuid=cc.wallet_id, name="Client") as cw:
         await _revoke_active(cw)
         sub = await cw.submit_pact(intent="Client funds + evaluates open marketplace jobs",
-                                   spec=pacts.client_escrow_pact(escrow=config.ESCROW_V2_ADDRESS,
+                                   spec=pacts.client_escrow_pact(escrow=config.ESCROW_V3_ADDRESS,
                                                                  usdc=config.USDC_ADDRESS),
                                    name=f"auto-client-{run.run_id}")
         pact = await cw.wait_pact_active(sub.get("pact_id"))
@@ -161,11 +189,11 @@ async def client_loop(run: Run, tasks: list[dict], reward_usdc: float) -> None:
                 rec.update({"task": t["task"], "criteria": t.get("criteria", ""),
                             "amount_usdc": reward_usdc, "client": cc.address,
                             "fund_decision": decision, "spec_hash": Web3.to_hex(spec_hash)})
-                rec["txs"]["createJob"] = await _call(client, cc.address, config.ESCROW_V2_ADDRESS,
+                rec["txs"]["createJob"] = await _call(client, cc.address, config.ESCROW_V3_ADDRESS,
                     esc.create_job(cc.address, amt_base, spec_hash, deadline), "createJob")
                 rec["txs"]["approve"] = await _call(client, cc.address, config.USDC_ADDRESS,
-                    esc.approve(config.ESCROW_V2_ADDRESS, amt_base), "approve")
-                rec["txs"]["fund"] = await _call(client, cc.address, config.ESCROW_V2_ADDRESS,
+                    esc.approve(config.ESCROW_V3_ADDRESS, amt_base), "approve")
+                rec["txs"]["fund"] = await _call(client, cc.address, config.ESCROW_V3_ADDRESS,
                     esc.fund(job_id), "fund")
                 rec["status"] = "funded"
                 _post_listing(job_id, task=t["task"], criteria=t.get("criteria", ""),
@@ -187,11 +215,11 @@ async def client_loop(run: Run, tasks: list[dict], reward_usdc: float) -> None:
                     verdict = await asyncio.to_thread(reasoning.evaluate, _spec_text(_listing(job_id) or rec), fetched)
                     rec["verdict"] = verdict
                     if verdict.get("accept"):
-                        rec["txs"]["complete"] = await _call(client, cc.address, config.ESCROW_V2_ADDRESS,
+                        rec["txs"]["complete"] = await _call(client, cc.address, config.ESCROW_V3_ADDRESS,
                             esc.complete(job_id), "complete")
                         rec["branch"] = "payout"
                     else:
-                        rec["txs"]["reject"] = await _call(client, cc.address, config.ESCROW_V2_ADDRESS,
+                        rec["txs"]["reject"] = await _call(client, cc.address, config.ESCROW_V3_ADDRESS,
                             esc.reject(job_id), "reject")
                         rec["branch"] = "refund"
                     final = await asyncio.to_thread(esc.get_job, w3, job_id)
@@ -250,23 +278,46 @@ async def provider_worker(run: Run, name: str, addr: str, pact: dict, reward_usd
                         attempted.add(job_id)
                         continue
                     attempted.add(job_id)
+                    # SEALED ACCEPT RACE (v3 commit-reveal): step 1 publishes only an opaque hash
+                    # binding (jobId, addr, salt) - the public mempool learns neither which job nor
+                    # anything reusable. The jobId stays hidden until reveal, defeating the frontrun.
+                    salt = esc.random_salt()
+                    commitment = esc.commitment(job_id, addr, salt)
                     try:
-                        tx = await _call(pw, addr, config.ESCROW_V2_ADDRESS, esc.accept_job(job_id), f"acceptJob[{name}]")
+                        commit_tx = await _call(pw, addr, config.ESCROW_V3_ADDRESS,
+                            esc.commit_accept(commitment), f"commitAccept[{name}]")
                     except Exception as e:
-                        log.info("[%s] lost the race for job #%s (%s)", name, job_id, type(e).__name__)
+                        log.info("[%s] commitAccept for job #%s failed (%s)", name, job_id, type(e).__name__)
+                        continue
+                    rec.setdefault("commits", {})[name] = {"addr": addr, "tx": commit_tx}
+                    run.write_artifact(job_id)
+                    log.info("[%s] committed sealed bid for job #%s -> %s", name, job_id, commit_tx)
+
+                    # step 2: after the reveal delay, open the bid. The FIRST valid reveal wins; a
+                    # loser's reveal reverts (job no longer Funded). Route the reveal through the
+                    # private-mempool hook when MEV_PROTECT is on (defense-in-depth on the residual).
+                    cblock = await _commit_block(w3, commit_tx)
+                    await _wait_reveal_ready(w3, cblock)
+                    try:
+                        reveal_tx = await _call(pw, addr, config.ESCROW_V3_ADDRESS,
+                            esc.reveal_accept(job_id, salt), f"revealAccept[{name}]",
+                            private_tx=config.MEV_PROTECT)
+                    except Exception as e:
+                        log.info("[%s] lost the sealed race for job #%s (%s)", name, job_id, type(e).__name__)
                         rec.setdefault("race_losers", []).append({"name": name, "addr": addr, "error": type(e).__name__})
                         run.write_artifact(job_id)
                         continue
                     # double-check we actually hold it (race-safe)
                     job = await asyncio.to_thread(esc.get_job, w3, job_id)
                     if int(job["provider"], 16) != int(addr, 16):
-                        log.info("[%s] acceptJob for #%s did not stick; winner=%s", name, job_id, job["provider"])
+                        log.info("[%s] revealAccept for #%s did not stick; winner=%s", name, job_id, job["provider"])
                         continue
                     rec["winner"], rec["winner_addr"] = name, addr
-                    rec["txs"]["acceptJob"] = tx
+                    rec["txs"]["commitAccept"] = commit_tx
+                    rec["txs"]["revealAccept"] = reveal_tx
                     rec["provider"] = addr
                     run.write_artifact(job_id)
-                    log.info("[%s] WON job #%s -> acceptJob %s", name, job_id, tx)
+                    log.info("[%s] WON job #%s -> revealAccept %s", name, job_id, reveal_tx)
 
                     # do the work, store on Irys, submit
                     deliverable = await asyncio.to_thread(reasoning.provider_do_task, spec,
@@ -276,7 +327,7 @@ async def provider_worker(run: Run, name: str, addr: str, pact: dict, reward_usd
                     irys = await asyncio.to_thread(irys_store.upload, deliverable,
                         {"app": "AgentWorks", "job-id": str(job_id), "content-keccak": Web3.to_hex(dhash)})
                     rec["irys"] = irys
-                    rec["txs"]["submitWork"] = await _call(pw, addr, config.ESCROW_V2_ADDRESS,
+                    rec["txs"]["submitWork"] = await _call(pw, addr, config.ESCROW_V3_ADDRESS,
                         esc.submit_work(job_id, dhash, irys["id"]), f"submitWork[{name}]")
                     rec["status"] = "submitted"
                     run.write_artifact(job_id)
@@ -301,7 +352,7 @@ async def run_market(tasks: list[dict], *, mode: str = "good", reward_usdc: floa
                          wallet_uuid=pp.wallet_id, name="Provider") as pw_root:
         await _revoke_active(pw_root)
         psub = await pw_root.submit_pact(intent="Providers accept + deliver marketplace jobs",
-                                         spec=pacts.provider_pact(escrow=config.ESCROW_V2_ADDRESS),
+                                         spec=pacts.provider_pact(escrow=config.ESCROW_V3_ADDRESS),
                                          name=f"auto-provider-{run.run_id}")
         ppact = await pw_root.wait_pact_active(psub.get("pact_id"))
 
