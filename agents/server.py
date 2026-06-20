@@ -111,7 +111,7 @@ def health() -> dict:
     return {
         "status": "ok",
         "chain_id": config.CHAIN_ID,
-        "escrow_v3": config.ESCROW_V3_ADDRESS,
+        "escrow_v4": config.ESCROW_V4_ADDRESS,
         "usdc": config.USDC_ADDRESS,
         "participants": [p.public() for p in pool],
         "providers": len(registry.providers(pool)),
@@ -192,6 +192,8 @@ def _listing_view(job_id: int, on_chain: dict, listing: dict | None) -> dict:
         "posted_at": listing.get("posted_at", 0),
         "on_chain_status": on_chain.get("status", "unknown"),
         "provider": on_chain.get("provider", _ZERO),
+        "committee_size": on_chain.get("committee_size", 0),
+        "quorum": on_chain.get("quorum", 0),
     }
 
 
@@ -203,7 +205,7 @@ def marketplace_jobs(status: str = "open") -> dict:
       - 'open' (default): only Funded + unclaimed jobs (available for acceptance)
       - 'all': every job on-chain (within the recent scan window)
     """
-    import escrow_v3 as esc
+    import escrow_v4 as esc
     w3 = esc.web3()
     try:
         n = esc.next_job_id(w3)
@@ -230,7 +232,7 @@ def marketplace_jobs(status: str = "open") -> dict:
 def marketplace_job(job_id: int) -> dict:
     """One job: on-chain status merged with its board listing. Lets a provider confirm it won the race
     (provider == its address) and lets anyone inspect a job's lifecycle state."""
-    import escrow_v3 as esc
+    import escrow_v4 as esc
     w3 = esc.web3()
     try:
         on_chain = esc.get_job(w3, job_id)
@@ -243,15 +245,23 @@ def marketplace_job(job_id: int) -> dict:
 
 @app.get("/marketplace/post-calldata")
 def marketplace_post_calldata(client_address: str, amount_usdc: float, task: str = "",
-                              criteria: str = "", evaluator: str = "", deadline_days: int = 7) -> dict:
+                              criteria: str = "", committee: str = "", quorum: int = 0,
+                              deadline_days: int = 7) -> dict:
     """Build the createJob/approve/fund calldata an external CLIENT signs with its own CAW wallet to open
-    and fund a job. After funding, the client publishes the human-readable listing via POST /marketplace/jobs.
+    and fund a job. v4 names an evaluator COMMITTEE: pass `committee` as a comma-separated list of addresses
+    (odd N) and an optional `quorum` (defaults to a strict majority, config.COMMITTEE_QUORUM). After funding,
+    the client publishes the human-readable listing via POST /marketplace/jobs.
 
     NOTE: job_id is predicted from the current nextJobId - if two clients fund in the same block the
     prediction can race; re-read the real id from the createJob receipt before posting the listing.
     """
-    import escrow_v3 as esc
+    import escrow_v4 as esc
     from web3 import Web3
+    committee_list = [a.strip() for a in committee.split(",") if a.strip()]
+    if not committee_list:
+        raise HTTPException(status_code=400, detail="committee is required: pass a comma-separated list of "
+                            "evaluator addresses (odd N), e.g. committee=0x..,0x..,0x..")
+    q = quorum or config.COMMITTEE_QUORUM
     w3 = esc.web3()
     try:
         job_id = esc.next_job_id(w3)
@@ -261,24 +271,24 @@ def marketplace_post_calldata(client_address: str, amount_usdc: float, task: str
     spec_hash_b = Web3.keccak(text=f"{spec}#{job_id}")
     amt = int(round(amount_usdc * 1_000_000))
     deadline = int(time.time()) + max(1, deadline_days) * 24 * 3600
-    ev = evaluator or client_address
     return {
         "predicted_job_id": job_id,
         "spec_hash": Web3.to_hex(spec_hash_b),
         "amount_usdc": amount_usdc,
         "deadline": deadline,
-        "evaluator": ev,
+        "committee": committee_list,
+        "quorum": q,
         "chain_id": config.CHAIN_ID,
-        "escrow": config.ESCROW_V3_ADDRESS,
+        "escrow": config.ESCROW_V4_ADDRESS,
         "usdc": config.USDC_ADDRESS,
         "steps": [
-            {"step": "createJob", "to": config.ESCROW_V3_ADDRESS,
-             "function": "createJob(address,uint256,bytes32,uint64)",
-             "calldata": esc.create_job(ev, amt, spec_hash_b, deadline)},
+            {"step": "createJob", "to": config.ESCROW_V4_ADDRESS,
+             "function": "createJob(address[],uint8,uint256,bytes32,uint64)",
+             "calldata": esc.create_job(committee_list, q, amt, spec_hash_b, deadline)},
             {"step": "approve", "to": config.USDC_ADDRESS,
              "function": "approve(address,uint256)",
-             "calldata": esc.approve(config.ESCROW_V3_ADDRESS, amt)},
-            {"step": "fund", "to": config.ESCROW_V3_ADDRESS,
+             "calldata": esc.approve(config.ESCROW_V4_ADDRESS, amt)},
+            {"step": "fund", "to": config.ESCROW_V4_ADDRESS,
              "function": "fund(uint256)",
              "calldata": esc.fund(job_id)},
         ],
@@ -297,7 +307,7 @@ class PostJobBody(BaseModel):
 def marketplace_post_job(body: PostJobBody) -> dict:
     """Publish the human-readable listing for an already-funded on-chain job so providers can discover the
     task text (only specHash lives on-chain). The job must be Funded + unclaimed (verified on-chain)."""
-    import escrow_v3 as esc
+    import escrow_v4 as esc
     w3 = esc.web3()
     try:
         job = esc.get_job(w3, body.job_id)
@@ -321,7 +331,7 @@ class DeliverBody(BaseModel):
 def marketplace_deliver(job_id: int, body: DeliverBody) -> dict:
     """Provider deliver helper: store the work on Irys and return the submitWork calldata the provider signs
     with its OWN CAW wallet. The platform never signs or holds provider keys - it stores + encodes only."""
-    import escrow_v3 as esc
+    import escrow_v4 as esc
     import irys_store
     from web3 import Web3
     w3 = esc.web3()
@@ -344,7 +354,7 @@ def marketplace_deliver(job_id: int, body: DeliverBody) -> dict:
         "irys_id": irys.get("id"),
         "irys_url": irys.get("url"),
         "deliverable_hash": Web3.to_hex(dhash),
-        "contract_address": config.ESCROW_V3_ADDRESS,
+        "contract_address": config.ESCROW_V4_ADDRESS,
         "chain_id": config.CHAIN_ID,
         "function": "submitWork(uint256,bytes32,string)",
         "calldata": esc.submit_work(job_id, dhash, irys.get("id")),
@@ -403,7 +413,7 @@ def marketplace_calldata(job_id: int, provider_address: str = "", salt: str = ""
     reveal). External providers sign both calldatas with their OWN CAW wallet. Route the reveal
     through a private mempool for defense-in-depth (see docs/MEV.md).
     """
-    import escrow_v3 as esc
+    import escrow_v4 as esc
     from web3 import Web3
     w3 = esc.web3()
     try:
@@ -422,7 +432,7 @@ def marketplace_calldata(job_id: int, provider_address: str = "", salt: str = ""
     commitment = esc.commitment(job_id, provider_address, salt_bytes)
     return {
         "job_id": job_id,
-        "contract_address": config.ESCROW_V3_ADDRESS,
+        "contract_address": config.ESCROW_V4_ADDRESS,
         "chain_id": config.CHAIN_ID,
         "job_status": job["status"],
         "reward_usdc": job["amount"] / 1_000_000,
@@ -431,17 +441,64 @@ def marketplace_calldata(job_id: int, provider_address: str = "", salt: str = ""
         "commitment": Web3.to_hex(commitment),
         "reveal_delay_blocks": config.REVEAL_DELAY_BLOCKS,
         "steps": [
-            {"step": "commitAccept", "to": config.ESCROW_V3_ADDRESS,
+            {"step": "commitAccept", "to": config.ESCROW_V4_ADDRESS,
              "function": "commitAccept(bytes32)",
              "calldata": esc.commit_accept(commitment),
              "note": "phase 1: publish the sealed bid (opaque; reveals no jobId)"},
-            {"step": "revealAccept", "to": config.ESCROW_V3_ADDRESS,
+            {"step": "revealAccept", "to": config.ESCROW_V4_ADDRESS,
              "function": "revealAccept(uint256,bytes32)",
              "calldata": esc.reveal_accept(job_id, salt_bytes),
              "note": "phase 2: after %d block(s), claim the job; keep the salt secret until now" % config.REVEAL_DELAY_BLOCKS},
         ],
         "note": "KEEP the salt - revealAccept needs it. The commitment binds to provider_address; a "
                 "copied commitment cannot be revealed by anyone else.",
+    }
+
+
+@app.get("/marketplace/jobs/{job_id}/committee")
+def marketplace_committee(job_id: int) -> dict:
+    """The committee + voting + dispute state for a job (v4). Lets anyone inspect who evaluates a job,
+    the running vote tally / tentative outcome, and whether the outcome has been disputed."""
+    import escrow_v4 as esc
+    w3 = esc.web3()
+    try:
+        committee = esc.get_committee(w3, job_id)
+        vote = esc.get_vote(w3, job_id)
+        dispute = esc.get_dispute(w3, job_id)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"job {job_id} committee read failed: {e}")
+    return {"job_id": job_id, "committee": committee, "vote": vote, "dispute": dispute}
+
+
+@app.get("/marketplace/jobs/{job_id}/vote-calldata")
+def marketplace_vote_calldata(job_id: int, approve: bool = True) -> dict:
+    """Build the castVote calldata an external COMMITTEE member signs with its own CAW wallet to vote on a
+    submitted deliverable: approve=true pays the provider, approve=false refunds the client. Once quorum is
+    reached the job is tentatively Resolved; finalize after the dispute window."""
+    import escrow_v4 as esc
+    return {
+        "job_id": job_id,
+        "contract_address": config.ESCROW_V4_ADDRESS,
+        "chain_id": config.CHAIN_ID,
+        "approve": approve,
+        "function": "castVote(uint256,bool)",
+        "calldata": esc.cast_vote(job_id, approve),
+        "note": "only an address on the job's committee can vote, once; read /committee for the tally.",
+    }
+
+
+@app.get("/marketplace/jobs/{job_id}/finalize-calldata")
+def marketplace_finalize_calldata(job_id: int) -> dict:
+    """Build the finalize calldata anyone can sign to settle a Resolved job (payout or refund per the
+    committee vote) once the dispute window has elapsed with no open dispute."""
+    import escrow_v4 as esc
+    return {
+        "job_id": job_id,
+        "contract_address": config.ESCROW_V4_ADDRESS,
+        "chain_id": config.CHAIN_ID,
+        "function": "finalize(uint256)",
+        "calldata": esc.finalize(job_id),
+        "note": "callable by anyone after the dispute window; settles per the committee vote.",
     }
 
 

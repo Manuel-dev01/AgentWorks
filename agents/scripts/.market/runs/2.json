@@ -1,0 +1,52 @@
+{
+  "run_id": "v4-live-proof",
+  "job_id": 2,
+  "task": "Write a 2-sentence explanation of on-chain escrow for a non-expert.",
+  "criteria": "Plain language, 2 sentences, mentions the neutral escrow holding funds.",
+  "amount_usdc": 5.0,
+  "client": "0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe",
+  "provider": "0xA5b50A48f7A2f61f5F81043f50559A462DF78249",
+  "winner": "Provider",
+  "winner_addr": "0xA5b50A48f7A2f61f5F81043f50559A462DF78249",
+  "committee": [
+    "0x40a4AC5eE829A5e8e3CAb42c684e8343Cfb26228",
+    "0x13905a2d2c6Eb7Df7AfbD7f19Fa88D3Af3D9dA12",
+    "0xe16C833fc6bCed308Eb6499CFc788b6C4D2c8cF1"
+  ],
+  "quorum": 2,
+  "committee_votes": {
+    "Evaluator A": {
+      "addr": "0x40a4AC5eE829A5e8e3CAb42c684e8343Cfb26228",
+      "accept": true,
+      "reason": "Deliverable correctly explains escrow."
+    },
+    "Evaluator B": {
+      "addr": "0x13905a2d2c6Eb7Df7AfbD7f19Fa88D3Af3D9dA12",
+      "accept": true,
+      "reason": "Meets the 2-sentence + neutral-escrow criteria."
+    }
+  },
+  "vote_txs": {
+    "Evaluator A": "0x5dba14e8790ba95b3dcf6e2f6c74738a4346d23574beaeece887a79b3cb7a204",
+    "Evaluator B": "0x69231345dc86427100325b157acb4fa6d4d7960924aa3a2f7feababb2d3f266b"
+  },
+  "tentative": "payout",
+  "irys": null,
+  "deliverable": "An on-chain escrow holds a buyer's funds in a neutral contract until the agreed work is delivered. Neither party can take the money unilaterally, so two agents who don't trust each other can transact safely.",
+  "verdict": {
+    "accept": true,
+    "reason": "committee 2-0 (quorum 2)"
+  },
+  "branch": "payout",
+  "final_status": "Completed",
+  "content_verified": true,
+  "status": "settled",
+  "txs": {
+    "createJob": "0x9eaaa9acd28d1bb217389f567d011cff29a02af871159edcf478625eaebb9e3b",
+    "fund": "0xf38e58a1a34b352c07f83f90b7d6bf14e1e0ada02e049451f5666d89d8972912",
+    "commitAccept": "0x1fd06c00e2a2eda7cd94ef07ee8f7eb4e41a27d4d1d4422eb1c43d460628ea5f",
+    "revealAccept": "0x9306f65200e7a3ba6d1c038404cb3f976ff87c04041dd4268c9b6e329a01bb71",
+    "submitWork": "0xbdf53cb2bb9cab935278bbf98267adce06b4b287bdf9dce42df505cc4c81b4ef",
+    "finalize": "0xe5d635688209391061abf1f2282d1a396bf675d0996957feaad6cb755af2ab10"
+  }
+}

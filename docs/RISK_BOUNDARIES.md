@@ -21,7 +21,7 @@ The exact JSON each agent operates within lives in **`docs/pacts/`** and is gene
 - **`client_escrow_pact_v2.json`** - Client `contract_call` allowlist: `target_in` = **escrow v2
   (`0xD6cB…`) + MockUSDC only**, plus a per-24h tx-count cap. The client can call createJob / approve /
   fund / complete / reject - and nothing else, nowhere else.
-- **`provider_pact_v3.json`** - Provider `contract_call` allowlist: **escrow v3 only, USDC excluded**. A
+- **`provider_pact_v4.json`** / **`evaluator_pact_v4.json`** - Provider/evaluator `contract_call` allowlist: **escrow v4 only, USDC excluded**. A
   provider can `commitAccept` / `revealAccept` / `submitWork` but has **no authority to move USDC** - it
   physically cannot transfer the escrowed funds. This is *security isolation* expressed as policy.
 - **`client_budget_transfer_pact.json`** - a transfer-type budget cap (`deny_if.amount_gt`).
@@ -75,9 +75,15 @@ bypass.
 
 Even with a valid Pact, the **contract** constrains where funds can go:
 
-- Funds are escrowed in `AgentWorksEscrowV3`, **held by neither agent**; only the contract pays out.
-- Settlement is gated to the **per-job evaluator** recorded at `createJob` - `complete`/`reject` revert for
-  anyone else (`OnlyEvaluator`).
+- Funds are escrowed in `AgentWorksEscrowV4`, **held by neither agent**; only the contract pays out.
+- **Decentralized settlement (no single point of failure):** an **M-of-N evaluator committee** (odd N,
+  strict-majority `quorum`) votes via `castVote`; reaching quorum produces a *tentative* outcome — **no funds
+  move**. After a **dispute window**, anyone `finalize`s it, or the losing side **stakes a bond** and
+  `dispute`s, escalating to a **decoupled arbiter** (`IArbiter`). Only that arbiter can `resolveDispute` —
+  **there is no operator-EOA ruling path**; the live arbiter is the UMA OOv3 adapter (UMA's economic oracle
+  rules, swappable for Kleros ERC-792). `resolveTimeout` (permissionless) only ever enacts the committee's
+  own tentative outcome, so it cannot be abused. See **[ARBITRATION.md](ARBITRATION.md)**. A committee member
+  can never move USDC (`evaluator_pact_v4.json` allowlists only `castVote`).
 - **Sealed acceptance (MEV-hardened):** claiming is a two-phase **commit-reveal**. `commitAccept` publishes
   only `keccak256(abi.encode(jobId, msg.sender, salt))` - the targeted jobId never hits the public mempool,
   and the hash binds to the committer's address, so a frontrunner who copies it **cannot reveal it** (their
@@ -92,7 +98,7 @@ Even with a valid Pact, the **contract** constrains where funds can go:
   deadline), the Client reclaims via **`claimRefund`** → `Refunded`. Outstanding commitments are inert and
   never block the refund. Funds are never strandable.
 - Custom errors over `require` strings; an event on every transition for legible on-chain audit.
-- 70/70 Foundry tests cover both branches, the sealed commit-reveal race (timing, binding, replay,
+- 180/180 Foundry tests cover committee voting/quorum, tentative resolve, finalize, staked dispute + arbiter ruling + anti-freeze timeout, the sealed commit-reveal race (timing, binding, replay,
   winner), access control, status guards, expiry refund, and CEI/reentrancy.
 
 ## Threat-model summary

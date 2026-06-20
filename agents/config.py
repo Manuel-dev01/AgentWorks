@@ -59,6 +59,22 @@ ESCROW_V3_ADDRESS = os.environ.get("ESCROW_V3_CONTRACT_ADDRESS", "0xFAab4d6ff5CB
 # agents wait the right number of blocks between commitAccept and revealAccept.
 REVEAL_DELAY_BLOCKS = int(os.environ.get("REVEAL_DELAY_BLOCKS", "1"))
 REVEAL_WINDOW_BLOCKS = int(os.environ.get("REVEAL_WINDOW_BLOCKS", "256"))
+# v4 open-marketplace escrow: committee (M-of-N) evaluation + staked disputes escalating to a decoupled,
+# decentralized arbiter (UMA Optimistic Oracle V3). Live + verified on Sepolia (deploy block 11101246).
+ESCROW_V4_ADDRESS = os.environ.get("ESCROW_V4_CONTRACT_ADDRESS", "0x198D9DFE4AA8cB10039492170FC0cf46ca4d9b3B")
+# The decoupled arbiter adapter (IS the escrow's `arbiter`; rules via UMA OOv3, never an operator key).
+UMA_ARBITER_ADDRESS = os.environ.get("UMA_ARBITER_ADDRESS", "0xE34Fe352c8ad25811b8dc5Fd7FECB02F3836adD3")
+# UMA Optimistic Oracle V3 on Sepolia + its whitelisted bond currency (a 6-dp test USDC; NOT MockUSDC).
+UMA_OOV3_ADDRESS = os.environ.get("UMA_OOV3_ADDRESS", "0xFd9e2642a170aDD10F53Ee14a93FcF2F31924944")
+UMA_BOND_CURRENCY = os.environ.get("UMA_BOND_CURRENCY", "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238")
+UMA_BOND = int(os.environ.get("UMA_BOND", "400000000"))  # 400 USDC (OOv3 minimum for the default currency)
+# v4 settlement timing (must mirror the deployed v4 ctor args). Sepolia demo values are small.
+VOTING_WINDOW_BLOCKS = int(os.environ.get("VOTING_WINDOW_BLOCKS", "50"))
+DISPUTE_WINDOW_BLOCKS = int(os.environ.get("DISPUTE_WINDOW_BLOCKS", "30"))
+DISPUTE_RESOLVE_WINDOW_BLOCKS = int(os.environ.get("DISPUTE_RESOLVE_WINDOW_BLOCKS", "50"))
+# Evaluator committee defaults for the autonomous run (odd N; quorum = strict majority).
+COMMITTEE_SIZE = int(os.environ.get("COMMITTEE_SIZE", "3"))
+COMMITTEE_QUORUM = int(os.environ.get("COMMITTEE_QUORUM", "2"))
 USDC_ADDRESS = os.environ.get("USDC_TOKEN_ADDRESS", "")
 EXPLORER_TX = "https://sepolia.etherscan.io/tx/{}"
 EXPLORER_ADDR = "https://sepolia.etherscan.io/address/{}"
@@ -85,4 +101,15 @@ def provider_agent() -> Agent:
         wallet_id=_req("CAW_PROVIDER_WALLET_ID"),
         api_key=_req("CAW_PROVIDER_API_KEY"),
         address=_req("CAW_PROVIDER_ADDRESS"),
+    )
+
+
+def evaluator_agent() -> Agent:
+    """The evaluator-committee CAW wallet (hosts the committee member addresses CAW_EVALUATOR_ADDRESS_1..N).
+    Address field is the wallet's primary address; committee member addresses come from registry.evaluators()."""
+    return Agent(
+        name="Evaluator",
+        wallet_id=_req("CAW_EVALUATOR_WALLET_ID"),
+        api_key=_req("CAW_EVALUATOR_API_KEY"),
+        address=os.environ.get("CAW_EVALUATOR_ADDRESS_1", ""),
     )

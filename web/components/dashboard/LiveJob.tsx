@@ -11,19 +11,19 @@ import { CFG, addrUrl, shortHex } from "../../lib/config";
 import { agentEnabled, getHealth, getRuns, trigger, type AgentHealth, type AgentRun } from "../../lib/agent";
 import { RunCard } from "./RunCard";
 
-const STEPS = ["Reason & fund", "Open + escrowed", "Sealed commit → reveal", "Deliver to Irys", "Evaluate & settle"];
+const STEPS = ["Reason & fund", "Sealed commit → reveal", "Deliver to Irys", "Committee vote", "Finalize / settle"];
 
 /** How many of STEPS are complete, derived from the live run artifact (autonomous.py rewrites it at each
  *  milestone, so /runs reflects progress). null/early = 0 (the Client is still reasoning + funding).
- *  The accept step covers the v3 sealed race (commitAccept → revealAccept); t.acceptJob is legacy v2. */
+ *  v4: settlement is committee vote → finalize; t.complete/t.reject are legacy v2/v3 single-evaluator. */
 function stepsDone(r?: AgentRun | null): number {
   if (!r) return 0;
   const t = r.txs || {};
-  if (r.status === "settled" || r.branch || t.complete || t.reject) return 5;
-  if (t.submitWork || r.irys) return 4;
-  if (t.revealAccept || t.acceptJob || r.winner) return 3;
-  if (t.fund) return 2;
-  if (t.createJob || r.fund_decision) return 1;
+  if (r.status === "settled" || r.branch || t.finalize || t.complete || t.reject) return 5;
+  if (Object.keys(r.vote_txs || {}).length > 0 || r.tentative) return 4;
+  if (t.submitWork || r.irys) return 3;
+  if (t.revealAccept || t.acceptJob || r.winner) return 2;
+  if (t.fund || t.createJob || r.fund_decision) return 1;
   return 0;
 }
 

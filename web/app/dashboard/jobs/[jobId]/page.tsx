@@ -17,7 +17,8 @@ const STEP_DEFS: { key: string; ti: string }[] = [
   { key: "revealAccept", ti: "Provider won the sealed race → claimed" },
   { key: "acceptJob", ti: "Provider won the race → claimed" }, // legacy v2 artifacts
   { key: "submitWork", ti: "Work submitted + Irys id anchored" },
-  { key: "complete", ti: "Accepted → Provider paid" },
+  { key: "finalize", ti: "Committee resolved → finalized (v4)" },
+  { key: "complete", ti: "Accepted → Provider paid" }, // legacy v2/v3 single-evaluator artifacts
   { key: "reject", ti: "Rejected → Client refunded" },
 ];
 

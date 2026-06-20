@@ -117,3 +117,27 @@ def evaluate(spec: str, deliverable: str) -> dict:
     d = _json(system, user)
     log.info("[reason] evaluate -> %s", d)
     return d
+
+
+# Distinct evaluator personas so committee members reason independently (criterion 1) rather than
+# echoing one another — the consensus is meaningful only if the votes are genuinely arrived at.
+_EVAL_PERSONAS = {
+    "Evaluator A": "You weigh CORRECTNESS first: does the deliverable factually + technically satisfy the spec?",
+    "Evaluator B": "You weigh COMPLETENESS + FORM first: does it meet every stated acceptance criterion and format?",
+    "Evaluator C": "You weigh CLARITY + USEFULNESS first: would the requester actually be satisfied receiving this?",
+}
+
+
+def evaluate_member(spec: str, deliverable: str, *, member_name: str = "Evaluator") -> dict:
+    """One committee member's independent accept/reject judgment, biased toward a distinct lens so the
+    M-of-N vote reflects genuine deliberation. Returns {accept, reason} like {evaluate}."""
+    lens = _EVAL_PERSONAS.get(member_name, "You judge whether the deliverable genuinely satisfies the spec.")
+    system = (
+        f"You are {member_name}, one member of an independent evaluator COMMITTEE in a trustless escrow "
+        f"marketplace. {lens} Be fair but strict; vote your own honest assessment regardless of how other "
+        'members might vote. Respond ONLY as JSON: {"accept": true|false, "reason": "<one sentence>"}.'
+    )
+    user = f"TASK SPEC:\n{spec}\n\nDELIVERABLE:\n{deliverable}"
+    d = _json(system, user)
+    log.info("[reason] evaluate_member(%s) -> %s", member_name, d)
+    return d

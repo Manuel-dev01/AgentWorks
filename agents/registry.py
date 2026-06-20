@@ -36,19 +36,19 @@ _LOCAL_FILE = (Path(os.environ["AGENT_DATA_DIR"]) / "registry.local.json") if os
 @dataclass(frozen=True)
 class Participant:
     name: str
-    role: str        # 'client' | 'provider'  (the client also acts as evaluator in v1)
+    role: str        # 'client' | 'provider' | 'evaluator'  (committee member)
     wallet_id: str
     api_key: str
     address: str
     tx_cap: int = 0  # 0 → use the template's default cap
 
     def template(self) -> dict:
-        """The scoped Pact spec this participant binds, always pinned to the v2 escrow."""
+        """The scoped Pact spec this participant binds, pinned to the live v4 escrow."""
         if self.role == "provider":
-            cap = self.tx_cap or 20
-            return pacts.provider_pact(escrow=config.ESCROW_V2_ADDRESS, tx_cap=cap)
-        cap = self.tx_cap or 50
-        return pacts.client_escrow_pact(escrow=config.ESCROW_V2_ADDRESS, tx_cap=cap)
+            return pacts.provider_pact(escrow=config.ESCROW_V4_ADDRESS, tx_cap=self.tx_cap or 20)
+        if self.role == "evaluator":
+            return pacts.evaluator_pact(escrow=config.ESCROW_V4_ADDRESS, tx_cap=self.tx_cap or 20)
+        return pacts.client_escrow_pact(escrow=config.ESCROW_V4_ADDRESS, tx_cap=self.tx_cap or 50)
 
     def public(self) -> dict:
         """Non-secret view (never includes api_key) - safe to log / return over HTTP."""
@@ -120,6 +120,28 @@ def load_pool() -> list[Participant]:
 
 def providers(pool: list[Participant] | None = None) -> list[Participant]:
     return [p for p in (pool or load_pool()) if p.role == "provider"]
+
+
+def evaluators() -> list[Participant]:
+    """The evaluator COMMITTEE: extra addresses on a dedicated evaluator CAW wallet
+    (CAW_EVALUATOR_WALLET_ID/_API_KEY + CAW_EVALUATOR_ADDRESS_1.._N), mirroring the provider-race
+    pattern (distinct on-chain msg.senders, one TSS node, one Pact). Returns [] if not configured —
+    the caller then falls back to externally-funded committee signers. Genuinely independent committees
+    come from external operators each running their own evaluator wallet (docs/ARBITRATION.md)."""
+    wid = os.environ.get("CAW_EVALUATOR_WALLET_ID")
+    key = os.environ.get("CAW_EVALUATOR_API_KEY")
+    if not (wid and key):
+        return []
+    out: list[Participant] = []
+    n = 1
+    while True:
+        addr = os.environ.get(f"CAW_EVALUATOR_ADDRESS_{n}")
+        if not addr:
+            break
+        out.append(Participant(name=f"Evaluator {chr(64 + n)}", role="evaluator",  # Evaluator A, B, C…
+                               wallet_id=wid, api_key=key, address=addr))
+        n += 1
+    return out
 
 
 def client(pool: list[Participant] | None = None) -> Participant:
