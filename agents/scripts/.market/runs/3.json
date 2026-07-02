@@ -1,37 +1,50 @@
 {
-  "run_id": "e17304b498",
+  "run_id": "0d5c0385ad",
   "job_id": 3,
   "txs": {
-    "createJob": "0xe35d535c7375266b4e8f5b308ba197bc90608cd70e66a7eddc8dd95064a6e9cf",
-    "approve": "0x2aaf13bccf33d5e984f99d195220c1d98c17dbe6ad5c056eb66f23862feee869",
-    "fund": "0x06387d8d9d41fa2bc0911ad82b8e4c422c8b661e7ce370589d19a7aed31904fa",
-    "acceptJob": "0xc7668d9cb7e38f631fa6eed627173937d09d2def3dbb46d5fc18b89c06c11985",
-    "submitWork": "0xf1001a3b3d70550ba97a8826557e8e932eb549a09013499ff5d4b07773722a32",
-    "complete": "0x0704815876dca70f2a90dcc410d072369aef14227efa60db99a842a47a5dc2c0"
+    "createJob": "0xc3536484b75bcdc3d33b2a4f053dc56268a2baab9d2cbb9906b7e10c2994a98f",
+    "approve": "0x67a816c2a6975e6f929eaf52d342622bc313435a1c3d13aad5765a6c0f04deab",
+    "fund": "0x94f0a0f6cf04741a5573c2a1c256b0455ef675a6582e4ed612459e1900758ffa",
+    "commitAccept": "0xa776ccb606397650476d09a87f7e719f697fed5d9ef20a9674ea4b28ab217b0c",
+    "revealAccept": "0x01dba95703f3f573c9d5da2341cb66ccbe69f705ae829afd364b74086a775031",
+    "submitWork": "0x2f1fae6259537aa65da7e5113123882e757b3c827c41aaf7f0755a5bfbe7b34b",
+    "finalize": "0xc6e812001baf6452711e4f02c325eb312125af4d871c3449bd918e51b4ecc902"
   },
   "accept_decisions": {
-    "ProviderB": {
-      "accept": true,
-      "reason": "This is a simple, well-defined writing task that I can easily complete, and the reward is fair for the minimal effort required."
-    },
     "Provider": {
       "accept": true,
-      "reason": "I can easily write a clear, plain-language explanation of on-chain escrow in a few sentences, and the reward is fair for the minimal effort required."
+      "reason": "I can write a clear, plain-language explanation of on-chain escrow in 2-3 sentences, meeting the criteria for a fair 5 USDC reward."
     }
   },
   "winner": "Provider",
   "winner_addr": "0xef9349b3273b1a54faaf701231f499fe0282e643",
   "irys": {
-    "id": "5aTvnchzJgGuGqtzuc3AgrsJrFoH2T72Qi4sGwH6ZDix",
-    "url": "https://devnet.irys.xyz/5aTvnchzJgGuGqtzuc3AgrsJrFoH2T72Qi4sGwH6ZDix",
-    "bytes": 521,
-    "price": "1387715131506",
+    "id": "DgKr6tyQaUGJZp7Ee31qA8KuRJnUc9gxU3TVHAXLttJv",
+    "url": "https://devnet.irys.xyz/DgKr6tyQaUGJZp7Ee31qA8KuRJnUc9gxU3TVHAXLttJv",
+    "bytes": 356,
+    "price": "1445807711042",
     "funded": "0"
   },
-  "deliverable": "An on-chain escrow works like a trusted middleman: one party sends their funds to a neutral digital lockbox (the smart contract) that holds the money until both sides fulfill their promises. If everything goes well, the contract automatically releases the funds to the right person; if there\u2019s a dispute, the contract can return the money to the original sender or follow preset rules. This way, neither side can cheat because the funds are never directly controlled by either party until the agreed conditions are met.",
+  "deliverable": "An on-chain escrow works like a neutral digital safe that holds the buyer's funds until both parties agree the deal is done. Neither person can access the money alone\u2014the smart contract releases payment only when conditions are met, like the seller confirming delivery. This way, even if they don't trust each other, the escrow ensures neither can cheat.",
+  "committee": [
+    "0x48f2a3749a18684c31e322abef3e8e855c116f06",
+    "0x476b3e5f0a3f445407f1476a33768962b9615f7d",
+    "0x311b7373724ea9db28533b981767a6f08d114a02"
+  ],
+  "committee_votes": {
+    "Evaluator B": {
+      "addr": "0x476b3e5f0a3f445407f1476a33768962b9615f7d",
+      "accept": true,
+      "reason": "The explanation uses plain language, is 3 sentences long, and clearly mentions the neutral escrow holding funds."
+    }
+  },
+  "vote_txs": {
+    "Evaluator B": "0x95bd382a658f0c58853fa78647a520f246b15153415175dc5ff92ab88ffaf038"
+  },
+  "tentative": "payout",
   "verdict": {
     "accept": true,
-    "reason": "The explanation is in plain language, uses exactly 3 sentences, and clearly mentions the neutral escrow holding funds via a smart contract."
+    "reason": "committee 2-0 (quorum 2)"
   },
   "branch": "payout",
   "status": "settled",
@@ -41,16 +54,16 @@
   "client": "0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd",
   "fund_decision": {
     "fund": true,
-    "reason": "The task is well-defined, uses plain language, and the price is reasonable within the remaining budget."
+    "reason": "The task is legitimate, well-defined, and the price is reasonable within the remaining budget."
   },
   "spec_hash": "0xea19a2af43af7ec687dfa93c7b825ca031384f559d1c88c79c1c8004f454cc4a",
-  "race_losers": [
-    {
-      "name": "ProviderB",
-      "addr": "0x7ea0701d657e3427c2bb3bc195e943a81c5fc69e",
-      "error": "RuntimeError"
+  "quorum": 2,
+  "commits": {
+    "Provider": {
+      "addr": "0xef9349b3273b1a54faaf701231f499fe0282e643",
+      "tx": "0xa776ccb606397650476d09a87f7e719f697fed5d9ef20a9674ea4b28ab217b0c"
     }
-  ],
+  },
   "provider": "0xef9349b3273b1a54faaf701231f499fe0282e643",
   "final_status": "Completed",
   "content_verified": true

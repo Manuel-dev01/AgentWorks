@@ -36,19 +36,32 @@ _LOCAL_FILE = (Path(os.environ["AGENT_DATA_DIR"]) / "registry.local.json") if os
 @dataclass(frozen=True)
 class Participant:
     name: str
-    role: str        # 'client' | 'provider'  (the client also acts as evaluator in v1)
+    role: str        # 'client' | 'provider' | 'evaluator'  (committee member)
     wallet_id: str
     api_key: str
     address: str
     tx_cap: int = 0  # 0 → use the template's default cap
+    # Per-member LLM (committee independence axis 2): each evaluator can reason on a DISTINCT model so a
+    # quorum is genuine — not one model voting N times. Blank → fall back to the global default (config.LLM_*).
+    llm_api_key: str = ""
+    llm_base_url: str = ""
+    llm_model: str = ""
+
+    def llm(self) -> dict:
+        """Resolved LLM config for this participant, falling back to the global default (config.LLM_*)."""
+        return {
+            "api_key": self.llm_api_key or config.LLM_API_KEY,
+            "base_url": self.llm_base_url or config.LLM_BASE_URL,
+            "model": self.llm_model or config.LLM_MODEL,
+        }
 
     def template(self) -> dict:
-        """The scoped Pact spec this participant binds, always pinned to the v2 escrow."""
+        """The scoped Pact spec this participant binds, pinned to the live v4 escrow."""
         if self.role == "provider":
-            cap = self.tx_cap or 20
-            return pacts.provider_pact(escrow=config.ESCROW_V2_ADDRESS, tx_cap=cap)
-        cap = self.tx_cap or 50
-        return pacts.client_escrow_pact(escrow=config.ESCROW_V2_ADDRESS, tx_cap=cap)
+            return pacts.provider_pact(escrow=config.ESCROW_V4_ADDRESS, tx_cap=self.tx_cap or 20)
+        if self.role == "evaluator":
+            return pacts.evaluator_pact(escrow=config.ESCROW_V4_ADDRESS, tx_cap=self.tx_cap or 20)
+        return pacts.client_escrow_pact(escrow=config.ESCROW_V4_ADDRESS, tx_cap=self.tx_cap or 50)
 
     def public(self) -> dict:
         """Non-secret view (never includes api_key) - safe to log / return over HTTP."""
@@ -120,6 +133,53 @@ def load_pool() -> list[Participant]:
 
 def providers(pool: list[Participant] | None = None) -> list[Participant]:
     return [p for p in (pool or load_pool()) if p.role == "provider"]
+
+
+def evaluators() -> list[Participant]:
+    """The evaluator COMMITTEE.
+
+    Preferred (Phase 8.2b): each member is a SEPARATE CAW wallet AND a SEPARATE LLM —
+    `CAW_EVALUATOR_{n}_WALLET_ID/_API_KEY/_ADDRESS` (+ optional `_LLM_API_KEY/_LLM_BASE_URL/_LLM_MODEL`).
+    Independent on BOTH axes (signing key + reasoning model), so a quorum is a genuine M-of-N of
+    independent judges — not one wallet/LLM voting N times. (A blank per-member LLM falls back to the
+    global default `config.LLM_*`.)
+
+    Legacy fallback: one shared wallet with extra addresses (`CAW_EVALUATOR_WALLET_ID/_API_KEY` +
+    `CAW_EVALUATOR_ADDRESS_1.._N`), all on the default LLM — the original demo committee.
+
+    Returns [] if neither is configured. Production independence ultimately comes from external operators
+    each running their own evaluator wallet + model (`MCP_ROLE=evaluator`; docs/ARBITRATION.md §5)."""
+    out: list[Participant] = []
+    n = 1
+    while True:  # preferred: separate wallet + model per member
+        wid = os.environ.get(f"CAW_EVALUATOR_{n}_WALLET_ID")
+        key = os.environ.get(f"CAW_EVALUATOR_{n}_API_KEY")
+        addr = os.environ.get(f"CAW_EVALUATOR_{n}_ADDRESS")
+        if not (wid and key and addr):
+            break
+        out.append(Participant(
+            name=f"Evaluator {chr(64 + n)}", role="evaluator", wallet_id=wid, api_key=key, address=addr,
+            llm_api_key=os.environ.get(f"CAW_EVALUATOR_{n}_LLM_API_KEY", ""),
+            llm_base_url=os.environ.get(f"CAW_EVALUATOR_{n}_LLM_BASE_URL", ""),
+            llm_model=os.environ.get(f"CAW_EVALUATOR_{n}_LLM_MODEL", ""),
+        ))
+        n += 1
+    if out:
+        return out
+    # legacy fallback: one shared wallet, extra addresses, shared default LLM
+    wid = os.environ.get("CAW_EVALUATOR_WALLET_ID")
+    key = os.environ.get("CAW_EVALUATOR_API_KEY")
+    if not (wid and key):
+        return []
+    n = 1
+    while True:
+        addr = os.environ.get(f"CAW_EVALUATOR_ADDRESS_{n}")
+        if not addr:
+            break
+        out.append(Participant(name=f"Evaluator {chr(64 + n)}", role="evaluator",  # Evaluator A, B, C…
+                               wallet_id=wid, api_key=key, address=addr))
+        n += 1
+    return out
 
 
 def client(pool: list[Participant] | None = None) -> Participant:

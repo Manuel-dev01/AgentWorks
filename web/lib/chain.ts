@@ -4,7 +4,7 @@
 import { createPublicClient, http, formatUnits } from "viem";
 import { sepolia } from "viem/chains";
 import { CFG } from "./config";
-import { escrowAbi, erc20Abi, STATUS_LABELS, STATUS_LABELS_V2, ESCROW_V3_FROM_BLOCK } from "./abi";
+import { escrowAbi, escrowAbiV4, erc20Abi, STATUS_LABELS, STATUS_LABELS_V4, ESCROW_V4_FROM_BLOCK } from "./abi";
 
 const client = createPublicClient({
   chain: sepolia,
@@ -95,16 +95,16 @@ export async function listJobs(max = 40): Promise<ChainJob[] | null> {
   return rows.filter((r): r is ChainJob => r !== null).reverse();
 }
 
-// ── open marketplace (the LIVE v3 commit-reveal escrow) ──
-// The Job tuple + Status enum are identical to v2, so these readers keep the V2 names/shape but now
-// target the v3 escrow (CFG.escrowV3). The only lifecycle difference is the accept path (commit→reveal),
-// which produces the same JobAccepted event + Accepted status the badge already maps.
-// Status enum index → badge: None, Open, Funded, Accepted, Submitted, Completed, Rejected, Refunded.
-const STATUS_BADGE_V2: BadgeState[] = ["open", "open", "escrow", "work", "work", "settled", "reclaim", "reclaim"];
+// ── open marketplace (the LIVE v4 committee + dispute escrow) ──
+// These readers keep the historical "V2" names (callers unchanged) but now target the v4 escrow
+// (CFG.escrowV4) with the v4 Job tuple + status enum (adds Resolved + Disputed). The v4 commit-reveal
+// accept is carried from v3; settlement is committee consensus → finalize/dispute.
+// v4 Status index → badge: None,Open,Funded,Accepted,Submitted,Resolved,Disputed,Completed,Rejected,Refunded.
+const STATUS_BADGE_V2: BadgeState[] = ["open", "open", "escrow", "work", "work", "work", "work", "settled", "reclaim", "reclaim"];
 
-/** Current marketplace (v3) job counter, or null if unreachable. */
+/** Current marketplace (v4) job counter, or null if unreachable. */
 export async function nextJobIdV2(): Promise<number | null> {
-  const n = await safe(client.readContract({ address: CFG.escrowV3, abi: escrowAbi, functionName: "nextJobId" }));
+  const n = await safe(client.readContract({ address: CFG.escrowV4, abi: escrowAbiV4, functionName: "nextJobId" }));
   return n === null ? null : Number(n as bigint);
 }
 
@@ -127,11 +127,11 @@ export async function settlementV2(jobId: number): Promise<SettlementV2 | null> 
   const scan = (eventName: "JobCompleted" | "JobRejected" | "RefundClaimed") =>
     safe(
       client.getContractEvents({
-        address: CFG.escrowV3,
-        abi: escrowAbi,
+        address: CFG.escrowV4,
+        abi: escrowAbiV4,
         eventName,
         args: { jobId: BigInt(jobId) },
-        fromBlock: ESCROW_V3_FROM_BLOCK,
+        fromBlock: ESCROW_V4_FROM_BLOCK,
         toBlock: "latest",
       }),
     );
@@ -147,24 +147,50 @@ export async function settlementV2(jobId: number): Promise<SettlementV2 | null> 
   return { outcome: hit.outcome, txHash: hit.log.transactionHash };
 }
 
-/** Live getJob() on the marketplace (v3) escrow, or null if unreachable / not found. */
+/** Live getJob() on the marketplace (v4) escrow, or null if unreachable / not found. */
 export async function liveJobV2(jobId: number): Promise<LiveJobV2 | null> {
   const j = await safe(
-    client.readContract({ address: CFG.escrowV3, abi: escrowAbi, functionName: "getJob", args: [BigInt(jobId)] }),
+    client.readContract({ address: CFG.escrowV4, abi: escrowAbiV4, functionName: "getJob", args: [BigInt(jobId)] }),
   );
   if (!j) return null;
   const job = j as { client: string; provider: string; amount: bigint; irysId: string; status: number };
   return {
     amountUsdc: Number(formatUnits(job.amount, 6)),
-    statusLabel: STATUS_LABELS_V2[job.status] ?? "Unknown",
+    statusLabel: STATUS_LABELS_V4[job.status] ?? "Unknown",
     irysId: job.irysId,
     client: job.client,
     provider: job.provider,
   };
 }
 
-/** Every job on the marketplace (v3) escrow (newest first). The Job tuple is identical to v1/v2, so
- *  the same ABI reads it; only the status enum (8 states) differs. Null if the RPC is unreachable. */
+/** Committee + vote state for a v4 job (for the committee panel). Null if unreachable. */
+export interface CommitteeInfo {
+  members: string[];
+  approveCount: number;
+  rejectCount: number;
+  quorum: number;
+  tentativePayout: boolean;
+  resolvedBlock: number;
+}
+export async function committeeV4(jobId: number): Promise<CommitteeInfo | null> {
+  const [members, vote, job] = await Promise.all([
+    safe(client.readContract({ address: CFG.escrowV4, abi: escrowAbiV4, functionName: "getCommittee", args: [BigInt(jobId)] })),
+    safe(client.readContract({ address: CFG.escrowV4, abi: escrowAbiV4, functionName: "getVote", args: [BigInt(jobId)] })),
+    safe(client.readContract({ address: CFG.escrowV4, abi: escrowAbiV4, functionName: "getJob", args: [BigInt(jobId)] })),
+  ]);
+  if (!members || !vote) return null;
+  const v = vote as readonly [number, number, bigint, boolean, bigint];
+  return {
+    members: members as string[],
+    approveCount: Number(v[0]),
+    rejectCount: Number(v[1]),
+    quorum: job ? Number((job as { quorum: number }).quorum) : 0,
+    tentativePayout: v[3],
+    resolvedBlock: Number(v[4]),
+  };
+}
+
+/** Every job on the marketplace (v4) escrow (newest first). Null if the RPC is unreachable. */
 export async function listJobsV2(max = 40): Promise<ChainJob[] | null> {
   const n = await nextJobIdV2();
   if (n === null) return null;
@@ -173,14 +199,14 @@ export async function listJobsV2(max = 40): Promise<ChainJob[] | null> {
   const rows = await Promise.all(
     ids.map(async (id) => {
       const j = await safe(
-        client.readContract({ address: CFG.escrowV3, abi: escrowAbi, functionName: "getJob", args: [BigInt(id)] }),
+        client.readContract({ address: CFG.escrowV4, abi: escrowAbiV4, functionName: "getJob", args: [BigInt(id)] }),
       );
       if (!j) return null;
       const job = j as { client: string; provider: string; amount: bigint; irysId: string; status: number };
       return {
         jobId: id,
         amountUsdc: Number(formatUnits(job.amount, 6)),
-        statusLabel: STATUS_LABELS_V2[job.status] ?? "Unknown",
+        statusLabel: STATUS_LABELS_V4[job.status] ?? "Unknown",
         badge: STATUS_BADGE_V2[job.status] ?? "open",
         irysId: job.irysId,
         client: job.client,

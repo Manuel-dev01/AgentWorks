@@ -75,6 +75,53 @@ def provider_pact(escrow: str | None = None, tx_cap: int = 20) -> dict:
     }
 
 
+def evaluator_pact(escrow: str | None = None, tx_cap: int = 20) -> dict:
+    """Evaluator (committee member) may ONLY contract_call the escrow — to `castVote` — capped at
+    `tx_cap` tx/24h. Like the provider Pact, the evaluator allowlist EXCLUDES USDC: a committee member
+    can vote on a deliverable but can NEVER move the escrowed funds. Settlement is the contract's
+    (after quorum + the dispute window), never an evaluator's.
+    """
+    escrow = escrow or config.ESCROW_V4_ADDRESS
+    return {
+        "policies": [{
+            "name": "evaluator-escrow-allowlist",
+            "type": "contract_call",
+            "rules": {
+                "effect": "allow",
+                "when": {"chain_in": [CHAIN], "target_in": [
+                    {"chain_id": CHAIN, "contract_addr": escrow},
+                ]},
+                "deny_if": {"usage_limits": {"rolling_24h": {"tx_count_gt": tx_cap}}},
+            },
+        }],
+        "completion_conditions": _completion(),
+    }
+
+
+def disputer_pact(escrow: str | None = None, bond_currency: str | None = None, tx_cap: int = 10) -> dict:
+    """A party that escalates a disputed outcome may contract_call the escrow (`dispute`) AND the UMA
+    bond currency (to `approve` the arbiter adapter to pull the stake). It still CANNOT move the
+    escrowed job funds — only the bond currency, only to approve, only the dispute path.
+    """
+    escrow = escrow or config.ESCROW_V4_ADDRESS
+    bond_currency = bond_currency or config.UMA_BOND_CURRENCY
+    return {
+        "policies": [{
+            "name": "disputer-escrow-and-bond-allowlist",
+            "type": "contract_call",
+            "rules": {
+                "effect": "allow",
+                "when": {"chain_in": [CHAIN], "target_in": [
+                    {"chain_id": CHAIN, "contract_addr": escrow},
+                    {"chain_id": CHAIN, "contract_addr": bond_currency},
+                ]},
+                "deny_if": {"usage_limits": {"rolling_24h": {"tx_count_gt": tx_cap}}},
+            },
+        }],
+        "completion_conditions": _completion(),
+    }
+
+
 def client_budget_transfer_pact(cap: str = "0.001") -> dict:
     """Budget cap: Client may transfer native gas up to `cap`; anything larger is DENIED."""
     return {
@@ -121,9 +168,14 @@ def dump_all() -> Path:
         # Phase 6.5 marketplace templates - bound to the v2 open-marketplace escrow (legacy).
         "client_escrow_pact_v2.json": client_escrow_pact(escrow=config.ESCROW_V2_ADDRESS),
         "provider_pact_v2.json": provider_pact(escrow=config.ESCROW_V2_ADDRESS),
-        # v3 marketplace templates - bound to the commit-reveal escrow (the live marketplace).
+        # v3 marketplace templates - bound to the commit-reveal escrow.
         "client_escrow_pact_v3.json": client_escrow_pact(escrow=config.ESCROW_V3_ADDRESS),
         "provider_pact_v3.json": provider_pact(escrow=config.ESCROW_V3_ADDRESS),
+        # v4 marketplace templates - committee consensus + staked disputes (the live marketplace).
+        "client_escrow_pact_v4.json": client_escrow_pact(escrow=config.ESCROW_V4_ADDRESS),
+        "provider_pact_v4.json": provider_pact(escrow=config.ESCROW_V4_ADDRESS),
+        "evaluator_pact_v4.json": evaluator_pact(escrow=config.ESCROW_V4_ADDRESS),
+        "disputer_pact_v4.json": disputer_pact(escrow=config.ESCROW_V4_ADDRESS),
     }
     for name, spec in artifacts.items():
         (out / name).write_text(json.dumps(spec, indent=2), encoding="utf-8")

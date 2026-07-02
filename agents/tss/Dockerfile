@@ -25,7 +25,9 @@ RUN apt-get update \
     && /usr/local/bin/cobo-tss-node --help >/dev/null 2>&1 || /usr/local/bin/cobo-tss-node version >/dev/null 2>&1 || true
 
 COPY agents/tss/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+# Normalize line endings (a CRLF checkout would make the shebang `#!/usr/bin/env bash\r`, which Linux
+# resolves to a nonexistent `bash\r` — "env: 'bash\r': No such file or directory" — so no signer starts).
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
 
 ENV PROFILES_DIR=/keys
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

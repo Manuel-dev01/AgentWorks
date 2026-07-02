@@ -59,6 +59,24 @@ ESCROW_V3_ADDRESS = os.environ.get("ESCROW_V3_CONTRACT_ADDRESS", "0xFAab4d6ff5CB
 # agents wait the right number of blocks between commitAccept and revealAccept.
 REVEAL_DELAY_BLOCKS = int(os.environ.get("REVEAL_DELAY_BLOCKS", "1"))
 REVEAL_WINDOW_BLOCKS = int(os.environ.get("REVEAL_WINDOW_BLOCKS", "256"))
+# v4 open-marketplace escrow: committee (M-of-N) evaluation + staked disputes escalating to a decoupled,
+# decentralized arbiter (UMA Optimistic Oracle V3). Live + verified on Sepolia (deploy block 11124671).
+ESCROW_V4_ADDRESS = os.environ.get("ESCROW_V4_CONTRACT_ADDRESS", "0x86B422CC8F75B7c5521a2552F2C34da8cb342C86")
+# The decoupled arbiter adapter (IS the escrow's `arbiter`; rules via UMA OOv3, never an operator key).
+UMA_ARBITER_ADDRESS = os.environ.get("UMA_ARBITER_ADDRESS", "0xd933a3816E6b0818e0EEEb4f4776dA9157172755")
+# UMA Optimistic Oracle V3 on Sepolia + its whitelisted bond currency. We use UMA's zero-minimum-bond,
+# publicly-mintable test token "6TEST" (6-dp) so a real dispute is demonstrable live on Sepolia; the
+# escrow settlement token stays MockUSDC. Production sets a meaningful bond + (on mainnet) real USDC.
+UMA_OOV3_ADDRESS = os.environ.get("UMA_OOV3_ADDRESS", "0xFd9e2642a170aDD10F53Ee14a93FcF2F31924944")
+UMA_BOND_CURRENCY = os.environ.get("UMA_BOND_CURRENCY", "0x3870419Ba2BBf0127060bCB37f69A1b1C090992B")
+UMA_BOND = int(os.environ.get("UMA_BOND", "5000000"))  # 5 6TEST (zero-min currency; demo stake)
+# v4 settlement timing (must mirror the deployed v4 ctor args). Sepolia demo values are small.
+VOTING_WINDOW_BLOCKS = int(os.environ.get("VOTING_WINDOW_BLOCKS", "50"))
+DISPUTE_WINDOW_BLOCKS = int(os.environ.get("DISPUTE_WINDOW_BLOCKS", "30"))
+DISPUTE_RESOLVE_WINDOW_BLOCKS = int(os.environ.get("DISPUTE_RESOLVE_WINDOW_BLOCKS", "50"))
+# Evaluator committee defaults for the autonomous run (odd N; quorum = strict majority).
+COMMITTEE_SIZE = int(os.environ.get("COMMITTEE_SIZE", "3"))
+COMMITTEE_QUORUM = int(os.environ.get("COMMITTEE_QUORUM", "2"))
 USDC_ADDRESS = os.environ.get("USDC_TOKEN_ADDRESS", "")
 EXPLORER_TX = "https://sepolia.etherscan.io/tx/{}"
 EXPLORER_ADDR = "https://sepolia.etherscan.io/address/{}"
@@ -85,4 +103,15 @@ def provider_agent() -> Agent:
         wallet_id=_req("CAW_PROVIDER_WALLET_ID"),
         api_key=_req("CAW_PROVIDER_API_KEY"),
         address=_req("CAW_PROVIDER_ADDRESS"),
+    )
+
+
+def evaluator_agent() -> Agent:
+    """The evaluator-committee CAW wallet (hosts the committee member addresses CAW_EVALUATOR_ADDRESS_1..N).
+    Address field is the wallet's primary address; committee member addresses come from registry.evaluators()."""
+    return Agent(
+        name="Evaluator",
+        wallet_id=_req("CAW_EVALUATOR_WALLET_ID"),
+        api_key=_req("CAW_EVALUATOR_API_KEY"),
+        address=os.environ.get("CAW_EVALUATOR_ADDRESS_1", ""),
     )

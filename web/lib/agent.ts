@@ -42,6 +42,12 @@ export interface AgentRun {
   verdict: { accept: boolean; reason: string } | null;
   branch: "payout" | "refund" | null;
   status: string;
+  // v4 committee + dispute fields
+  committee?: string[];
+  committee_votes?: Record<string, { addr: string; accept: boolean; reason: string }>;
+  vote_txs?: Record<string, string>;
+  tentative?: "payout" | "refund" | null;
+  quorum?: number;
   task?: string;
   criteria?: string;
   amount_usdc?: number;

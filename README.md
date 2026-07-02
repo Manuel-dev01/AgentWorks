@@ -9,20 +9,21 @@ Any **Provider Agent** in the pool can reason about the job and **race to claim 
 `commitAccept` hash (the targeted job id stays hidden), then after a short block delay opens it with
 `revealAccept` to claim. The **first valid reveal wins**; a loser's reveal reverts. Because the
 commitment binds to the committer's address, a copied hash is worthless to a frontrunner. The winner
-performs the work, stores the deliverable on **Irys**, and anchors its content hash on-chain. An
-**Evaluator** fetches the deliverable, judges it, and the contract settles: **payout** to the provider,
-or **refund** to the client (also on reject or deadline expiry). **Every agent acts through its own CAW
-wallet under a scoped Pact** - CAW is the load-bearing authority layer that makes autonomous spending
-safe; the escrow is the neutral settlement layer between distrustful agents. The agents genuinely
-**decide** (fund? accept? reject?) via an LLM, but a Pact they cannot exceed is the hard boundary - an
-over-budget or non-allowlisted action is blocked server-side, and authority can be frozen instantly by
-revoking the Pact.
+performs the work, stores the deliverable on **Irys**, and anchors its content hash on-chain. Settlement is **decentralized**: an
+**M-of-N evaluator committee** each judges the deliverable and votes on-chain; reaching a strict-majority
+quorum produces a *tentative* outcome, and after a **dispute window** anyone finalizes it — or the losing
+side **stakes a bond to escalate** to a decoupled, decentralized arbiter (**UMA Optimistic Oracle V3**, no
+operator key). **Every agent acts through its own CAW wallet under a scoped Pact** - CAW is the
+load-bearing authority layer that makes autonomous spending safe; the escrow is the neutral settlement
+layer between distrustful agents. The agents genuinely **decide** (fund? accept? vote?) via an LLM, but a
+Pact they cannot exceed is the hard boundary - an over-budget or non-allowlisted action is blocked
+server-side, and authority can be frozen instantly by revoking the Pact.
 
-Lifecycle (the accept race is sealed; naming mirrors the ERC-8183 **draft**):
-`createJob → fund → commitAccept → revealAccept (sealed race) → submitWork → complete (payout) | reject (refund) | claimRefund (expiry)`
+Lifecycle (live escrow **v4**; naming mirrors the ERC-8183 **draft**):
+`createJob(committee) → fund → commitAccept → revealAccept (sealed race) → submitWork → castVote ×N → Resolved → finalize | dispute → resolveDispute | resolveTimeout`
 
-See **[docs/MEV.md](docs/MEV.md)** for the frontrunning threat model, the commit-reveal design, and the
-private-RPC defense-in-depth layer.
+See **[docs/MEV.md](docs/MEV.md)** for the sealed-accept (anti-frontrunning) design and
+**[docs/ARBITRATION.md](docs/ARBITRATION.md)** for the committee consensus + staked-dispute arbiter.
 
 ## Status - autonomous, on-chain, demonstrable
 
@@ -85,9 +86,10 @@ Irys devnet (deliverable storage) · **Next.js 15** dashboard (viem live reads) 
 
 ## On-chain & agent identities (Ethereum Sepolia, chainId 11155111)
 **Contracts (verified on Etherscan):**
-- Escrow **v3** `AgentWorksEscrowV3` (open marketplace, MEV-hardened sealed commit-reveal accept; **the live escrow**): [`0xFAab4d6ff5CBEcD72a4e1B9315662e7846166D69`](https://sepolia.etherscan.io/address/0xfaab4d6ff5cbecd72a4e1b9315662e7846166d69) (delay=1, window=256)
-- Escrow v2 `AgentWorksEscrowV2` (legacy, raw acceptJob race): [`0xD6cB413c0E4a5839Fd4B02aFFeBF65e6868726b9`](https://sepolia.etherscan.io/address/0xd6cb413c0e4a5839fd4b02affebf65e6868726b9)
-- MockUSDC (6-decimal, mintable): [`0x4C4D1223BcC47E380CF4C37652EaDFe10A9Fd910`](https://sepolia.etherscan.io/address/0x4c4d1223bcc47e380cf4c37652eadfe10a9fd910)
+- Escrow **v4** `AgentWorksEscrowV4` (committee consensus + staked disputes; **the live escrow**): [`0x86B422CC8F75B7c5521a2552F2C34da8cb342C86`](https://sepolia.etherscan.io/address/0x86B422CC8F75B7c5521a2552F2C34da8cb342C86) (deploy block 11124671)
+- `AgentWorksUmaArbiter` (the escrow's decoupled arbiter; rules via UMA OOv3, no operator key): [`0xd933a3816E6b0818e0EEEb4f4776dA9157172755`](https://sepolia.etherscan.io/address/0xd933a3816E6b0818e0EEEb4f4776dA9157172755)
+- Escrow v3 (legacy, sealed commit-reveal accept): [`0xFAab4d6ff5CBEcD72a4e1B9315662e7846166D69`](https://sepolia.etherscan.io/address/0xfaab4d6ff5cbecd72a4e1b9315662e7846166d69) · Escrow v2 (legacy): `0xD6cB413c0E4a5839Fd4B02aFFeBF65e6868726b9`
+- MockUSDC (6-decimal, mintable): [`0x4C4D1223BcC47E380CF4C37652EaDFe10A9Fd910`](https://sepolia.etherscan.io/address/0x4c4d1223bcc47e380cf4c37652eadfe10a9fd910) · UMA OOv3 (Sepolia): `0xFd9e2642a170aDD10F53Ee14a93FcF2F31924944`
 
 **CAW agent wallets:**
 - Client agent - wallet id `0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d` · EVM [`0x6dfb…1ddd`](https://sepolia.etherscan.io/address/0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd)
@@ -95,6 +97,18 @@ Irys devnet (deliverable storage) · **Next.js 15** dashboard (viem live reads) 
 - Provider B (race competitor) - EVM [`0x7ea0…c69e`](https://sepolia.etherscan.io/address/0x7ea0701d657e3427c2bb3bc195e943a81c5fc69e)
 
 **Deployed agent service:** `https://insightful-wisdom-production-5c62.up.railway.app` (`/health`, `/runs`, `/board`, `POST /trigger`, and the open-marketplace `/marketplace/*` endpoints).
+
+**Verified committee consensus + staked dispute (escrow v4, the live escrow)** — both settlement paths run
+end-to-end on Sepolia, **no operator key ruling either**:
+| Path | Outcome | Key transactions |
+|---|---|---|
+| Committee → finalize | job #1 → **Completed** (payout) | 3-evaluator committee (quorum 2) votes 2-0 on-chain → tentative `Resolved` (no funds move) → [`finalize 0x3b552c5e…`](https://sepolia.etherscan.io/tx/0x3b552c5e94eaf38868159bb43cb3d933000132405006d1af3c3bbf9bf4827611) |
+| Committee → **staked dispute → UMA OOv3** | job #2 → **Rejected** (refund) | losing side stakes a bond → [`dispute 0x143a0531…`](https://sepolia.etherscan.io/tx/0x143a0531ffe7f2ae007f05941ef6abfcd79c69a9d01e420f6d4a8d152fd12e10) → real UMA assertion → [`settle → resolveDispute 0x8e40fdc9…`](https://sepolia.etherscan.io/tx/0x8e40fdc9a358fca1a93b3eef6c740f8bfbfb8e13069a9cc576bd77676efac2c1) overturns to refund |
+| Committee **through CAW** (hands-off) | job #4 → **Completed** (payout) | 3-evaluator committee on a dedicated **Evaluator CAW wallet** `castVote`s via CAW under `evaluator_pact` — [`A 0x959be72a…`](https://sepolia.etherscan.io/tx/0x959be72af5407771c11dce123fcf45e45e75769fe0365a957d00851e9a6ef6db) / [`B 0xc807f98d…`](https://sepolia.etherscan.io/tx/0xc807f98dab59b9f1d0a8cbbff7bc4d5c73fe9b8d162862db708795b078923d94) → quorum → [`finalize 0xd6b8e9fc…`](https://sepolia.etherscan.io/tx/0xd6b8e9fc3624bf558a3042b33758fd9671cd24ed9f4a52916cdb71442b5d8b24); the Pact **denies USDC** (`CONTRACT_NOT_WHITELISTED` 403) |
+
+The dispute is ruled by **UMA's Optimistic Oracle V3** (assertion `0x26d55b3f…`), not an admin key — see
+**[docs/ARBITRATION.md](docs/ARBITRATION.md)**. (Sepolia's OOv3 has no DVM, so the contested branch is a
+one-env-var flip to mainnet; the optimistic path is what runs live.)
 
 **Verified sealed-race lifecycle (escrow v3)** - a hands-off run drove job #1 with a real 2-provider
 **sealed commit-reveal** race: both providers committed opaque bids, **Provider A's `revealAccept` reverted**

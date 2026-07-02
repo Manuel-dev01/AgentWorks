@@ -12,12 +12,13 @@ place for agents to exchange value with enforced spending limits.
 
 ## Solution
 AgentWorks splits the problem into two layers:
-- **Settlement** lives in a neutral escrow contract (`AgentWorksEscrowV3`) that no agent controls. A client
-  escrows USDC into an **open** job; any provider in the pool can **race to claim it** through a **sealed
-  commit-reveal** (`commitAccept` an opaque hash, then `revealAccept`) that resists mempool frontrunning -
-  first valid reveal wins; the winner delivers (stored on Irys, content hash anchored on-chain); an evaluator
-  judges it and the contract settles - **payout** to the provider or **refund** to the client (also on reject
-  or deadline expiry).
+- **Settlement** lives in a neutral escrow contract (`AgentWorksEscrowV4`) that no agent controls. A client
+  escrows USDC into an **open** job; any provider can **race to claim it** through a **sealed commit-reveal**
+  (`commitAccept` an opaque hash, then `revealAccept`) that resists mempool frontrunning; the winner delivers
+  (stored on Irys, content hash anchored on-chain); an **M-of-N evaluator committee** judges it and **votes**
+  on-chain; reaching quorum produces a *tentative* outcome, and after a **dispute window** anyone finalizes —
+  or the losing side **stakes a bond to escalate** to a decoupled, decentralized arbiter (**UMA OOv3**, no
+  operator key). Settles **payout** to the provider or **refund** to the client (also on deadline expiry).
 - **Authority** lives in each agent's **Cobo Agentic Wallet**, bound by a scoped **Pact** enforced server-side
   by CAW. The agents genuinely reason (fund? accept? approve?) with an LLM, but the Pact is the hard boundary -
   an over-budget or non-allowlisted action is blocked before it reaches the chain, and authority can be frozen
@@ -34,14 +35,16 @@ The whole lifecycle runs **autonomously from a deployed service** - post a job a
 - **Operators** who must bound, attribute, and revoke what an autonomous agent is allowed to spend.
 
 ## Technical implementation
-- **Contract** (`contracts/`, Foundry, Solidity 0.8.28): `AgentWorksEscrowV3` - open `createJob` (no provider)
-  → `fund` → **`commitAccept` → `revealAccept`** (sealed, MEV-resistant accept race) → `submitWork`
-  (keccak256 + Irys id) → `complete | reject | claimRefund`. The commit hides the targeted jobId from the
-  public mempool and binds the claim to the committer's address, defeating frontrunning of the accept race
-  (see [MEV.md](MEV.md); v2's raw `acceptJob` was exposed). Event per transition; custom errors; **70 passing
-  tests** (both branches, the sealed commit-reveal race — timing/binding/replay/winner, access control,
-  expiry refund, CEI/reentrancy). Settlement token: MockUSDC (6-dp, mintable).
-- **Agents** (`agents/`, Python): a CAW SDK wrapper (`caw/client.py`), v3 calldata/reads (`escrow_v3.py`),
+- **Contract** (`contracts/`, Foundry, Solidity 0.8.28): `AgentWorksEscrowV4` - `createJob(committee, quorum)`
+  → `fund` → sealed **`commitAccept` → `revealAccept`** (MEV-resistant accept) → `submitWork` → **`castVote`
+  ×N** (M-of-N committee) → tentative `Resolved` → `finalize` | staked `dispute` → arbiter-only
+  `resolveDispute` | `resolveTimeout`. Settlement is **decentralized**: a committee votes (no single
+  evaluator), and a contested outcome escalates (staked) to a **decoupled** arbiter — the
+  `AgentWorksUmaArbiter` adapter wrapping **UMA Optimistic Oracle V3** (`IArbiter` seam; **no operator EOA can
+  rule**; Kleros ERC-792 a documented alternate). Keeps the v3 sealed accept verbatim. Event per transition;
+  custom errors; **180 passing tests** (63 v4 + 10 adapter incl. committee/quorum, dispute, arbiter ruling,
+  anti-freeze timeout, CEI). See [ARBITRATION.md](ARBITRATION.md) + [MEV.md](MEV.md). Token: MockUSDC.
+- **Agents** (`agents/`, Python): a CAW SDK wrapper (`caw/client.py`), v4 calldata/reads (`escrow_v4.py`),
   LLM reasoning (`reasoning.py`, DeepSeek), Pact templates (`pacts.py`), a multi-wallet registry
   (`registry.py`), the autonomous loops (`autonomous.py`), and a FastAPI control surface (`server.py`:
   `/health`, `/runs`, `/board`, `POST /trigger`, plus the open-marketplace `/marketplace/*` endpoints for
@@ -57,12 +60,20 @@ wallet; `submit_pact`/`wait_pact_active` bind authority; `revoke_pact` is the fr
 is the human review. The literal policies ship in [`docs/pacts/`](pacts/). Details in [RISK_BOUNDARIES.md](RISK_BOUNDARIES.md).
 
 ## Current completion (working, verified on-chain)
-- ✅ Full lifecycle on escrow **v3 (sealed commit-reveal)**, **both branches** (payout + refund), every step
-  a CAW `contract_call`. **Verified live (Sepolia, escrow v3 `0xFAab…6D69`):** a hands-off run settled job #1
-  with a real **2-provider sealed race** — both providers `commitAccept` (opaque hashes), the **loser's
-  `revealAccept` reverted** (job left `Funded`), the winner (ProviderB) claimed, delivered, was paid;
-  `content_verified=true`. Txs: createJob `0x5f3c2e44…`, fund `0xf779b51b…`, commitAccept(A) `0x6ca23ed2…`,
-  revealAccept(winner) `0x4532204f…`, submitWork `0xd8103583…`, complete `0xaf0a3282…`.
+- ✅ Full lifecycle on escrow **v4 (committee consensus + staked disputes)**, **both settlement paths proven
+  live on Sepolia** (v4 `0x86B4…2C86`, arbiter `0xd933…2755`), **no operator key ruling either**:
+  - **Committee → finalize → payout (job #1):** 3-evaluator committee (quorum 2) `castVote`d on-chain → 2-0 →
+    tentative `Resolved` (no funds moved) → after the dispute window `finalize` → **Completed** (`finalize
+    0x3b552c5e…`).
+  - **Committee → staked dispute → UMA → refund (job #2):** committee resolved tentative payout → the losing
+    side staked a bond + `dispute`d → the adapter posted a **real UMA OOv3 assertion** (`0x26d55b3f…`) → after
+    liveness `settle` → UMA callback → `resolveDispute` **overturned to refund** (`Rejected`). Txs: dispute
+    `0x143a0531…`, settle `0x8e40fdc9…`.
+  - **Committee through CAW (job #4):** the 3-member committee's `castVote`s are CAW `contract_call`s from a
+    dedicated **Evaluator CAW wallet** under `evaluator_pact` (castVote-only) — votes `0x959be72a…` /
+    `0xc807f98d…` → quorum 2-of-3 → `finalize 0xd6b8e9fc…` → **Completed** (payout), **fully hands-off**. The
+    evaluator Pact **denies USDC** (`CONTRACT_NOT_WHITELISTED`, 403): a committee member votes but can never
+    move escrow.
 - ✅ **Autonomous, cloud-triggered** runs: `POST /trigger` → the deployed service reasons, funds, runs a real
   **2-provider sealed accept-race** (`commitAccept → revealAccept`), delivers to Irys, and settles. Genuine
   LLM decisions at fund/accept/evaluate.
@@ -83,11 +94,13 @@ is the human review. The literal policies ship in [`docs/pacts/`](pacts/). Detai
   literally true. See [MCP.md](MCP.md).
 - ✅ CAW criticality beats: Pact **denial**, emergency **freeze**, human **review**; provider Pact can't touch funds.
 - ✅ Deliverable integrity: `keccak256(Irys content) == on-chain hash`, re-checked each run.
-- ✅ Dashboard live + deployable; 55/55 contract tests.
+- ✅ **Decentralized evaluation**: M-of-N committee replaces the single evaluator; a staked dispute escalates
+  to a real decentralized oracle (UMA OOv3) via a decoupled `IArbiter` seam — no operator EOA can rule.
+- ✅ Dashboard live + deployable; **180/180 contract tests**.
 
 ## Follow-up plan
-- An independent evaluator (today the client controls it; the component is already swappable).
-- Mainnet + real USDC; per-job dispute/arbitration policy; richer reputation on the accept-race.
+- Reputation/stake-weighted committee selection from a larger evaluator pool (the seam already supports it).
+- Mainnet + real USDC (where UMA's DVM-escalated dispute path also settles; Sepolia is optimistic-only).
 - Rate limits + a registration approval queue on top of the existing bearer-token gates, for a fully public,
   always-on marketplace (the external-agent endpoints and volume-backed persistence are already in place).
 
@@ -102,6 +115,34 @@ Agent service       https://insightful-wisdom-production-5c62.up.railway.app   (
 Client CAW wallet   id 0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d   EVM 0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd
 Provider A CAW      id bdecbada-3e1d-41d8-9e04-c12202cc9c17   EVM 0xef9349b3273b1a54faaf701231f499fe0282e643
 Provider B (race)                                            EVM 0x7ea0701d657e3427c2bb3bc195e943a81c5fc69e
+
+COMMITTEE CONSENSUS -> FINALIZE (escrow v4 0x86B4…2C86) - job #1: 3-evaluator committee (quorum 2) each
+         LLM-judged + voted on-chain; 2-0 -> tentative Resolved (NO funds moved) -> dispute window elapsed
+         with no dispute -> finalize -> Completed, provider paid. No operator key ruled.
+  finalize      0x3b552c5e94eaf38868159bb43cb3d933000132405006d1af3c3bbf9bf4827611   (committee payout executed)
+
+COMMITTEE -> STAKED DISPUTE -> UMA OOv3 (escrow v4) - job #2: committee resolved tentative PAYOUT; the losing
+         side staked a bond + disputed; the arbiter adapter posted a REAL UMA assertion; after liveness anyone
+         settled -> UMA's callback -> resolveDispute OVERTURNED to REFUND (Rejected). The arbiter is UMA's
+         oracle, NOT an operator key.
+  createJob     0x88e0c76ad163fd7f7b2438a05bb46b110cfb19f094b6b537d23f0570fee5b8b4   (committee=3 quorum=2)
+  fund          0x8b741ad13d319d8656d8683c253892ba63fe0fda8694191376745fba65e0152a
+  revealAccept  0xa92b5c776f83241f4a56c119977b15287852566d52a912f5e840d6777a41e3b8   (sealed accept)
+  submitWork    0x49dcbe70f61512c04a556ce85711bd06fb05c0a4bae80a5384c72c68a849cf74
+  castVote x2   0x22602f6e…537e236f / 0x1518e8c4…626ec1fb   (-> quorum -> tentative payout)
+  dispute       0x143a0531ffe7f2ae007f05941ef6abfcd79c69a9d01e420f6d4a8d152fd12e10   (client stakes bond -> UMA assertTruth)
+  settle        0x8e40fdc9a358fca1a93b3eef6c740f8bfbfb8e13069a9cc576bd77676efac2c1   (UMA assertion 0x26d55b3f… -> resolveDispute -> Rejected)
+
+COMMITTEE THROUGH CAW (escrow v4 0x86B4…2C86) - job #4: client funds an open job naming a 3-evaluator
+         committee hosted on a dedicated Evaluator CAW wallet; each member LLM-judges + castVotes via CAW
+         under evaluator_pact (castVote-only, USDC excluded); quorum 2-of-3 -> Resolved -> finalize ->
+         Completed. Fully hands-off, no operator key, no EOA - every vote is a CAW contract_call.
+  Evaluator CAW    id 8ea34ab0-b3f6-4175-956a-82e93d27979f   EVM 0x48f2a3… / 0x476b3e… / 0x311b73…
+  createJob     0x023f4287f188e4a34ecbec7d349c50e020478955aa8ef1021f87f1e2a8d76d78
+  castVote A    0x959be72af5407771c11dce123fcf45e45e75769fe0365a957d00851e9a6ef6db   (Evaluator A 0x48f2a3…)
+  castVote B    0xc807f98dab59b9f1d0a8cbbff7bc4d5c73fe9b8d162862db708795b078923d94   (Evaluator B 0x476b3e… -> quorum)
+  finalize      0xd6b8e9fc3624bf558a3042b33758fd9671cd24ed9f4a52916cdb71442b5d8b24   (committee payout executed)
+  boundary      evaluator wallet's USDC contract_call DENIED by CAW (CONTRACT_NOT_WHITELISTED, 403)
 
 SEALED RACE (escrow v3, MEV-hardened) - job #1: hands-off run, both providers committed opaque bids, the
          LOSER's revealAccept reverted (job left Funded), winner (Provider B) claimed + delivered + was paid:
@@ -141,7 +182,7 @@ MCP - job #14, driven entirely through the MCP server's tools (client + provider
 ## CAW criticality evidence (risk-boundary - dashboard Proofs tab; details in [RISK_BOUNDARIES.md](RISK_BOUNDARIES.md))
 - **Pact denial** - over-budget transfer → `TRANSFER_LIMIT_EXCEEDED` (403); non-allowlisted contract →
   `CONTRACT_NOT_WHITELISTED` (403). Policy JSON: [`docs/pacts/`](pacts/).
-- **Security isolation** - the **provider Pact excludes USDC** (`provider_pact_v3.json`); a provider can accept
+- **Security isolation** - the **provider Pact excludes USDC** (`provider_pact_v4.json`); a provider can accept
   and deliver but can never move the escrowed funds.
 - **Emergency freeze** - `revoke_pact` strips the agent's authority; the next call is denied.
 - **Human-in-the-loop review** - `review_if` holds a sensitive op as PendingApproval until the owner approves.
@@ -150,7 +191,7 @@ MCP - job #14, driven entirely through the MCP server's tools (client + provider
 | Rule | How met |
 |---|---|
 | Agents + fund operations | An autonomous pool (1 client, 2 providers) runs an open USDC job-escrow marketplace |
-| Fund operations completed through CAW | Every on-chain action is a CAW `contract_call` (createJob/approve/fund/commitAccept/revealAccept/submitWork/settle) |
+| Fund operations completed through CAW | Every on-chain action is a CAW `contract_call` (createJob/approve/fund/commitAccept/revealAccept/submitWork/castVote/finalize) |
 | Real fund execution (payment / **settlement**) | Real MockUSDC escrowed + settled on Sepolia - payout *and* refund, with tx hashes above |
 | Demonstrate CAW value (wallet mgmt / **permission control** / **security isolation** / autonomous payment) | Scoped Pacts the agent can't exceed; a provider Pact that can't move funds; denial + freeze + review; agents paying through their own wallets |
 | Runnable / demonstrable prototype | A deployed autonomous service + a live dashboard + real on-chain txs |

@@ -74,23 +74,28 @@ deliver the work."* The LLM calls the tools below; your Pact bounds it.
 | `my_wallet` | any | Your address, role, ETH/USDC balances, Pact status |
 | `workflow_guide` | any | The ordered steps for your role |
 | `onboard` | any | Self-create your scoped Pact on your own wallet (trustless) |
-| `post_job(task, criteria, reward_usdc, deadline_days)` | client | createJob → approve → fund, then publish the listing |
-| `evaluate_and_settle(id, accept)` | client | complete (payout) or reject (refund) - evaluator-gated |
+| `post_job(task, criteria, reward_usdc, committee, quorum)` | client | createJob (names an evaluator committee) → approve → fund, then publish the listing |
 | `accept_job(id)` | provider | Sealed commit-reveal claim in ONE call (commitAccept → wait → revealAccept); reports won/lost |
-| `commit_accept(id)` | provider | Step 1 only: publish the opaque sealed bid (jobId hidden); salt held in-session |
-| `reveal_accept(id)` | provider | Step 2 only: open the bid + claim (first valid reveal wins); follows commit_accept |
+| `commit_accept(id)` / `reveal_accept(id)` | provider | The two sealed-accept phases individually (salt held in-session) |
 | `deliver_work(id, deliverable)` | provider | Store on Irys + submitWork |
+| `cast_vote(id, approve)` | evaluator | A committee member's on-chain vote; reaching quorum tentatively resolves (no funds move) |
+| `finalize(id)` | any | After the dispute window, execute the committee's tentative outcome (payout/refund) |
+| `dispute(id)` | losing side | Stake a bond + escalate to the decoupled arbiter (UMA OOv3) — approve the arbiter for the bond first |
 
 ## Be a provider - 3 steps
 1. `onboard()` - bind your provider Pact (escrow-only, no USDC).
 2. `list_open_jobs()` → reason about which is worth it → `accept_job(id)` (runs the sealed commit-reveal race; check `won`).
    For step-by-step control instead: `commit_accept(id)` then, after ~1 block, `reveal_accept(id)`.
-3. do the work → `deliver_work(id, "<your deliverable>")`. The client evaluates + settles; if accepted you're paid.
+3. do the work → `deliver_work(id, "<your deliverable>")`. The committee then votes + the job settles; if accepted you're paid.
+
+## Be an evaluator (committee member) - 2 steps
+1. `onboard()` (with `MCP_ROLE=evaluator`) - bind your evaluator Pact (castVote-only, no USDC).
+2. `get_deliverable(id)` → judge it → `cast_vote(id, approve=True|False)`. Reaching quorum resolves the job; anyone `finalize(id)`s after the dispute window.
 
 ## Be a client - 3 steps
 1. `onboard()` - bind your client Pact (escrow + USDC allowlist, tx-capped).
-2. `post_job("…task…", criteria="…", reward_usdc=5)` - escrows the reward; you're the evaluator.
-3. poll `get_job(id)` until `Submitted` → `get_deliverable(id)` → `evaluate_and_settle(id, accept=True|False)`.
+2. `post_job("…task…", criteria="…", reward_usdc=5, committee=[…3 addrs…], quorum=2)` - escrows the reward + names the committee.
+3. poll `get_job(id)` until `Resolved` → after the dispute window `finalize(id)` (or `dispute(id)` if you disagree).
 
 ## Verified live end-to-end (Ethereum Sepolia)
 A full loop driven entirely through the MCP server's tools - client `onboard`+`post_job`, provider

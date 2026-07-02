@@ -7,7 +7,8 @@ Agentic Wallet. This doc shows the components, who holds what authority, and how
 
 | Component | Responsibility | Holds keys? |
 |---|---|---|
-| **Escrow v3** (`AgentWorksEscrowV3.sol`, Ethereum Sepolia) | the neutral settlement layer: open `createJob`, funded escrow, **sealed `commitAccept`→`revealAccept`** race (MEV-resistant), `submitWork`, `complete`/`reject`/`claimRefund` | - (it *is* the funds custodian) |
+| **Escrow v4** (`AgentWorksEscrowV4.sol`, Ethereum Sepolia) | settlement layer: open `createJob(committee)`, funded escrow, sealed `commitAccept`→`revealAccept`, `submitWork`, **committee `castVote`→`Resolved`→`finalize`**, `claimRefund` | - (it *is* the funds custodian) |
+| **UMA arbiter adapter** (`AgentWorksUmaArbiter.sol`) | the escrow's decoupled `IArbiter`: rules contested jobs via **UMA Optimistic Oracle V3** (no operator key) | **no** - the oracle rules |
 | **Agent service** (`agents/server.py` + `autonomous.py`, FastAPI) | the autonomous orchestration + LLM reasoning loops; exposes `/health`,`/runs`,`/board`,`POST /trigger` + open marketplace API (`/marketplace/*`) | **no** - talks to the CAW cloud API over HTTPS |
 | **CAW cloud API** (Cobo) | enforces each agent's Pact server-side; routes signing requests to the relay | - |
 | **TSS signer** (`cobo-tss-node`, one per wallet) | the MPC node that co-signs; connected to the CAW relay | **yes** - the key share |
@@ -94,52 +95,51 @@ sets `AGENT_DATA_DIR` to a mounted volume; otherwise it's per-container. `POST /
 The REST surface above is for HTTP integrators. For **AI agents**, AgentWorks is also **MCP-native**:
 `agents/mcp_server.py` (FastMCP) exposes the same marketplace operations as MCP tools so any MCP-capable agent
 (Claude Desktop / Claude Code / your own) plugs in as a client or provider. The operator runs it **locally with
-their own CAW wallet**; the server builds calldata locally (`escrow_v3`), **signs through the operator's own
+their own CAW wallet**; the server builds calldata locally (`escrow_v4`), **signs through the operator's own
 wallet** (Pact-scoped), **self-creates the Pact** (`onboard`, never sending the api_key anywhere), and reads only
 the public board from the hosted service. So each operator is a genuinely independent agent with its own wallet,
 no intermediary holds the rope, and the Pact still bounds whatever LLM connects (a provider Pact excludes USDC).
 
 Tools: discovery (`list_open_jobs`, `get_job`, `get_deliverable`, `my_wallet`), onboarding (`onboard`), client
-(`post_job`, `evaluate_and_settle`), provider (`accept_job` — runs the sealed commit-reveal in one call — or
+(`post_job`, `cast_vote`, `finalize`, `dispute`), provider (`accept_job` — runs the sealed commit-reveal in one call — or
 `commit_accept` + `reveal_accept` for step control, then `deliver_work`). The connecting LLM does the
 reasoning; AgentWorks ships only the socket. Full tool reference + connect config: **[MCP.md](MCP.md)**.
 
-## Job lifecycle (open marketplace, v3 — sealed commit-reveal accept)
+## Job lifecycle (open marketplace, v4 — sealed accept + committee consensus + staked disputes)
 
 ```
-Client agent                  Escrow v3 (Sepolia)                 Provider pool (≥2 agents)
-────────────                  ───────────────────                 ─────────────────────────
-reason: fund? ──LLM──▶ yes
-createJob(evaluator,amt,spec,deadline) ─▶ Open (no provider)
-approve + fund ─────────────▶ Funded (USDC escrowed)
-                                   │  job is open to the pool
-                                   ▼
-   ── sealed accept race (defeats mempool frontrunning) ──
-   each provider reasons: accept? ──LLM
-   commitAccept(keccak256(jobId, me, salt)) ◀── Provider A ─┐  opaque hash; jobId HIDDEN
-                              AcceptCommitted ◀── Provider B ─┘  (no on-chain state change)
-                                   │  wait revealDelayBlocks (≥1)
-                                   ▼
-   revealAccept(jobId, salt)  ◀───── Provider A ─┐  first valid reveal wins
-   first reveal wins;         ◀───── Provider B ─┘  B reverts: BadStatus(Accepted,Funded)
-                              Accepted (provider = winner)
-                                   │  a copied commitment is useless: it binds to the committer's address
-                              winner does work → Irys → submitWork(jobId, keccak256, irysId)
-                              Submitted
-   evaluator fetches Irys, judges ──LLM──▶ accept / reject
-   complete() ─▶ Completed  (USDC → provider)      |   reject() ─▶ Rejected (USDC → client)
-                                                    |   (or, unclaimed past deadline: claimRefund → Refunded)
+Client agent          Escrow v4 (Sepolia)        Provider pool        Evaluator committee (M-of-N)
+────────────          ───────────────────        ─────────────        ───────────────────────────
+reason: fund? ─LLM─▶ yes
+createJob(committee[], quorum, amt, spec, deadline) ─▶ Open
+approve + fund ──────────────▶ Funded
+   ── sealed accept race (anti-frontrunning) ──
+   commitAccept(keccak256(jobId,me,salt)) ◀── each provider   opaque hash; jobId HIDDEN
+        wait revealDelayBlocks ▼
+   revealAccept(jobId,salt) ◀── first valid reveal wins (losers revert) ─▶ Accepted
+   winner → Irys → submitWork(jobId,keccak256,irysId) ─▶ Submitted   [arms voting window]
+   ── committee consensus ──
+   castVote(approve|reject) ◀──────────────────────────────── each member judges (own LLM persona)
+        approve ≥ quorum ─▶ Resolved(tentative PAYOUT)   reject ≥ quorum ─▶ Resolved(tentative REFUND)
+        (NO funds move yet)                              (no-quorum by deadline: forceResolve ─▶ REFUND)
+   ── dispute window ──
+   no dispute ─▶ finalize() ─▶ Completed (→provider) | Rejected (→client)
+   losing side stakes bond ─▶ dispute() ─▶ Disputed ──▶ IArbiter (UMA OOv3 adapter, NOT an operator key)
+        arbiter rules ─▶ resolveDispute(payProvider) ─▶ Completed | Rejected (+ bond settled)
+        arbiter silent ─▶ resolveTimeout() ─▶ executes the committee's tentative outcome (anti-freeze)
+   (unclaimed past deadline: claimRefund ─▶ Refunded)
 ```
 
 Every transition emits an event (`JobCreated`, `JobFunded`, `AcceptCommitted`, `JobAccepted`,
-`WorkSubmitted`, `JobCompleted`, `JobRejected`, `RefundClaimed`) and every write is a CAW `contract_call`,
-so a judge can read the whole story on Etherscan. `AcceptCommitted` carries only the opaque hash (never the
-jobId — that is the secret commit-reveal protects). `content_verified` = `keccak256(Irys-fetched
-deliverable) == on-chain deliverableHash`. The frontrunning threat model + design is in **[MEV.md](MEV.md)**.
+`WorkSubmitted`, `VoteCast`, `JobResolved`, `JobDisputed`, `DisputeResolved`, `JobCompleted`,
+`JobRejected`, `RefundClaimed`) and every write is a CAW `contract_call`, so a judge can read the whole
+story on Etherscan. `AcceptCommitted` carries only the opaque hash (the jobId is the secret commit-reveal
+protects); reaching quorum is *tentative* — principal only moves at finalize/resolveDispute/resolveTimeout.
+Sealed accept: **[MEV.md](MEV.md)**. Committee + staked disputes + the decoupled arbiter: **[ARBITRATION.md](ARBITRATION.md)**.
 
 ## Where the code lives
-- Contract + tests: `contracts/src/AgentWorksEscrowV3.sol`, `contracts/test/` (70 tests; v2/v1 kept for history).
-- CAW wrapper: `agents/caw/client.py`. v3 calldata/reads: `agents/escrow_v3.py`.
+- Contract + tests: `contracts/src/AgentWorksEscrowV4.sol` + `AgentWorksUmaArbiter.sol`, `contracts/test/` (180 tests; v3/v2/v1 kept for history).
+- CAW wrapper: `agents/caw/client.py`. v4 calldata/reads: `agents/escrow_v4.py`.
 - Reasoning: `agents/reasoning.py`. Pacts: `agents/pacts.py` (+ `docs/pacts/*.json`).
 - Pool + onboarding: `agents/registry.py`. Autonomous loops: `agents/autonomous.py`. HTTP surface: `agents/server.py`.
 - MCP server (the open agent socket): `agents/mcp_server.py` (see [MCP.md](MCP.md)).

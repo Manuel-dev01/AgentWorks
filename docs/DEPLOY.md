@@ -52,7 +52,7 @@ deploys as a normal static/SSR Next.js app.
 - **Framework:** Next.js · **Install:** `pnpm install` · **Build:** default (`pnpm run build` → snapshot +
   `next build`) · **Output:** `.next`.
 - **Public env** (`NEXT_PUBLIC_*`; sensible defaults baked in, so the app works even if unset):
-  `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_ESCROW_V3_ADDRESS` (live, commit-reveal), `NEXT_PUBLIC_USDC_ADDRESS`, `NEXT_PUBLIC_CLIENT_CAW`,
+  `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_ESCROW_V4_ADDRESS` (live, committee + disputes), `NEXT_PUBLIC_USDC_ADDRESS`, `NEXT_PUBLIC_CLIENT_CAW`,
   `NEXT_PUBLIC_PROVIDER_CAW`, `NEXT_PUBLIC_PROVIDER_CAW_B`, `NEXT_PUBLIC_EXPLORER_BASE`,
   `NEXT_PUBLIC_IRYS_GATEWAY`, **`NEXT_PUBLIC_AGENT_API`** (the agent-service URL - defaults to the live Railway URL).
 - **The trigger is OPEN by default** so judges (and anyone) can run the autonomous loop straight from the
@@ -102,8 +102,9 @@ their own CAW wallet**. Full external client/provider walkthrough: [ARCHITECTURE
 **Secrets/env on the service** (copy values from your local `.env`; never commit them):
 - CAW: `CAW_CLIENT_WALLET_ID`, `CAW_CLIENT_API_KEY`, `CAW_CLIENT_ADDRESS`, `CAW_PROVIDER_WALLET_ID`,
   `CAW_PROVIDER_API_KEY`, `CAW_PROVIDER_ADDRESS`, `CAW_PROVIDER_ADDRESS_2`, `AGENT_WALLET_API_URL`, `CAW_CHAIN_ID=SETH`.
-- Chain: `RPC_URL`, `ESCROW_V3_CONTRACT_ADDRESS=0xFAab4d6ff5CBEcD72a4e1B9315662e7846166D69` (live, commit-reveal),
-  `REVEAL_DELAY_BLOCKS=1`, `REVEAL_WINDOW_BLOCKS=256` (must match the deployed v3 ctor args),
+- Chain: `RPC_URL`, `ESCROW_V4_CONTRACT_ADDRESS=0x86B422CC8F75B7c5521a2552F2C34da8cb342C86` (live, committee + disputes),
+  `UMA_ARBITER_ADDRESS=0xd933a3816E6b0818e0EEEb4f4776dA9157172755`, `REVEAL_DELAY_BLOCKS=1`, `REVEAL_WINDOW_BLOCKS=256`,
+  `VOTING_WINDOW_BLOCKS=50`, `DISPUTE_WINDOW_BLOCKS=30`, `DISPUTE_RESOLVE_WINDOW_BLOCKS=50`, `COMMITTEE_SIZE=3`, `COMMITTEE_QUORUM=2` (must match the deployed v4 ctor args),
   `USDC_TOKEN_ADDRESS=0x4C4D1223BcC47E380CF4C37652EaDFe10A9Fd910`.
 - MEV (optional): `PRIVATE_RPC_URL` (private/Flashbots-style endpoint, used for reads + the prepared reveal hook),
   `MEV_PROTECT=true` to request private routing of the reveal tx. See [MEV.md](MEV.md) for the honest status.
@@ -153,7 +154,7 @@ Keep the Client and both provider addresses funded with Sepolia ETH (gas); keep 
 
 ## 5. Verify the deployment
 ```bash
-curl https://<agent-host>/health     # → {"status":"ok", escrow_v3, providers:2, trigger_protected, register_protected, …}
+curl https://<agent-host>/health     # → {"status":"ok", escrow_v4, providers:2, trigger_protected, register_protected, …}
 curl https://<agent-host>/marketplace/jobs?status=all   # → on-chain jobs (chain-scanned, not just the local board)
 curl https://<agent-host>/runs       # → past run artifacts
 curl -X POST https://<agent-host>/trigger \

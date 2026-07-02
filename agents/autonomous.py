@@ -1,21 +1,22 @@
 """Autonomous agents - continuous loops over the open marketplace (Phase 6.5.3).
 
-Two long-running roles, each acting through its own CAW wallet under a scoped Pact, coordinating
-via an off-chain job board (the marketplace listing) + the on-chain v3 escrow (the source of truth):
+Roles, each acting through its own CAW wallet under a scoped Pact, coordinating via an off-chain job
+board (the marketplace listing) + the on-chain v4 escrow (the source of truth):
 
-  Client loop   - for each task it deems worth funding: createJob (OPEN) → approve → fund, and posts
-                  the task text to the board. Then watches its jobs; when one is Submitted it fetches
-                  the deliverable from Irys, evaluates it, and complete()s (payout) or reject()s (refund).
-  Provider pool - N provider identities. Each scans the board + chain for funded, unclaimed jobs,
-                  genuinely decides whether to accept, and runs the SEALED commit-reveal race:
-                  commitAccept() publishes only an opaque hash (the targeted jobId stays hidden from
-                  the public mempool), then after the reveal delay revealAccept() claims the job -
-                  the first valid reveal wins, a loser's reveal reverts. The winner does the work,
-                  stores it on Irys, and submitWork()s.
+  Client loop    - for each task it deems worth funding: createJob (OPEN, naming an evaluator
+                   COMMITTEE) → approve → fund, posts the task. Then it FINALIZES: once the committee
+                   has reached a tentative outcome (Resolved) and the dispute window elapses with no
+                   dispute, it calls finalize() to execute the payout/refund.
+  Provider pool  - N provider identities. Each runs the SEALED commit-reveal race (commitAccept →
+                   revealAccept; first valid reveal wins), then does the work, stores on Irys, submitWork()s.
+  Committee pool - M-of-N evaluators. Each independently pulls the deliverable from Irys, judges it
+                   (distinct LLM personas), and castVote()s. Reaching quorum resolves the job
+                   tentatively (no funds move). A contested outcome escalates (staked) to the
+                   decoupled, decentralized arbiter (UMA OOv3) — never an operator key.
 
 Genuine LLM reasoning at every decision (criterion 1); the Pact is the hard boundary regardless
 (criterion 2). Every CAW call + decision is logged; a proof artifact is written per settled job.
-Reuses escrow_v3 / pacts / reasoning / registry / irys_store - invents no SDK surface.
+Reuses escrow_v4 / pacts / reasoning / registry / irys_store - invents no SDK surface.
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import config
-import escrow_v3 as esc
+import escrow_v4 as esc
 import irys_store
 import pacts
 import reasoning
@@ -101,6 +102,7 @@ class Run:
         return self.jobs.setdefault(job_id, {
             "run_id": self.run_id, "job_id": job_id, "txs": {}, "accept_decisions": {},
             "winner": None, "winner_addr": None, "irys": None, "deliverable": None,
+            "committee": [], "committee_votes": {}, "vote_txs": {}, "tentative": None,
             "verdict": None, "branch": None, "status": "open",
         })
 
@@ -159,23 +161,48 @@ async def _wait_reveal_ready(w3: Web3, commit_block: int) -> None:
         await asyncio.sleep(POLL)
 
 
+async def _load_deliverable(w3: Web3, rec: dict, job: dict) -> str | None:
+    """The deliverable bytes the committee judges (and the client content-verifies). Primary source is
+    Irys, the canonical store. If the gateway is transiently unreachable (e.g. a TLS-inspecting local
+    proxy), fall back to the run-record copy — but ONLY when its keccak equals the on-chain
+    `deliverableHash`, so we never judge or settle on unauthenticated content (the on-chain hash is the
+    trust anchor; the source of the bytes is not). Returns None if neither yields hash-authentic content."""
+    onchain = (job.get("deliverable_hash") or "").lower()
+    irys_id = (rec.get("irys") or {}).get("id")
+    if irys_id:
+        try:
+            raw = await asyncio.to_thread(irys_store.fetch, irys_id)
+            if not onchain or irys_store.keccak(raw).lower() == onchain:
+                return raw.decode("utf-8", "replace")
+            log.warning("[deliverable] Irys content hash != on-chain anchor for job; rejecting")
+        except Exception as e:  # noqa: BLE001 - gateway/TLS hiccup; try the hash-verified local copy
+            log.info("[deliverable] Irys fetch failed (%s); trying hash-verified run-record copy",
+                     type(e).__name__)
+    copy = rec.get("deliverable")
+    if copy is not None and onchain and irys_store.keccak(copy.encode("utf-8")).lower() == onchain:
+        log.info("[deliverable] using hash-verified run-record copy (keccak == on-chain anchor)")
+        return copy
+    return None
+
+
 # ── client loop ─────────────────────────────────────────────────────────────
 
-async def client_loop(run: Run, tasks: list[dict], reward_usdc: float) -> None:
+async def client_loop(run: Run, tasks: list[dict], reward_usdc: float, committee: list[str]) -> None:
     cc = config.client_agent()
     w3 = esc.web3()
+    quorum = config.COMMITTEE_QUORUM
     async with CawWallet(api_url=config.CAW_API_URL, api_key=cc.api_key,
                          wallet_uuid=cc.wallet_id, name="Client") as cw:
         await _revoke_active(cw)
-        sub = await cw.submit_pact(intent="Client funds + evaluates open marketplace jobs",
-                                   spec=pacts.client_escrow_pact(escrow=config.ESCROW_V3_ADDRESS,
+        sub = await cw.submit_pact(intent="Client funds + finalizes open marketplace jobs",
+                                   spec=pacts.client_escrow_pact(escrow=config.ESCROW_V4_ADDRESS,
                                                                  usdc=config.USDC_ADDRESS),
                                    name=f"auto-client-{run.run_id}")
         pact = await cw.wait_pact_active(sub.get("pact_id"))
         async with cw.scoped(pact) as client:
             amt_base = int(round(reward_usdc * 1_000_000))
 
-            # 1) post every task the client decides to fund
+            # 1) post every task the client decides to fund — naming the evaluator committee
             for t in tasks:
                 spec = _spec_text(t)
                 decision = await asyncio.to_thread(reasoning.client_decide_fund, spec, reward_usdc, BUDGET_USDC)
@@ -188,54 +215,63 @@ async def client_loop(run: Run, tasks: list[dict], reward_usdc: float) -> None:
                 rec = run.record(job_id)
                 rec.update({"task": t["task"], "criteria": t.get("criteria", ""),
                             "amount_usdc": reward_usdc, "client": cc.address,
-                            "fund_decision": decision, "spec_hash": Web3.to_hex(spec_hash)})
-                rec["txs"]["createJob"] = await _call(client, cc.address, config.ESCROW_V3_ADDRESS,
-                    esc.create_job(cc.address, amt_base, spec_hash, deadline), "createJob")
+                            "fund_decision": decision, "spec_hash": Web3.to_hex(spec_hash),
+                            "committee": committee, "quorum": quorum})
+                rec["txs"]["createJob"] = await _call(client, cc.address, config.ESCROW_V4_ADDRESS,
+                    esc.create_job(committee, quorum, amt_base, spec_hash, deadline), "createJob")
                 rec["txs"]["approve"] = await _call(client, cc.address, config.USDC_ADDRESS,
-                    esc.approve(config.ESCROW_V3_ADDRESS, amt_base), "approve")
-                rec["txs"]["fund"] = await _call(client, cc.address, config.ESCROW_V3_ADDRESS,
+                    esc.approve(config.ESCROW_V4_ADDRESS, amt_base), "approve")
+                rec["txs"]["fund"] = await _call(client, cc.address, config.ESCROW_V4_ADDRESS,
                     esc.fund(job_id), "fund")
                 rec["status"] = "funded"
                 _post_listing(job_id, task=t["task"], criteria=t.get("criteria", ""),
                               reward_usdc=reward_usdc, spec_hash=Web3.to_hex(spec_hash),
                               client=cc.address, deadline=deadline)
                 run.write_artifact(job_id)
-                log.info("[client] posted + funded open job #%s (%s USDC)", job_id, reward_usdc)
+                log.info("[client] posted + funded open job #%s (%s USDC), committee=%s quorum=%s",
+                         job_id, reward_usdc, [c[:8] for c in committee], quorum)
 
-            # 2) evaluate + settle submitted jobs until target reached
+            # 2) FINALIZE: once the committee has tentatively Resolved a job and its dispute window
+            #    elapses with no dispute, execute the outcome. (Disputes escalate to the arbiter; in
+            #    'good'/'bad' runs the committee outcome stands.)
             rounds = 0
             while not run.stop.is_set():
                 for job_id, rec in list(run.jobs.items()):
                     if rec.get("branch"):
                         continue
                     job = await asyncio.to_thread(esc.get_job, w3, job_id)
-                    if job["status"] != "Submitted":
+                    if job["status"] != "Resolved":
                         continue
-                    fetched = (await asyncio.to_thread(irys_store.fetch, rec["irys"]["id"])).decode("utf-8", "replace")
-                    verdict = await asyncio.to_thread(reasoning.evaluate, _spec_text(_listing(job_id) or rec), fetched)
-                    rec["verdict"] = verdict
-                    if verdict.get("accept"):
-                        rec["txs"]["complete"] = await _call(client, cc.address, config.ESCROW_V3_ADDRESS,
-                            esc.complete(job_id), "complete")
-                        rec["branch"] = "payout"
-                    else:
-                        rec["txs"]["reject"] = await _call(client, cc.address, config.ESCROW_V3_ADDRESS,
-                            esc.reject(job_id), "reject")
-                        rec["branch"] = "refund"
+                    v = await asyncio.to_thread(esc.get_vote, w3, job_id)
+                    rec["tentative"] = "payout" if v["tentative_payout"] else "refund"
+                    # wait out the dispute window before finalizing
+                    window_end = int(v["resolved_block"]) + config.DISPUTE_WINDOW_BLOCKS
+                    head = await asyncio.to_thread(lambda: w3.eth.block_number)
+                    if head <= window_end:
+                        continue  # still disputable; check again next round
+                    rec["txs"]["finalize"] = await _call(client, cc.address, config.ESCROW_V4_ADDRESS,
+                        esc.finalize(job_id), "finalize")
                     final = await asyncio.to_thread(esc.get_job, w3, job_id)
                     rec["final_status"] = final["status"]
-                    _content = await asyncio.to_thread(irys_store.fetch, rec["irys"]["id"])
-                    rec["content_verified"] = (irys_store.keccak(_content) == final["deliverable_hash"])
+                    rec["branch"] = "payout" if final["status"] == "Completed" else "refund"
+                    rec["verdict"] = {"accept": rec["branch"] == "payout",
+                                      "reason": f"committee {v['approve']}-{v['reject']} (quorum {rec.get('quorum')})"}
+                    if rec.get("irys"):
+                        _text = await _load_deliverable(w3, rec, final)
+                        rec["content_verified"] = (
+                            _text is not None
+                            and irys_store.keccak(_text.encode("utf-8")) == final["deliverable_hash"]
+                        )
                     rec["status"] = "settled"
                     run.settled += 1
                     run.write_artifact(job_id)
-                    log.info("[client] settled job #%s -> %s (content_verified=%s)",
-                             job_id, rec["branch"], rec["content_verified"])
+                    log.info("[client] finalized job #%s -> %s (committee %s-%s)",
+                             job_id, rec["branch"], v["approve"], v["reject"])
                     if run.settled >= run.target:
                         run.stop.set()
                         return
                 rounds += 1
-                if rounds > 180:  # ~12 min safety (provider signing can stall on relay reconnects)
+                if rounds > 240:  # ~16 min safety (committee voting + dispute window + relay latency)
                     log.warning("[client] giving up after %d rounds", rounds)
                     run.stop.set()
                     return
@@ -284,7 +320,7 @@ async def provider_worker(run: Run, name: str, addr: str, pact: dict, reward_usd
                     salt = esc.random_salt()
                     commitment = esc.commitment(job_id, addr, salt)
                     try:
-                        commit_tx = await _call(pw, addr, config.ESCROW_V3_ADDRESS,
+                        commit_tx = await _call(pw, addr, config.ESCROW_V4_ADDRESS,
                             esc.commit_accept(commitment), f"commitAccept[{name}]")
                     except Exception as e:
                         log.info("[%s] commitAccept for job #%s failed (%s)", name, job_id, type(e).__name__)
@@ -299,7 +335,7 @@ async def provider_worker(run: Run, name: str, addr: str, pact: dict, reward_usd
                     cblock = await _commit_block(w3, commit_tx)
                     await _wait_reveal_ready(w3, cblock)
                     try:
-                        reveal_tx = await _call(pw, addr, config.ESCROW_V3_ADDRESS,
+                        reveal_tx = await _call(pw, addr, config.ESCROW_V4_ADDRESS,
                             esc.reveal_accept(job_id, salt), f"revealAccept[{name}]",
                             private_tx=config.MEV_PROTECT)
                     except Exception as e:
@@ -327,11 +363,91 @@ async def provider_worker(run: Run, name: str, addr: str, pact: dict, reward_usd
                     irys = await asyncio.to_thread(irys_store.upload, deliverable,
                         {"app": "AgentWorks", "job-id": str(job_id), "content-keccak": Web3.to_hex(dhash)})
                     rec["irys"] = irys
-                    rec["txs"]["submitWork"] = await _call(pw, addr, config.ESCROW_V3_ADDRESS,
+                    rec["txs"]["submitWork"] = await _call(pw, addr, config.ESCROW_V4_ADDRESS,
                         esc.submit_work(job_id, dhash, irys["id"]), f"submitWork[{name}]")
                     rec["status"] = "submitted"
                     run.write_artifact(job_id)
                     log.info("[%s] submitted work for job #%s (Irys %s)", name, job_id, irys["id"])
+                await asyncio.sleep(POLL)
+
+
+# ── committee worker (one per evaluator identity; share the evaluator wallet's pact) ──
+
+async def committee_worker(run: Run, member: "registry.Participant", vote_lock: asyncio.Lock) -> None:
+    """One committee member, independent on BOTH axes: it signs from its OWN CAW wallet (its own Pact +
+    TSS node) and reasons on its OWN model (`member.llm()`). It scans for Submitted jobs it's on the
+    committee for + hasn't voted on, pulls the deliverable from Irys, judges it, and castVotes on-chain.
+    Reaching quorum tentatively resolves the job (the contract enforces this; no funds move).
+
+    Casts are serialized across the committee via `vote_lock`: the quorum-reaching vote triggers the
+    contract's `_resolve` (extra SSTOREs + event), so it needs more gas than a plain vote. If members
+    cast concurrently, CAW estimates each against the cheap pre-quorum state and the resolving vote
+    reverts out-of-gas. Voting one-at-a-time makes each cast estimate against current chain state."""
+    name, addr, mllm = member.name, member.address, member.llm()
+    w3 = esc.web3()
+    voted: set[int] = set()
+    async with CawWallet(api_url=config.CAW_API_URL, api_key=member.api_key,
+                         wallet_uuid=member.wallet_id, name=name) as ew_root:
+        await _revoke_active(ew_root)  # each member onboards its OWN evaluator pact (castVote-only, no USDC)
+        sub = await ew_root.submit_pact(intent=f"{name} votes on marketplace deliverables",
+                                        spec=pacts.evaluator_pact(escrow=config.ESCROW_V4_ADDRESS),
+                                        name=f"auto-{name.replace(' ', '')}-{run.run_id}")
+        pact = await ew_root.wait_pact_active(sub.get("pact_id"))
+        log.info("[%s] onboarded (wallet %s…, model %s)", name, member.wallet_id[:8], mllm["model"])
+        async with ew_root.scoped(pact, name_suffix="") as ew:
+            while not run.stop.is_set():
+                for job_id_s in list(_read_board().keys()):
+                    job_id = int(job_id_s)
+                    if job_id in voted:
+                        continue
+                    rec = run.jobs.get(job_id)
+                    if rec is None:
+                        continue
+                    if int(addr, 16) not in (int(a, 16) for a in rec.get("committee", [])):
+                        continue  # not on this job's committee
+                    try:
+                        job = await asyncio.to_thread(esc.get_job, w3, job_id)
+                    except Exception:
+                        continue
+                    if job["status"] != "Submitted":
+                        if job["status"] in ("Resolved", "Disputed", "Completed", "Rejected", "Refunded"):
+                            voted.add(job_id)  # voting closed
+                        continue
+                    if await asyncio.to_thread(esc.has_member_voted, w3, job_id, addr):
+                        voted.add(job_id)
+                        continue
+                    if not rec.get("irys"):
+                        continue  # deliverable not stored yet
+                    try:
+                        fetched = await _load_deliverable(w3, rec, job)
+                        if fetched is None:
+                            continue  # deliverable unfetchable right now — retry next poll
+                        verdict = await asyncio.to_thread(reasoning.evaluate_member,
+                                                          _spec_text(_listing(job_id) or rec), fetched,
+                                                          member_name=name, llm=mllm)
+                        approve = bool(verdict.get("accept"))
+                    except Exception as e:  # transient model/network hiccup (503/429/timeout) — retry next poll
+                        log.info("[%s] evaluate job #%s failed (%s); retrying next poll", name, job_id, type(e).__name__)
+                        continue
+                    async with vote_lock:  # serialize casts: correct gas for the quorum-reaching vote
+                        try:
+                            # a peer may have reached quorum + Resolved the job while we judged
+                            jnow = await asyncio.to_thread(esc.get_job, w3, job_id)
+                            if jnow["status"] != "Submitted":
+                                voted.add(job_id)
+                                continue
+                            tx = await _call(ew, addr, config.ESCROW_V4_ADDRESS, esc.cast_vote(job_id, approve),
+                                             f"castVote[{name}]")
+                        except Exception as e:
+                            log.info("[%s] castVote for job #%s failed (%s) - likely quorum already reached",
+                                     name, job_id, type(e).__name__)
+                            voted.add(job_id)
+                            continue
+                    voted.add(job_id)
+                    rec.setdefault("committee_votes", {})[name] = {"addr": addr, **verdict}
+                    rec.setdefault("vote_txs", {})[name] = tx
+                    run.write_artifact(job_id)
+                    log.info("[%s] voted %s on job #%s -> %s", name, "ACCEPT" if approve else "REJECT", job_id, tx)
                 await asyncio.sleep(POLL)
 
 
@@ -345,20 +461,30 @@ async def run_market(tasks: list[dict], *, mode: str = "good", reward_usdc: floa
     # provider identities (addresses) from the registry - share ONE provider wallet + pact
     pool = registry.providers()
     provider_ids = [(p.name, p.address) for p in pool if p.wallet_id == pp.wallet_id] or [("Provider", pp.address)]
-    log.info("[market] providers: %s", provider_ids)
+    # evaluator COMMITTEE: each member is its OWN CAW wallet + OWN model (registry.evaluators()), so a
+    # quorum is a genuine M-of-N of independent judges. Each worker onboards its own Pact (see committee_worker).
+    committee = registry.evaluators()[:config.COMMITTEE_SIZE]
+    if not committee:
+        raise RuntimeError("no evaluator committee configured (set CAW_EVALUATOR_1_WALLET_ID/_API_KEY/_ADDRESS "
+                           "[+ _LLM_*] per member in .env, odd count >= COMMITTEE_SIZE)")
+    committee_addrs = [m.address for m in committee]
+    log.info("[market] providers: %s | committee: %s", provider_ids,
+             [(m.name, m.address[:8], m.wallet_id[:8], m.llm()["model"]) for m in committee])
 
-    # onboard the provider wallet's pact ONCE; all worker addresses bind to it
+    # onboard the provider wallet's pact ONCE; all provider worker addresses bind to it
     async with CawWallet(api_url=config.CAW_API_URL, api_key=pp.api_key,
                          wallet_uuid=pp.wallet_id, name="Provider") as pw_root:
         await _revoke_active(pw_root)
         psub = await pw_root.submit_pact(intent="Providers accept + deliver marketplace jobs",
-                                         spec=pacts.provider_pact(escrow=config.ESCROW_V3_ADDRESS),
+                                         spec=pacts.provider_pact(escrow=config.ESCROW_V4_ADDRESS),
                                          name=f"auto-provider-{run.run_id}")
         ppact = await pw_root.wait_pact_active(psub.get("pact_id"))
 
+    vote_lock = asyncio.Lock()  # committee casts go one-at-a-time (correct gas for the resolving vote)
     await asyncio.gather(
-        client_loop(run, tasks, reward_usdc),
+        client_loop(run, tasks, reward_usdc, committee_addrs),
         *[provider_worker(run, name, addr, ppact, reward_usdc) for name, addr in provider_ids],
+        *[committee_worker(run, m, vote_lock) for m in committee],
     )
     return {"run_id": run.run_id, "settled": run.settled,
             "jobs": {jid: r for jid, r in run.jobs.items()}}
