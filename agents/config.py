@@ -60,14 +60,16 @@ ESCROW_V3_ADDRESS = os.environ.get("ESCROW_V3_CONTRACT_ADDRESS", "0xFAab4d6ff5CB
 REVEAL_DELAY_BLOCKS = int(os.environ.get("REVEAL_DELAY_BLOCKS", "1"))
 REVEAL_WINDOW_BLOCKS = int(os.environ.get("REVEAL_WINDOW_BLOCKS", "256"))
 # v4 open-marketplace escrow: committee (M-of-N) evaluation + staked disputes escalating to a decoupled,
-# decentralized arbiter (UMA Optimistic Oracle V3). Live + verified on Sepolia (deploy block 11101246).
-ESCROW_V4_ADDRESS = os.environ.get("ESCROW_V4_CONTRACT_ADDRESS", "0x198D9DFE4AA8cB10039492170FC0cf46ca4d9b3B")
+# decentralized arbiter (UMA Optimistic Oracle V3). Live + verified on Sepolia (deploy block 11124671).
+ESCROW_V4_ADDRESS = os.environ.get("ESCROW_V4_CONTRACT_ADDRESS", "0x86B422CC8F75B7c5521a2552F2C34da8cb342C86")
 # The decoupled arbiter adapter (IS the escrow's `arbiter`; rules via UMA OOv3, never an operator key).
-UMA_ARBITER_ADDRESS = os.environ.get("UMA_ARBITER_ADDRESS", "0xE34Fe352c8ad25811b8dc5Fd7FECB02F3836adD3")
-# UMA Optimistic Oracle V3 on Sepolia + its whitelisted bond currency (a 6-dp test USDC; NOT MockUSDC).
+UMA_ARBITER_ADDRESS = os.environ.get("UMA_ARBITER_ADDRESS", "0xd933a3816E6b0818e0EEEb4f4776dA9157172755")
+# UMA Optimistic Oracle V3 on Sepolia + its whitelisted bond currency. We use UMA's zero-minimum-bond,
+# publicly-mintable test token "6TEST" (6-dp) so a real dispute is demonstrable live on Sepolia; the
+# escrow settlement token stays MockUSDC. Production sets a meaningful bond + (on mainnet) real USDC.
 UMA_OOV3_ADDRESS = os.environ.get("UMA_OOV3_ADDRESS", "0xFd9e2642a170aDD10F53Ee14a93FcF2F31924944")
-UMA_BOND_CURRENCY = os.environ.get("UMA_BOND_CURRENCY", "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238")
-UMA_BOND = int(os.environ.get("UMA_BOND", "400000000"))  # 400 USDC (OOv3 minimum for the default currency)
+UMA_BOND_CURRENCY = os.environ.get("UMA_BOND_CURRENCY", "0x3870419Ba2BBf0127060bCB37f69A1b1C090992B")
+UMA_BOND = int(os.environ.get("UMA_BOND", "5000000"))  # 5 6TEST (zero-min currency; demo stake)
 # v4 settlement timing (must mirror the deployed v4 ctor args). Sepolia demo values are small.
 VOTING_WINDOW_BLOCKS = int(os.environ.get("VOTING_WINDOW_BLOCKS", "50"))
 DISPUTE_WINDOW_BLOCKS = int(os.environ.get("DISPUTE_WINDOW_BLOCKS", "30"))

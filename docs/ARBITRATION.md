@@ -61,21 +61,28 @@ live on Ethereum Sepolia. The ruling authority is UMA's economic oracle, not any
 3. If it **is** counter-disputed, UMA's DVM resolves it (on mainnet) and the same callback fires.
 
 **Live deployment (Sepolia, verified):**
-- `AgentWorksEscrowV4`: `0x198D9DFE4AA8cB10039492170FC0cf46ca4d9b3B` (deploy block 11101246)
-- `AgentWorksUmaArbiter`: `0xE34Fe352c8ad25811b8dc5Fd7FECB02F3836adD3` (its `arbiter`)
-- UMA OOv3: `0xFd9e2642a170aDD10F53Ee14a93FcF2F31924944` · bond currency (UMA test USDC):
-  `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238` · bond 400 USDC (OOv3 minimum)
+- `AgentWorksEscrowV4`: `0x86B422CC8F75B7c5521a2552F2C34da8cb342C86` (deploy block 11124671; disputeWindow 50 blocks)
+- `AgentWorksUmaArbiter`: `0xd933a3816E6b0818e0EEEb4f4776dA9157172755` (its `arbiter`)
+- UMA OOv3: `0xFd9e2642a170aDD10F53Ee14a93FcF2F31924944` · bond currency `6TEST`
+  `0x3870419Ba2BBf0127060bCB37f69A1b1C090992B` (UMA-whitelisted, 6-dp) · bond + liveness are ctor params.
 
-### Honest Sepolia caveats (no overclaim)
+### Demonstrated live on Sepolia (job #2)
 
-- UMA docs list Sepolia **"DVM Support: No."** The **optimistic** path (assert + liveness, undisputed)
-  settles **live**; a **counter-disputed** assertion needs the mainnet DVM. We wire the real OOv3 and the
-  optimistic settlement; the DVM-escalated branch is a mainnet capability (`assertionDisputedCallback`
-  records it).
-- The UMA bond currency is Circle's Sepolia USDC (no public faucet-mint; 400-token minimum), separate
-  from the MockUSDC the jobs settle in. So a fully-live dispute settlement on testnet is **bond-gated**:
-  the mechanism + wiring are real and deterministically tested (against `MockOptimisticOracleV3`, 10
-  adapter tests), and the live optimistic path runs once the disputer holds the bond currency.
+A full staked dispute ran end-to-end against the real UMA OOv3, **no operator key**: committee resolved
+tentative **payout** → the losing side (client) staked the bond and `dispute`d → the adapter posted a real
+UMA assertion (`assertionId 0x26d55b3f…`) → after liveness anyone `settle`d → UMA's
+`assertionResolvedCallback` → `escrow.resolveDispute` → the outcome was **overturned to refund**
+(`Rejected`). Txs: dispute `0x143a0531…`, settle (UMA → resolveDispute) `0x8e40fdc9…`. The committee→finalize
+happy path settled job #1 → `Completed` (`finalize 0x3b552c5e…`) on the same escrow.
+
+### Network note (a UMA property, not an AgentWorks gap)
+
+UMA's Sepolia OOv3 has **no DVM**, so the **optimistic** path (assert + liveness, undisputed) settles live —
+which is exactly what we demonstrate. A *counter-disputed* assertion is escalated to UMA's DVM, which exists
+**only on mainnet**. Production is therefore a **one-env-var change** — point `UMA_OOV3_ADDRESS` at UMA's
+mainnet OOv3 and `UMA_BOND_CURRENCY` at real USDC (with a meaningful `UMA_BOND`, e.g. 400 USDC, and
+hour-scale liveness) — with **zero escrow/adapter code change**. `assertionDisputedCallback` already handles
+the DVM-escalated branch. The bond/liveness/windows are all immutable ctor params, set per deploy.
 
 ### Alternate adapter: Kleros (ERC-792)
 
@@ -103,6 +110,31 @@ is the documented drop-in alternative the same seam accepts.
 
 - **Foundry:** `contracts/test/AgentWorksEscrowV4.t.sol` (63 tests) + `AgentWorksUmaArbiter.t.sol`
   (10 tests, against `MockOptimisticOracleV3`). Suite-wide **180 tests** pass.
-- **Live (Sepolia):** v4 + the UMA adapter deployed + verified; on-chain wiring confirmed
-  (`escrow.arbiter()` == adapter, `adapter.oo()` == UMA OOv3). A hands-off committee→finalize lifecycle
-  is recorded in [SUBMISSION.md](SUBMISSION.md).
+- **Live (Sepolia):** v4 + the UMA adapter deployed + verified; wiring confirmed (`escrow.arbiter()` ==
+  adapter, `adapter.oo()` == UMA OOv3). **Both settlement paths demonstrated live** — committee→finalize
+  payout (job #1 `Completed`) and committee→**staked dispute→UMA→refund** (job #2 `Rejected`, UMA assertion
+  `0x26d55b3f…`). The committee itself was then run **through CAW** (job #4: `castVote`s signed by the
+  evaluator wallet under `evaluator_pact`, USDC denied — see §5). Tx hashes in [SUBMISSION.md](SUBMISSION.md).
+
+## 5. The committee through CAW (demonstrated live)
+
+The committee's votes are CAW `contract_call`s from a dedicated **Evaluator CAW wallet** (one TSS-paired,
+agent-owned wallet hosting the committee addresses `CAW_EVALUATOR_ADDRESS_1..N`), each bound by the
+`evaluator_pact` (castVote-only, **USDC excluded**). This ran **end-to-end, fully hands-off** on Sepolia
+(escrow v4 `0x86B4…2C86`): the client funded **job #4** naming the 3 evaluator addresses, the provider
+delivered, and **each committee member `castVote`d through CAW** — Evaluator A
+([`0x959be72a…`](https://sepolia.etherscan.io/tx/0x959be72af5407771c11dce123fcf45e45e75769fe0365a957d00851e9a6ef6db)),
+Evaluator B
+([`0xc807f98d…`](https://sepolia.etherscan.io/tx/0xc807f98dab59b9f1d0a8cbbff7bc4d5c73fe9b8d162862db708795b078923d94))
+→ quorum 2-of-3 → tentative `Resolved` (no funds moved) →
+[`finalize 0xd6b8e9fc…`](https://sepolia.etherscan.io/tx/0xd6b8e9fc3624bf558a3042b33758fd9671cd24ed9f4a52916cdb71442b5d8b24)
+→ **Completed** (payout). The authority boundary holds: the same evaluator wallet attempting to move USDC
+under its Pact is **denied by CAW** (`CONTRACT_NOT_WHITELISTED`, 403) — a committee member can vote but can
+**never** touch escrow. (Committee casts are serialized so the quorum-reaching vote, which triggers
+`_resolve`, is gas-estimated against current chain state.)
+
+The three demo addresses share one Evaluator wallet / Pact / TSS node — a genuine 3-member committee without
+three daemons, mirroring the provider race. In **production** each committee seat is an **independent
+external evaluator operator** running its own CAW wallet via the MCP server (`MCP_ROLE=evaluator`) — the same
+trustless self-onboarding proven for client/provider — so no single operator runs the whole committee (that
+would be collusion). The seam is identical; only the number of wallets differs.

@@ -58,3 +58,4 @@ docs/DEMO_PLAYBOOK.md
 docs/DEMO_CHEATCARD.md
 docs/DEPLOY_AGENTS.md
 agents/scripts/live_v4_keys.json
+agents/scripts/live_v4_dispute_keys.json

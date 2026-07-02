@@ -60,13 +60,20 @@ wallet; `submit_pact`/`wait_pact_active` bind authority; `revoke_pact` is the fr
 is the human review. The literal policies ship in [`docs/pacts/`](pacts/). Details in [RISK_BOUNDARIES.md](RISK_BOUNDARIES.md).
 
 ## Current completion (working, verified on-chain)
-- ✅ Full lifecycle on escrow **v4 (committee consensus + staked disputes)**. **Verified live (Sepolia, v4
-  `0x198D…9b3B`, job #2):** a 3-evaluator committee (quorum 2) each LLM-judged + `castVote`d on-chain; the
-  2-0 approve reached quorum → tentative `Resolved` (no funds moved) → after the dispute window `finalize` →
-  Completed, provider paid 5 USDC — **no operator key ruled**. Txs: createJob `0x9eaaa9ac…`,
-  commitAccept `0x1fd06c00…`, revealAccept `0x9306f652…`, castVote×2 `0x5dba14e8…`/`0x69231345…`,
-  finalize `0xe5d63568…`. The **sealed accept** (anti-frontrunning) was separately proven live on v3 job #1
-  (loser's `revealAccept` reverted; reveal `0x4532204f…`).
+- ✅ Full lifecycle on escrow **v4 (committee consensus + staked disputes)**, **both settlement paths proven
+  live on Sepolia** (v4 `0x86B4…2C86`, arbiter `0xd933…2755`), **no operator key ruling either**:
+  - **Committee → finalize → payout (job #1):** 3-evaluator committee (quorum 2) `castVote`d on-chain → 2-0 →
+    tentative `Resolved` (no funds moved) → after the dispute window `finalize` → **Completed** (`finalize
+    0x3b552c5e…`).
+  - **Committee → staked dispute → UMA → refund (job #2):** committee resolved tentative payout → the losing
+    side staked a bond + `dispute`d → the adapter posted a **real UMA OOv3 assertion** (`0x26d55b3f…`) → after
+    liveness `settle` → UMA callback → `resolveDispute` **overturned to refund** (`Rejected`). Txs: dispute
+    `0x143a0531…`, settle `0x8e40fdc9…`.
+  - **Committee through CAW (job #4):** the 3-member committee's `castVote`s are CAW `contract_call`s from a
+    dedicated **Evaluator CAW wallet** under `evaluator_pact` (castVote-only) — votes `0x959be72a…` /
+    `0xc807f98d…` → quorum 2-of-3 → `finalize 0xd6b8e9fc…` → **Completed** (payout), **fully hands-off**. The
+    evaluator Pact **denies USDC** (`CONTRACT_NOT_WHITELISTED`, 403): a committee member votes but can never
+    move escrow.
 - ✅ **Autonomous, cloud-triggered** runs: `POST /trigger` → the deployed service reasons, funds, runs a real
   **2-provider sealed accept-race** (`commitAccept → revealAccept`), delivers to Irys, and settles. Genuine
   LLM decisions at fund/accept/evaluate.
@@ -109,17 +116,33 @@ Client CAW wallet   id 0da4d5c3-5fc4-4a50-878a-0e8ee1a1787d   EVM 0x6dfbd0ac9feb
 Provider A CAW      id bdecbada-3e1d-41d8-9e04-c12202cc9c17   EVM 0xef9349b3273b1a54faaf701231f499fe0282e643
 Provider B (race)                                            EVM 0x7ea0701d657e3427c2bb3bc195e943a81c5fc69e
 
-COMMITTEE CONSENSUS (escrow v4) - job #2: 3-evaluator committee (quorum 2), each LLM-judged + voted on-chain;
-         2-0 approve reached quorum -> tentative Resolved (NO funds moved) -> dispute window elapsed ->
-         finalize -> Completed, provider paid 5 USDC. (v4 0x198D9DFE…9b3B; arbiter = UMA adapter 0xE34F…adD3.)
-  createJob     0x9eaaa9acd28d1bb217389f567d011cff29a02af871159edcf478625eaebb9e3b   (committee=3 quorum=2)
-  fund          0xf38e58a1a34b352c07f83f90b7d6bf14e1e0ada02e049451f5666d89d8972912
-  commitAccept  0x1fd06c00e2a2eda7cd94ef07ee8f7eb4e41a27d4d1d4422eb1c43d460628ea5f   (sealed; jobId hidden)
-  revealAccept  0x9306f65200e7a3ba6d1c038404cb3f976ff87c04041dd4268c9b6e329a01bb71
-  submitWork    0xbdf53cb2bb9cab935278bbf98267adce06b4b287bdf9dce42df505cc4c81b4ef
-  castVote(A)   0x5dba14e8790ba95b3dcf6e2f6c74738a4346d23574beaeece887a79b3cb7a204   (approve)
-  castVote(B)   0x69231345dc86427100325b157acb4fa6d4d7960924aa3a2f7feababb2d3f266b   (approve -> quorum -> Resolved)
-  finalize      0xe5d635688209391061abf1f2282d1a396bf675d0996957feaad6cb755af2ab10   (payout; no operator key ruled)
+COMMITTEE CONSENSUS -> FINALIZE (escrow v4 0x86B4…2C86) - job #1: 3-evaluator committee (quorum 2) each
+         LLM-judged + voted on-chain; 2-0 -> tentative Resolved (NO funds moved) -> dispute window elapsed
+         with no dispute -> finalize -> Completed, provider paid. No operator key ruled.
+  finalize      0x3b552c5e94eaf38868159bb43cb3d933000132405006d1af3c3bbf9bf4827611   (committee payout executed)
+
+COMMITTEE -> STAKED DISPUTE -> UMA OOv3 (escrow v4) - job #2: committee resolved tentative PAYOUT; the losing
+         side staked a bond + disputed; the arbiter adapter posted a REAL UMA assertion; after liveness anyone
+         settled -> UMA's callback -> resolveDispute OVERTURNED to REFUND (Rejected). The arbiter is UMA's
+         oracle, NOT an operator key.
+  createJob     0x88e0c76ad163fd7f7b2438a05bb46b110cfb19f094b6b537d23f0570fee5b8b4   (committee=3 quorum=2)
+  fund          0x8b741ad13d319d8656d8683c253892ba63fe0fda8694191376745fba65e0152a
+  revealAccept  0xa92b5c776f83241f4a56c119977b15287852566d52a912f5e840d6777a41e3b8   (sealed accept)
+  submitWork    0x49dcbe70f61512c04a556ce85711bd06fb05c0a4bae80a5384c72c68a849cf74
+  castVote x2   0x22602f6e…537e236f / 0x1518e8c4…626ec1fb   (-> quorum -> tentative payout)
+  dispute       0x143a0531ffe7f2ae007f05941ef6abfcd79c69a9d01e420f6d4a8d152fd12e10   (client stakes bond -> UMA assertTruth)
+  settle        0x8e40fdc9a358fca1a93b3eef6c740f8bfbfb8e13069a9cc576bd77676efac2c1   (UMA assertion 0x26d55b3f… -> resolveDispute -> Rejected)
+
+COMMITTEE THROUGH CAW (escrow v4 0x86B4…2C86) - job #4: client funds an open job naming a 3-evaluator
+         committee hosted on a dedicated Evaluator CAW wallet; each member LLM-judges + castVotes via CAW
+         under evaluator_pact (castVote-only, USDC excluded); quorum 2-of-3 -> Resolved -> finalize ->
+         Completed. Fully hands-off, no operator key, no EOA - every vote is a CAW contract_call.
+  Evaluator CAW    id 8ea34ab0-b3f6-4175-956a-82e93d27979f   EVM 0x48f2a3… / 0x476b3e… / 0x311b73…
+  createJob     0x023f4287f188e4a34ecbec7d349c50e020478955aa8ef1021f87f1e2a8d76d78
+  castVote A    0x959be72af5407771c11dce123fcf45e45e75769fe0365a957d00851e9a6ef6db   (Evaluator A 0x48f2a3…)
+  castVote B    0xc807f98dab59b9f1d0a8cbbff7bc4d5c73fe9b8d162862db708795b078923d94   (Evaluator B 0x476b3e… -> quorum)
+  finalize      0xd6b8e9fc3624bf558a3042b33758fd9671cd24ed9f4a52916cdb71442b5d8b24   (committee payout executed)
+  boundary      evaluator wallet's USDC contract_call DENIED by CAW (CONTRACT_NOT_WHITELISTED, 403)
 
 SEALED RACE (escrow v3, MEV-hardened) - job #1: hands-off run, both providers committed opaque bids, the
          LOSER's revealAccept reverted (job left Funded), winner (Provider B) claimed + delivered + was paid:

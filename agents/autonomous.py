@@ -161,6 +161,30 @@ async def _wait_reveal_ready(w3: Web3, commit_block: int) -> None:
         await asyncio.sleep(POLL)
 
 
+async def _load_deliverable(w3: Web3, rec: dict, job: dict) -> str | None:
+    """The deliverable bytes the committee judges (and the client content-verifies). Primary source is
+    Irys, the canonical store. If the gateway is transiently unreachable (e.g. a TLS-inspecting local
+    proxy), fall back to the run-record copy — but ONLY when its keccak equals the on-chain
+    `deliverableHash`, so we never judge or settle on unauthenticated content (the on-chain hash is the
+    trust anchor; the source of the bytes is not). Returns None if neither yields hash-authentic content."""
+    onchain = (job.get("deliverable_hash") or "").lower()
+    irys_id = (rec.get("irys") or {}).get("id")
+    if irys_id:
+        try:
+            raw = await asyncio.to_thread(irys_store.fetch, irys_id)
+            if not onchain or irys_store.keccak(raw).lower() == onchain:
+                return raw.decode("utf-8", "replace")
+            log.warning("[deliverable] Irys content hash != on-chain anchor for job; rejecting")
+        except Exception as e:  # noqa: BLE001 - gateway/TLS hiccup; try the hash-verified local copy
+            log.info("[deliverable] Irys fetch failed (%s); trying hash-verified run-record copy",
+                     type(e).__name__)
+    copy = rec.get("deliverable")
+    if copy is not None and onchain and irys_store.keccak(copy.encode("utf-8")).lower() == onchain:
+        log.info("[deliverable] using hash-verified run-record copy (keccak == on-chain anchor)")
+        return copy
+    return None
+
+
 # ── client loop ─────────────────────────────────────────────────────────────
 
 async def client_loop(run: Run, tasks: list[dict], reward_usdc: float, committee: list[str]) -> None:
@@ -233,8 +257,11 @@ async def client_loop(run: Run, tasks: list[dict], reward_usdc: float, committee
                     rec["verdict"] = {"accept": rec["branch"] == "payout",
                                       "reason": f"committee {v['approve']}-{v['reject']} (quorum {rec.get('quorum')})"}
                     if rec.get("irys"):
-                        _content = await asyncio.to_thread(irys_store.fetch, rec["irys"]["id"])
-                        rec["content_verified"] = (irys_store.keccak(_content) == final["deliverable_hash"])
+                        _text = await _load_deliverable(w3, rec, final)
+                        rec["content_verified"] = (
+                            _text is not None
+                            and irys_store.keccak(_text.encode("utf-8")) == final["deliverable_hash"]
+                        )
                     rec["status"] = "settled"
                     run.settled += 1
                     run.write_artifact(job_id)
@@ -346,15 +373,27 @@ async def provider_worker(run: Run, name: str, addr: str, pact: dict, reward_usd
 
 # ── committee worker (one per evaluator identity; share the evaluator wallet's pact) ──
 
-async def committee_worker(run: Run, name: str, addr: str, pact: dict) -> None:
-    """One committee member: scan for Submitted jobs it's on the committee for + hasn't voted on,
-    pull the deliverable from Irys, judge it (its own LLM persona), and castVote on-chain. Reaching
-    quorum tentatively resolves the job (the contract enforces this; no funds move)."""
-    ev = config.evaluator_agent()
+async def committee_worker(run: Run, member: "registry.Participant", vote_lock: asyncio.Lock) -> None:
+    """One committee member, independent on BOTH axes: it signs from its OWN CAW wallet (its own Pact +
+    TSS node) and reasons on its OWN model (`member.llm()`). It scans for Submitted jobs it's on the
+    committee for + hasn't voted on, pulls the deliverable from Irys, judges it, and castVotes on-chain.
+    Reaching quorum tentatively resolves the job (the contract enforces this; no funds move).
+
+    Casts are serialized across the committee via `vote_lock`: the quorum-reaching vote triggers the
+    contract's `_resolve` (extra SSTOREs + event), so it needs more gas than a plain vote. If members
+    cast concurrently, CAW estimates each against the cheap pre-quorum state and the resolving vote
+    reverts out-of-gas. Voting one-at-a-time makes each cast estimate against current chain state."""
+    name, addr, mllm = member.name, member.address, member.llm()
     w3 = esc.web3()
     voted: set[int] = set()
-    async with CawWallet(api_url=config.CAW_API_URL, api_key=ev.api_key,
-                         wallet_uuid=ev.wallet_id, name=name) as ew_root:
+    async with CawWallet(api_url=config.CAW_API_URL, api_key=member.api_key,
+                         wallet_uuid=member.wallet_id, name=name) as ew_root:
+        await _revoke_active(ew_root)  # each member onboards its OWN evaluator pact (castVote-only, no USDC)
+        sub = await ew_root.submit_pact(intent=f"{name} votes on marketplace deliverables",
+                                        spec=pacts.evaluator_pact(escrow=config.ESCROW_V4_ADDRESS),
+                                        name=f"auto-{name.replace(' ', '')}-{run.run_id}")
+        pact = await ew_root.wait_pact_active(sub.get("pact_id"))
+        log.info("[%s] onboarded (wallet %s…, model %s)", name, member.wallet_id[:8], mllm["model"])
         async with ew_root.scoped(pact, name_suffix="") as ew:
             while not run.stop.is_set():
                 for job_id_s in list(_read_board().keys()):
@@ -379,18 +418,31 @@ async def committee_worker(run: Run, name: str, addr: str, pact: dict) -> None:
                         continue
                     if not rec.get("irys"):
                         continue  # deliverable not stored yet
-                    fetched = (await asyncio.to_thread(irys_store.fetch, rec["irys"]["id"])).decode("utf-8", "replace")
-                    verdict = await asyncio.to_thread(reasoning.evaluate_member,
-                                                      _spec_text(_listing(job_id) or rec), fetched, member_name=name)
-                    approve = bool(verdict.get("accept"))
                     try:
-                        tx = await _call(ew, addr, config.ESCROW_V4_ADDRESS, esc.cast_vote(job_id, approve),
-                                         f"castVote[{name}]")
-                    except Exception as e:
-                        log.info("[%s] castVote for job #%s failed (%s) - likely quorum already reached",
-                                 name, job_id, type(e).__name__)
-                        voted.add(job_id)
+                        fetched = await _load_deliverable(w3, rec, job)
+                        if fetched is None:
+                            continue  # deliverable unfetchable right now — retry next poll
+                        verdict = await asyncio.to_thread(reasoning.evaluate_member,
+                                                          _spec_text(_listing(job_id) or rec), fetched,
+                                                          member_name=name, llm=mllm)
+                        approve = bool(verdict.get("accept"))
+                    except Exception as e:  # transient model/network hiccup (503/429/timeout) — retry next poll
+                        log.info("[%s] evaluate job #%s failed (%s); retrying next poll", name, job_id, type(e).__name__)
                         continue
+                    async with vote_lock:  # serialize casts: correct gas for the quorum-reaching vote
+                        try:
+                            # a peer may have reached quorum + Resolved the job while we judged
+                            jnow = await asyncio.to_thread(esc.get_job, w3, job_id)
+                            if jnow["status"] != "Submitted":
+                                voted.add(job_id)
+                                continue
+                            tx = await _call(ew, addr, config.ESCROW_V4_ADDRESS, esc.cast_vote(job_id, approve),
+                                             f"castVote[{name}]")
+                        except Exception as e:
+                            log.info("[%s] castVote for job #%s failed (%s) - likely quorum already reached",
+                                     name, job_id, type(e).__name__)
+                            voted.add(job_id)
+                            continue
                     voted.add(job_id)
                     rec.setdefault("committee_votes", {})[name] = {"addr": addr, **verdict}
                     rec.setdefault("vote_txs", {})[name] = tx
@@ -409,13 +461,15 @@ async def run_market(tasks: list[dict], *, mode: str = "good", reward_usdc: floa
     # provider identities (addresses) from the registry - share ONE provider wallet + pact
     pool = registry.providers()
     provider_ids = [(p.name, p.address) for p in pool if p.wallet_id == pp.wallet_id] or [("Provider", pp.address)]
-    # evaluator committee identities (extra addresses on the evaluator wallet)
-    committee_ids = [(e.name, e.address) for e in registry.evaluators()]
-    if not committee_ids:
-        raise RuntimeError("no evaluator committee configured (set CAW_EVALUATOR_WALLET_ID/_API_KEY + "
-                           "CAW_EVALUATOR_ADDRESS_1..N in .env, odd count >= COMMITTEE_SIZE)")
-    committee_addrs = [a for _, a in committee_ids[:config.COMMITTEE_SIZE]]
-    log.info("[market] providers: %s | committee: %s", provider_ids, committee_ids[:config.COMMITTEE_SIZE])
+    # evaluator COMMITTEE: each member is its OWN CAW wallet + OWN model (registry.evaluators()), so a
+    # quorum is a genuine M-of-N of independent judges. Each worker onboards its own Pact (see committee_worker).
+    committee = registry.evaluators()[:config.COMMITTEE_SIZE]
+    if not committee:
+        raise RuntimeError("no evaluator committee configured (set CAW_EVALUATOR_1_WALLET_ID/_API_KEY/_ADDRESS "
+                           "[+ _LLM_*] per member in .env, odd count >= COMMITTEE_SIZE)")
+    committee_addrs = [m.address for m in committee]
+    log.info("[market] providers: %s | committee: %s", provider_ids,
+             [(m.name, m.address[:8], m.wallet_id[:8], m.llm()["model"]) for m in committee])
 
     # onboard the provider wallet's pact ONCE; all provider worker addresses bind to it
     async with CawWallet(api_url=config.CAW_API_URL, api_key=pp.api_key,
@@ -426,20 +480,11 @@ async def run_market(tasks: list[dict], *, mode: str = "good", reward_usdc: floa
                                          name=f"auto-provider-{run.run_id}")
         ppact = await pw_root.wait_pact_active(psub.get("pact_id"))
 
-    # onboard the evaluator wallet's pact ONCE (castVote-only, no USDC); all committee addresses bind to it
-    ev = config.evaluator_agent()
-    async with CawWallet(api_url=config.CAW_API_URL, api_key=ev.api_key,
-                         wallet_uuid=ev.wallet_id, name="Evaluator") as ew_root:
-        await _revoke_active(ew_root)
-        esub = await ew_root.submit_pact(intent="Committee evaluators vote on marketplace deliverables",
-                                         spec=pacts.evaluator_pact(escrow=config.ESCROW_V4_ADDRESS),
-                                         name=f"auto-evaluator-{run.run_id}")
-        epact = await ew_root.wait_pact_active(esub.get("pact_id"))
-
+    vote_lock = asyncio.Lock()  # committee casts go one-at-a-time (correct gas for the resolving vote)
     await asyncio.gather(
         client_loop(run, tasks, reward_usdc, committee_addrs),
         *[provider_worker(run, name, addr, ppact, reward_usdc) for name, addr in provider_ids],
-        *[committee_worker(run, name, addr, epact) for name, addr in committee_ids[:config.COMMITTEE_SIZE]],
+        *[committee_worker(run, m, vote_lock) for m in committee],
     )
     return {"run_id": run.run_id, "settled": run.settled,
             "jobs": {jid: r for jid, r in run.jobs.items()}}

@@ -20,26 +20,37 @@ import config
 
 log = logging.getLogger("reason")
 
-_client: OpenAI | None = None
+# One OpenAI-compatible client per (api_key, base_url). Committee members each reason on a DISTINCT
+# provider (e.g. DeepSeek / Groq / Gemini via their OpenAI-compatible endpoints), so a quorum is a
+# genuine M-of-N of independent models — not one model voting N times. Default (api_key/base_url None)
+# is the global config.LLM_* (DeepSeek).
+_clients: dict[tuple[str, str], OpenAI] = {}
 
 
-def _llm() -> OpenAI:
-    global _client
-    if _client is None:
-        if not config.LLM_API_KEY:
-            raise RuntimeError("LLM_API_KEY is empty - paste your DeepSeek key into .env")
-        _client = OpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
-    return _client
+def _client_for(api_key: str | None = None, base_url: str | None = None) -> OpenAI:
+    ak = api_key or config.LLM_API_KEY
+    bu = base_url or config.LLM_BASE_URL
+    if not ak:
+        raise RuntimeError("LLM api key is empty - set LLM_API_KEY (or a per-member CAW_EVALUATOR_n_LLM_API_KEY)")
+    cache_key = (ak, bu)
+    if cache_key not in _clients:
+        _clients[cache_key] = OpenAI(api_key=ak, base_url=bu)
+    return _clients[cache_key]
+
+
+def _llm() -> OpenAI:  # back-compat: the default client
+    return _client_for()
 
 
 # DeepSeek's deepseek-v4-flash is a REASONING model: chain-of-thought goes to reasoning_content
 # and consumes completion tokens, so budgets must be generous or `content` comes back empty.
-def _chat(system: str, user: str, *, json_mode: bool = False, max_tokens: int = 2000) -> str:
+def _chat(system: str, user: str, *, json_mode: bool = False, max_tokens: int = 2000,
+          api_key: str | None = None, base_url: str | None = None, model: str | None = None) -> str:
     kwargs = {}
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
-    resp = _llm().chat.completions.create(
-        model=config.LLM_MODEL,
+    resp = _client_for(api_key, base_url).chat.completions.create(
+        model=model or config.LLM_MODEL,
         messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
         temperature=0.2,
         max_tokens=max_tokens,
@@ -48,8 +59,9 @@ def _chat(system: str, user: str, *, json_mode: bool = False, max_tokens: int = 
     return resp.choices[0].message.content or ""
 
 
-def _json(system: str, user: str) -> dict:
-    raw = _chat(system, user, json_mode=True)
+def _json(system: str, user: str, *, api_key: str | None = None, base_url: str | None = None,
+          model: str | None = None) -> dict:
+    raw = _chat(system, user, json_mode=True, api_key=api_key, base_url=base_url, model=model)
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
@@ -128,9 +140,11 @@ _EVAL_PERSONAS = {
 }
 
 
-def evaluate_member(spec: str, deliverable: str, *, member_name: str = "Evaluator") -> dict:
-    """One committee member's independent accept/reject judgment, biased toward a distinct lens so the
-    M-of-N vote reflects genuine deliberation. Returns {accept, reason} like {evaluate}."""
+def evaluate_member(spec: str, deliverable: str, *, member_name: str = "Evaluator",
+                    llm: dict | None = None) -> dict:
+    """One committee member's independent accept/reject judgment. Independence is on two axes: a distinct
+    reasoning LENS (persona) AND a distinct MODEL (`llm` = {api_key, base_url, model}; falls back to the
+    global default). Returns {accept, reason} like {evaluate}."""
     lens = _EVAL_PERSONAS.get(member_name, "You judge whether the deliverable genuinely satisfies the spec.")
     system = (
         f"You are {member_name}, one member of an independent evaluator COMMITTEE in a trustless escrow "
@@ -138,6 +152,7 @@ def evaluate_member(spec: str, deliverable: str, *, member_name: str = "Evaluato
         'members might vote. Respond ONLY as JSON: {"accept": true|false, "reason": "<one sentence>"}.'
     )
     user = f"TASK SPEC:\n{spec}\n\nDELIVERABLE:\n{deliverable}"
-    d = _json(system, user)
-    log.info("[reason] evaluate_member(%s) -> %s", member_name, d)
+    llm = llm or {}
+    d = _json(system, user, api_key=llm.get("api_key"), base_url=llm.get("base_url"), model=llm.get("model"))
+    log.info("[reason] evaluate_member(%s, model=%s) -> %s", member_name, llm.get("model") or config.LLM_MODEL, d)
     return d

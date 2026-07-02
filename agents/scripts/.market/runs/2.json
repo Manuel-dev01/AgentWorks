@@ -1,52 +1,53 @@
 {
-  "run_id": "v4-live-proof",
+  "run_id": "v4-live-dispute",
   "job_id": 2,
-  "task": "Write a 2-sentence explanation of on-chain escrow for a non-expert.",
-  "criteria": "Plain language, 2 sentences, mentions the neutral escrow holding funds.",
+  "task": "Summarize on-chain escrow in 2 sentences for a non-expert.",
+  "criteria": "Plain, 2 sentences, neutral escrow.",
   "amount_usdc": 5.0,
   "client": "0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe",
-  "provider": "0xA5b50A48f7A2f61f5F81043f50559A462DF78249",
+  "provider": "0xAd9121Ff0973C468B91153b99eA75Ac72DA270E1",
   "winner": "Provider",
-  "winner_addr": "0xA5b50A48f7A2f61f5F81043f50559A462DF78249",
+  "winner_addr": "0xAd9121Ff0973C468B91153b99eA75Ac72DA270E1",
   "committee": [
-    "0x40a4AC5eE829A5e8e3CAb42c684e8343Cfb26228",
-    "0x13905a2d2c6Eb7Df7AfbD7f19Fa88D3Af3D9dA12",
-    "0xe16C833fc6bCed308Eb6499CFc788b6C4D2c8cF1"
+    "0xE500a4372Bf4528ebd079cFAEf835157dcBa26e3",
+    "0x95C3960E1235E6882dEA1824CaB539BF46d31499",
+    "0x2306F3663Bb95f5f80e4460bbfd2c5B89AE56a01"
   ],
   "quorum": 2,
+  "tentative": "payout",
   "committee_votes": {
     "Evaluator A": {
-      "addr": "0x40a4AC5eE829A5e8e3CAb42c684e8343Cfb26228",
+      "addr": "0xE500a4372Bf4528ebd079cFAEf835157dcBa26e3",
       "accept": true,
-      "reason": "Deliverable correctly explains escrow."
+      "reason": "Looks acceptable."
     },
     "Evaluator B": {
-      "addr": "0x13905a2d2c6Eb7Df7AfbD7f19Fa88D3Af3D9dA12",
+      "addr": "0x95C3960E1235E6882dEA1824CaB539BF46d31499",
       "accept": true,
-      "reason": "Meets the 2-sentence + neutral-escrow criteria."
+      "reason": "Meets the criteria."
     }
   },
-  "vote_txs": {
-    "Evaluator A": "0x5dba14e8790ba95b3dcf6e2f6c74738a4346d23574beaeece887a79b3cb7a204",
-    "Evaluator B": "0x69231345dc86427100325b157acb4fa6d4d7960924aa3a2f7feababb2d3f266b"
+  "dispute": {
+    "disputer": "0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe",
+    "bond": "5 6TEST",
+    "uma_assertion": "0x26d55b3fc6b3ba5cc1d3aa8dce8f4f7d4b92abbc46ad86eed222085bf2783167",
+    "ruling": "overturned -> refund (optimistic settlement on Sepolia OOv3)"
   },
-  "tentative": "payout",
-  "irys": null,
-  "deliverable": "An on-chain escrow holds a buyer's funds in a neutral contract until the agreed work is delivered. Neither party can take the money unilaterally, so two agents who don't trust each other can transact safely.",
   "verdict": {
-    "accept": true,
-    "reason": "committee 2-0 (quorum 2)"
+    "accept": false,
+    "reason": "committee tentative payout; client disputed; UMA OOv3 ruled -> refund"
   },
-  "branch": "payout",
-  "final_status": "Completed",
-  "content_verified": true,
+  "branch": "refund",
+  "final_status": "Rejected",
   "status": "settled",
   "txs": {
-    "createJob": "0x9eaaa9acd28d1bb217389f567d011cff29a02af871159edcf478625eaebb9e3b",
-    "fund": "0xf38e58a1a34b352c07f83f90b7d6bf14e1e0ada02e049451f5666d89d8972912",
-    "commitAccept": "0x1fd06c00e2a2eda7cd94ef07ee8f7eb4e41a27d4d1d4422eb1c43d460628ea5f",
-    "revealAccept": "0x9306f65200e7a3ba6d1c038404cb3f976ff87c04041dd4268c9b6e329a01bb71",
-    "submitWork": "0xbdf53cb2bb9cab935278bbf98267adce06b4b287bdf9dce42df505cc4c81b4ef",
-    "finalize": "0xe5d635688209391061abf1f2282d1a396bf675d0996957feaad6cb755af2ab10"
+    "createJob": "0x88e0c76ad163fd7f7b2438a05bb46b110cfb19f094b6b537d23f0570fee5b8b4",
+    "fund": "0x8b741ad13d319d8656d8683c253892ba63fe0fda8694191376745fba65e0152a",
+    "revealAccept": "0xa92b5c776f83241f4a56c119977b15287852566d52a912f5e840d6777a41e3b8",
+    "submitWork": "0x49dcbe70f61512c04a556ce85711bd06fb05c0a4bae80a5384c72c68a849cf74",
+    "vote1": "0x22602f6e013120952159d8d6f498c12e1ce8e75cf0ef1709e0ac47e5537e236f",
+    "vote2": "0x1518e8c453bc2e6b764d37118c86a12f715cee248ca94fb5c82a8bfb626ec1fb",
+    "dispute": "0x143a0531ffe7f2ae007f05941ef6abfcd79c69a9d01e420f6d4a8d152fd12e10",
+    "settle": "0x8e40fdc9a358fca1a93b3eef6c740f8bfbfb8e13069a9cc576bd77676efac2c1"
   }
 }
