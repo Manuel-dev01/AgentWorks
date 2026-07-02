@@ -1,46 +1,46 @@
 {
-  "run_id": "6f39272538",
+  "run_id": "dfd6cefc0e",
   "job_id": 6,
   "txs": {
-    "createJob": "0xe42fe320470847d94cd8a9781beea252e2788878893158169e5b7bb38bc8bcf1",
-    "approve": "0xf672e0e0fce901d5b9103ed6f4fff1ae1727fbe6fc5524020c234869f0eb8d79",
-    "fund": "0x534e780106a3519cc32c268bfd66d7e6153a4e5aa064d64d084e878f5546d7a7",
-    "acceptJob": "0xd99a210b6064b175246690da68e9e9cdd828151680f0023d7227889873f5df70",
-    "submitWork": "0x6e989aff8a689f9ba31af2e27dd64768c46dd5443daccb009641cfeddd64c4dc",
-    "reject": "0x9580876824432e985c8c1e8522803912e4090fcac70ae6a4918a68b5f564849a"
+    "createJob": "0x80052a1f46a5711908de6f83534e4c6221a304d5d621e6631f3a52b943e828cf",
+    "approve": "0xefb9e7639cf25fdce81913dab911cca9e55986d936c19a800d6f525227be6b59",
+    "fund": "0x15f653d13603a9b515b1b218796efe68437465569ed327c2908885ffaad8d1da"
   },
   "accept_decisions": {
     "Provider": {
       "accept": true,
-      "reason": "The task is simple and within my capabilities, and 5 USDC is reasonable for minimal effort."
+      "reason": "I can easily write a clear 2-3 sentence explanation in plain language that meets the criteria, and 5 USDC is a fair reward for this simple task."
     }
   },
-  "winner": "Provider",
-  "winner_addr": "0xef9349b3273b1a54faaf701231f499fe0282e643",
-  "irys": {
-    "id": "3Kuy14Cv5DRt6kgDc5TiSCjDa9wiW3GxDvgUHb2gSt3s",
-    "url": "https://devnet.irys.xyz/3Kuy14Cv5DRt6kgDc5TiSCjDa9wiW3GxDvgUHb2gSt3s",
-    "bytes": 770,
-    "price": "1407765179589",
-    "funded": "0"
-  },
-  "deliverable": "Of course. A blockchain is a decentralized ledger where every transaction is verified by a network of computers through a process called consensus, which ensures no single party can cheat. The proof-of-work mechanism requires miners to solve complex mathematical puzzles, expending computational energy to add blocks, making the history immutable. This trustless environment allows participants to interact without needing a central authority, as the code itself enforces the rules of the network. For example, when transferring cryptocurrency, the protocol validates signatures and balances automatically, eliminating the need for intermediaries. Smart contracts extend this logic by executing predefined conditions programmatically, but that's a more advanced concept.",
-  "verdict": {
-    "accept": false,
-    "reason": "The deliverable discusses blockchain and proof-of-work rather than explaining how an on-chain escrow works, and it does not mention a neutral escrow holding funds."
-  },
-  "branch": "refund",
-  "status": "settled",
+  "winner": null,
+  "winner_addr": null,
+  "irys": null,
+  "deliverable": null,
+  "committee": [
+    "0x48f2a3749a18684c31e322abef3e8e855c116f06",
+    "0x78cf963c21268eb384ba24e7c17eb6e5a4b7e5f1",
+    "0x124aec0d4f2782591b3be95b520f05779cb30ccb"
+  ],
+  "committee_votes": {},
+  "vote_txs": {},
+  "tentative": null,
+  "verdict": null,
+  "branch": null,
+  "status": "funded",
   "task": "Write a clear 2-3 sentence explanation, for a non-expert, of how an on-chain escrow lets two agents who don't trust each other transact safely.",
   "criteria": "Plain language, 2-3 sentences, mentions the neutral escrow holding funds.",
   "amount_usdc": 5.0,
   "client": "0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd",
   "fund_decision": {
     "fund": true,
-    "reason": "The task is legitimate, the price is reasonable, and it is within the remaining budget."
+    "reason": "The task is legitimate, price is reasonable, and within the remaining budget."
   },
   "spec_hash": "0x31c59277b34bab2141ec3c7dcc99acdaefd9c60ce611299f44e8f4c3a22b9a5d",
-  "provider": "0xef9349b3273b1a54faaf701231f499fe0282e643",
-  "final_status": "Rejected",
-  "content_verified": true
+  "quorum": 2,
+  "commits": {
+    "Provider": {
+      "addr": "0xef9349b3273b1a54faaf701231f499fe0282e643",
+      "tx": "0xc9d17be004bc8818fd56bd7561613ef9706a7bbdbb20962ca096e704738692f1"
+    }
+  }
 }

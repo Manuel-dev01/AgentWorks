@@ -1,68 +1,40 @@
 {
-  "run_id": "272b63c9f3",
+  "run_id": "v4-live-committee",
   "job_id": 1,
-  "txs": {
-    "createJob": "0x5f3c2e444568672dea277860a1fa933e6ae5916548fefa0c92efab558c1cdde1",
-    "approve": "0xa57a51d5f5ff8e942117c734bec8a247fabcb56722abc1a5bd77795758c6b341",
-    "fund": "0xf779b51b13cedf5efd328ebf58a9aa37faa9f60ca0129306de286050c66eb5a4",
-    "commitAccept": "0x6ca23ed2f370b2a9de3d7d4c30330ec6c58b89278aa5f4db227d140cde17ecd9",
-    "revealAccept": "0x4532204fef42831c676c17d39204f4871db031ee568f32938c8081e08eee01cf",
-    "submitWork": "0xd81035837be10af5eae882a137ce71227b0bb0aa3ed5a316316ca2ec0f6a9afe",
-    "complete": "0xaf0a328203bc024a5201841a6794f9a6745652f41f604cf2a5009e0582c38531"
-  },
-  "accept_decisions": {
-    "Provider": {
+  "task": "Summarize on-chain escrow in 2 sentences for a non-expert.",
+  "criteria": "Plain, 2 sentences, neutral escrow.",
+  "amount_usdc": 5.0,
+  "client": "0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe",
+  "provider": "0xAd9121Ff0973C468B91153b99eA75Ac72DA270E1",
+  "winner": "Provider",
+  "winner_addr": "0xAd9121Ff0973C468B91153b99eA75Ac72DA270E1",
+  "committee": [
+    "0xE500a4372Bf4528ebd079cFAEf835157dcBa26e3",
+    "0x95C3960E1235E6882dEA1824CaB539BF46d31499",
+    "0x2306F3663Bb95f5f80e4460bbfd2c5B89AE56a01"
+  ],
+  "quorum": 2,
+  "tentative": "payout",
+  "committee_votes": {
+    "Evaluator A": {
+      "addr": "0xE500a4372Bf4528ebd079cFAEf835157dcBa26e3",
       "accept": true,
-      "reason": "The task is simple and well-defined, and I can deliver a clear explanation in 2-3 sentences for a non-expert."
+      "reason": "Correctly explains escrow."
     },
-    "ProviderB": {
+    "Evaluator B": {
+      "addr": "0x95C3960E1235E6882dEA1824CaB539BF46d31499",
       "accept": true,
-      "reason": "The task is simple, well-defined, and within my capabilities, and the reward is fair for the effort required."
+      "reason": "Meets the 2-sentence + neutral-escrow criteria."
     }
   },
-  "winner": "ProviderB",
-  "winner_addr": "0x7ea0701d657e3427c2bb3bc195e943a81c5fc69e",
-  "irys": {
-    "id": "8Bk9AFzABbhCqLFacYM89RZhA24LUHSHJHx3hJioup61",
-    "url": "https://devnet.irys.xyz/8Bk9AFzABbhCqLFacYM89RZhA24LUHSHJHx3hJioup61",
-    "bytes": 378,
-    "price": "1384333685066",
-    "funded": "0"
-  },
-  "deliverable": "An on-chain escrow acts like a neutral digital vault: both agents deposit their funds or assets into this smart contract, which holds them securely until both parties confirm the deal is done. Since neither can access the funds alone, the risk of one person cheating is removed. Only when both agree the conditions are met does the escrow release the funds to the correct party.",
   "verdict": {
     "accept": true,
-    "reason": "The explanation uses plain language, is 2-3 sentences, and clearly mentions the neutral escrow holding funds until both parties agree."
+    "reason": "committee 2-0 (quorum 2) -> finalized after dispute window"
   },
   "branch": "payout",
-  "status": "settled",
-  "task": "Write a clear 2-3 sentence explanation, for a non-expert, of how an on-chain escrow lets two agents who don't trust each other transact safely.",
-  "criteria": "Plain language, 2-3 sentences, mentions the neutral escrow holding funds.",
-  "amount_usdc": 5.0,
-  "client": "0x6dfbd0ac9feb5bb9a9ffeaf54df203c1633c1ddd",
-  "fund_decision": {
-    "fund": true,
-    "reason": "The task is clear and legitimate, the price is reasonable and within the remaining budget."
-  },
-  "spec_hash": "0x0318817b9ad7a678026e61b25ec587acf1e8a8bceb6d8e292decfda7ed63723f",
-  "commits": {
-    "ProviderB": {
-      "addr": "0x7ea0701d657e3427c2bb3bc195e943a81c5fc69e",
-      "tx": "0x6ca23ed2f370b2a9de3d7d4c30330ec6c58b89278aa5f4db227d140cde17ecd9"
-    },
-    "Provider": {
-      "addr": "0xef9349b3273b1a54faaf701231f499fe0282e643",
-      "tx": "0x31da6c56f3315a8ec92b60ca4063e115ce5a8d5838cfe942f43782e4a19d6349"
-    }
-  },
-  "race_losers": [
-    {
-      "name": "Provider",
-      "addr": "0xef9349b3273b1a54faaf701231f499fe0282e643",
-      "error": "RuntimeError"
-    }
-  ],
-  "provider": "0x7ea0701d657e3427c2bb3bc195e943a81c5fc69e",
   "final_status": "Completed",
-  "content_verified": true
+  "status": "settled",
+  "txs": {
+    "finalize": "0x3b552c5e94eaf38868159bb43cb3d933000132405006d1af3c3bbf9bf4827611"
+  }
 }

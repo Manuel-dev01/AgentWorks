@@ -125,9 +125,28 @@ def resolve_timeout(job_id: int) -> str:
 
 # ── on-chain reads ──
 
+def _retrying_session():
+    """A requests session that retries transient RPC failures (dropped connections, 429/5xx). All web3
+    POSTs here are reads (eth_call / eth_blockNumber / eth_getTransactionReceipt) — idempotent, so safe to
+    retry — and a single blip on a flaky network must not crash a multi-minute hands-off run. Txs go
+    through CAW, not web3, so we never retry a send here."""
+    import requests
+    from requests.adapters import HTTPAdapter
+    from urllib3.util.retry import Retry
+
+    s = requests.Session()
+    retry = Retry(total=5, connect=5, read=5, backoff_factor=0.5,
+                  status_forcelist=(429, 500, 502, 503, 504),
+                  allowed_methods=frozenset(["GET", "POST"]))
+    adapter = HTTPAdapter(max_retries=retry)
+    s.mount("https://", adapter)
+    s.mount("http://", adapter)
+    return s
+
+
 def web3() -> Web3:
     url = config.PRIVATE_RPC_URL or config.RPC_URL
-    return Web3(Web3.HTTPProvider(url, request_kwargs={"timeout": 30}))
+    return Web3(Web3.HTTPProvider(url, request_kwargs={"timeout": 30}, session=_retrying_session()))
 
 
 def _escrow(w3: Web3):
